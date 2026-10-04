@@ -42,14 +42,14 @@ struct RedactionTests {
             collect(sw.node.properties.values)
             sw.ports.forEach { collect($0.properties.values) }
         }
-        raw.battery.map { collect($0.values) }
-        raw.adapter.map { collect($0.values) }
+        if let battery = raw.battery { collect(battery.values) }
+        if let adapter = raw.adapter { collect(adapter.values) }
         for uuid in raw.portControllerUUIDs.values {
             result.insert(uuid.lowercased())
-            PowerParser.normalizedUUID(uuid).map { result.insert($0) }
+            if let normalized = PowerParser.normalizedUUID(uuid) { result.insert(normalized) }
         }
         for channel in raw.smcChannels {
-            channel.uuid.flatMap(PowerParser.normalizedUUID).map { result.insert($0) }
+            if let normalized = PowerParser.normalizedUUID(channel.uuid) { result.insert(normalized) }
         }
         return result
     }
