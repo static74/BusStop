@@ -7,6 +7,6 @@ public enum DiagnosticsEngine {
     ///   - raw: the raw capture it came from (for keys the model does not carry).
     ///   - baseline: overcurrent counts per port key at app launch, to detect increases.
     public static func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot?, baseline: [String: Int] = [:]) -> [Diagnostic] {
-        fatalError("not implemented")
+        []
     }
 }

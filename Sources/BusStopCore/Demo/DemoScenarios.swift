@@ -30,6 +30,7 @@ public enum DemoScenario: String, Sendable, Hashable, Codable, CaseIterable, Ide
     /// `tick` adds small deterministic variation to power readings so the
     /// sparklines move in demo mode.
     public func raw(at date: Date, tick: Int = 0) -> RawSnapshot {
-        fatalError("not implemented")
+        RawSnapshot(capturedAt: date,
+                    machine: MachineInfo(model: "Mac16,6", chip: "Apple M5 Pro", osVersion: "27.0", hasBattery: true))
     }
 }

@@ -22,7 +22,11 @@ public struct BuildOptions: Sendable, Hashable {
 /// the same `HostSnapshot`. See `docs/SPEC.md` §5.4 for the rules.
 public enum TopologyBuilder {
     public static func build(_ raw: RawSnapshot, options: BuildOptions = BuildOptions()) -> HostSnapshot {
-        // Implemented in TopologyBuilder+*.swift.
-        fatalError("TopologyBuilder.build not implemented")
+        // Placeholder until the full builder lands: machine summary only.
+        let machine = MachineSummary(model: raw.machine.model, name: raw.machine.model, chip: raw.machine.chip,
+                                     osVersion: raw.machine.osVersion, isLaptop: raw.machine.hasBattery,
+                                     isAppleSilicon: raw.machine.isAppleSilicon)
+        return HostSnapshot(capturedAt: raw.capturedAt, machine: machine, captureNotes: raw.captureNotes,
+                            isDemo: options.isDemo)
     }
 }

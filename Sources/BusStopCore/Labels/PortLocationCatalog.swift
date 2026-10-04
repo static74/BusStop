@@ -41,7 +41,7 @@ public struct MachineCatalogEntry: Sendable, Hashable, Codable {
 public enum PortLocationCatalog {
     /// The catalogue entry for a model, if known.
     public static func entry(for model: String) -> MachineCatalogEntry? {
-        fatalError("not implemented")
+        nil
     }
 
     /// Marketing name for a model ("MacBook Pro (14-inch, M5, 2025)"), if known.
@@ -51,6 +51,6 @@ public enum PortLocationCatalog {
 
     /// Every model in the catalogue.
     public static var allModels: [String] {
-        fatalError("not implemented")
+        []
     }
 }
