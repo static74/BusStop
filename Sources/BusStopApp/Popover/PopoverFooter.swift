@@ -10,8 +10,7 @@ struct PopoverFooter: View {
         HStack(alignment: .center, spacing: 10) {
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 Text(updatedText(now: context.date))
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textTertiary)
                     .lineLimit(1)
             }
@@ -21,9 +20,10 @@ struct PopoverFooter: View {
             } label: {
                 Label("Open Topology", systemImage: "point.3.connected.trianglepath.dotted")
                     .labelStyle(.titleAndIcon)
-                    .font(.callout.weight(.semibold))
-                    // Near-white on the deep turquoise fill keeps the label legible.
-                    .foregroundStyle(Lagoon.textPrimary)
+                    .lagoonFont(.callout, weight: .semibold)
+                    // Black on the deep turquoise fill reads at about 6.8:1, like
+                    // the DEMO badge; near-white text there was below 3:1.
+                    .foregroundStyle(Lagoon.background)
             }
             .buttonStyle(.glassProminent)
             .tint(Lagoon.accentDeep)

@@ -18,25 +18,28 @@ struct PortCardView: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let departing = store.departing(on: port.key)
+        // Live devices with recently departed ones still in their slots.
+        let devices = store.devicesWithGhosts(on: port.key)
+        let departingIDs = store.departingIDs
         VStack(alignment: .leading, spacing: 8) {
             header
             chips
-            if !port.devices.isEmpty || !departing.isEmpty {
-                deviceTree(departing: departing)
+            if !devices.isEmpty {
+                deviceTree(devices, departingIDs: departingIDs)
             } else if let charger = port.charger {
                 chargerLine(charger)
             } else if !port.isConnected {
                 Text("Nothing connected")
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.textTertiary)
                     .padding(.leading, 36)
                     .accessibilityHidden(true)
             }
         }
         .lagoonCard(highlighted: contrast == .increased)
-        .opacity(port.isConnected || !departing.isEmpty ? 1 : 0.62)
-        .animation(reduceMotion ? nil : DeviceRowTransition.spring, value: animationKey(departing: departing))
+        .opacity(port.isConnected || !devices.isEmpty ? 1 : 0.62)
+        .animation(reduceMotion ? nil : DeviceRowTransition.spring,
+                   value: Self.animationKey(devices, departingIDs: departingIDs))
         .accessibilityElement(children: .contain)
     }
 
@@ -50,14 +53,14 @@ struct PortCardView: View {
                     renameField
                 } else {
                     Text(port.label.title)
-                        .font(Lagoon.titleFont)
+                        .lagoonFont(.headline, weight: .semibold)
                         .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 if let caption = headerCaption {
                     Text(caption)
-                        .font(.caption)
+                        .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -97,7 +100,7 @@ struct PortCardView: View {
     private var renameField: some View {
         TextField("Port name", text: $draftName, prompt: Text(port.label.shortTitle))
             .textFieldStyle(.plain)
-            .font(Lagoon.titleFont)
+            .lagoonFont(.headline, weight: .semibold)
             .foregroundStyle(Lagoon.textPrimary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -180,15 +183,11 @@ struct PortCardView: View {
 
     // MARK: Devices
 
-    private func deviceTree(departing: [DepartingDevice]) -> some View {
+    private func deviceTree(_ devices: [DeviceNode], departingIDs: Set<String>) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(port.devices) { device in
-                DeviceTreeNode(device: device, depth: 0, port: port)
+            ForEach(devices) { device in
+                DeviceTreeNode(device: device, depth: 0, port: port, departingIDs: departingIDs)
                     .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
-            }
-            ForEach(departing) { entry in
-                DeviceRowView(device: entry.device, depth: 0, port: port, isDeparting: true)
-                    .transition(.opacity)
             }
         }
         .padding(.top, 2)
@@ -197,10 +196,10 @@ struct PortCardView: View {
     private func chargerLine(_ charger: ChargerInfo) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "powerplug.fill")
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.powerIn)
             Text(charger.displayName)
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textSecondary)
                 .lineLimit(1)
         }
@@ -208,8 +207,11 @@ struct PortCardView: View {
         .accessibilityHidden(true)
     }
 
-    /// Changes whenever a device arrives or leaves, to drive the spring.
-    private func animationKey(departing: [DepartingDevice]) -> [String] {
-        port.allDevices.map { $0.device.id } + departing.map { "departing:" + $0.id }
+    /// Changes whenever a device arrives, leaves or its ghost expires, to
+    /// drive the spring.
+    static func animationKey(_ devices: [DeviceNode], departingIDs: Set<String>) -> [String] {
+        devices.flatMap { $0.flattened() }.map { entry in
+            departingIDs.contains(entry.device.id) ? "departing:" + entry.device.id : entry.device.id
+        }
     }
 }

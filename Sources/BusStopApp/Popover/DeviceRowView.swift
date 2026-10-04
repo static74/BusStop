@@ -32,15 +32,14 @@ struct DeviceRowView: View {
             DeviceIcon(kind: device.kind, size: 22, dimmed: isDeparting)
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
-                    .font(.callout.weight(.medium))
+                    .lagoonFont(.callout, weight: .medium)
                     .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textPrimary)
                     .strikethrough(isDeparting, color: Lagoon.textTertiary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if let caption {
                     Text(caption)
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -55,8 +54,7 @@ struct DeviceRowView: View {
                 }
                 if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0 {
                     Text(Format.power(milliwatts: milliwatts))
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
                         .fixedSize()
@@ -106,7 +104,7 @@ struct DeviceRowView: View {
         if let onToggle, !device.children.isEmpty {
             Button(action: onToggle) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+                    .lagoonFont(size: 10, weight: .bold)
                     .foregroundStyle(Lagoon.accent.opacity(0.8))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: DeviceRowMetrics.chevronWidth, height: 22)
@@ -141,22 +139,36 @@ private struct IndentGuides: View {
 
 /// A device and, when expanded, its children, recursively. Containers
 /// (hubs, docks, displays with hubs) start expanded.
+///
+/// Feed it `PortStore.devicesWithGhosts(on:)` and `PortStore.departingIDs`:
+/// a device that just left stays in its slot as a dimmed "Disconnected" row,
+/// together with everything that left with it.
 struct DeviceTreeNode: View {
     var device: DeviceNode
     var depth: Int
     var port: PhysicalPort?
+    /// Devices that just left (see `PortStore.departingIDs`).
+    var departingIDs: Set<String> = []
+    /// True when an ancestor left, so this device left with it.
+    var isInsideGhost: Bool = false
 
     @State private var isExpanded = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let isDeparting = isInsideGhost || departingIDs.contains(device.id)
         VStack(alignment: .leading, spacing: 0) {
-            DeviceRowView(device: device, depth: depth, port: port, isExpanded: isExpanded,
-                          onToggle: toggleAction)
-                .deviceContextMenu(device: device, port: port)
+            if isDeparting {
+                DeviceRowView(device: device, depth: depth, port: port, isDeparting: true)
+            } else {
+                DeviceRowView(device: device, depth: depth, port: port, isExpanded: isExpanded,
+                              onToggle: toggleAction)
+                    .deviceContextMenu(device: device, port: port)
+            }
             if isExpanded {
                 ForEach(device.children) { child in
-                    DeviceTreeNode(device: child, depth: depth + 1, port: port)
+                    DeviceTreeNode(device: child, depth: depth + 1, port: port, departingIDs: departingIDs,
+                                   isInsideGhost: isDeparting)
                         .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
                 }
             }

@@ -40,9 +40,17 @@ enum ExportKind: String, CaseIterable, Identifiable {
 /// The panel carries a "Redact serial numbers" checkbox bound to the
 /// `redactExports` setting; the data is generated after the panel closes so
 /// the choice applies to this export.
+///
+/// Exports can start from the menu bar's menu, when Bus Stop is an inactive
+/// accessory app with no window. An app-modal panel that opened behind the
+/// frontmost app would block the menu bar item with nothing visible, so the
+/// app is activated the same way as for its windows, and panels and alerts
+/// sit at the modal-panel level, above other apps' windows.
 enum ExportController {
     static func export(_ kind: ExportKind, store: PortStore) {
-        NSApp.activate()
+        WindowManager.shared.activateForModal()
+        // Back to the menu bar accessory (or the Dock icon setting) afterwards.
+        defer { WindowManager.shared.refreshActivationPolicy() }
 
         if kind == .raw && store.raw == nil {
             showAlert(message: "No raw capture yet",
@@ -60,6 +68,8 @@ enum ExportController {
         let redact = NSButton(checkboxWithTitle: "Redact serial numbers", target: nil, action: nil)
         redact.state = store.settings.redactExports ? .on : .off
         panel.accessoryView = accessoryView(containing: redact)
+        // Stays above other apps' windows even if activation was refused.
+        panel.level = .modalPanel
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         store.settings.redactExports = redact.state == .on
@@ -115,6 +125,8 @@ enum ExportController {
         alert.messageText = message
         alert.informativeText = information
         alert.addButton(withTitle: "OK")
+        // Stays above other apps' windows even if activation was refused.
+        alert.window.level = .modalPanel
         alert.runModal()
     }
 }

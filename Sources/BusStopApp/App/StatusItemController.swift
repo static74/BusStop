@@ -87,7 +87,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.animates = true
         popover.appearance = NSAppearance(named: .darkAqua)
         popover.delegate = self
-        popover.contentSize = NSSize(width: Lagoon.popoverWidth, height: 420)
+        popover.contentSize = NSSize(width: Lagoon.popoverWidth(for: settings.textSize), height: 420)
 
         let hosting = NSHostingController(rootView: PopoverView(store: store))
         // The SwiftUI content measures itself (fixed width, height up to
@@ -199,6 +199,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let wantsVisible = settings.showMenuBarItem
         let iconStyle = settings.menuBarIcon
         let textMode = settings.menuBarText
+        let precision = settings.menuBarPowerPrecision
         let snapshot = store.snapshot
         let hasLoaded = store.hasLoaded
 
@@ -215,8 +216,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
 
         let deviceCount = snapshot.deviceCount
-        let headline = snapshot.power.headlineMilliwatts
-        let title = hasLoaded ? Self.menuBarText(mode: textMode, deviceCount: deviceCount, milliwatts: headline) : ""
+        let headline = PopoverText.headlineMilliwatts(for: snapshot)
+        let title = hasLoaded
+            ? Self.menuBarText(mode: textMode, deviceCount: deviceCount, milliwatts: headline, precision: precision)
+            : ""
         if title != currentTitle {
             currentTitle = title
             if title.isEmpty {
@@ -234,9 +237,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.toolTip = description
     }
 
-    /// "5 · 38W", "38W", "5" or "" depending on the setting.
-    static func menuBarText(mode: MenuBarTextMode, deviceCount: Int, milliwatts: Int?) -> String {
-        let power = milliwatts.map { Format.compactPower(milliwatts: $0) }
+    /// "5 · 38W", "38W", "5" or "" depending on the text setting, with the
+    /// power rounded as the precision setting asks ("38W", "38.2W"). The
+    /// Menu Bar settings preview uses this too, so both always match.
+    static func menuBarText(mode: MenuBarTextMode, deviceCount: Int, milliwatts: Int?,
+                            precision: PowerPrecision = .automatic) -> String {
+        let power = milliwatts.map { Format.compactPower(milliwatts: $0, decimals: precision.decimals) }
         switch mode {
         case .none:
             return ""

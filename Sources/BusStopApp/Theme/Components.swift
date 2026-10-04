@@ -60,7 +60,7 @@ struct GlassIconButton: View {
         let tintStrength = tint ?? AppSettings.shared.glassTint
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
+                .lagoonFont(size: 13, weight: .semibold)
                 .foregroundStyle(Lagoon.textPrimary)
                 .frame(width: 30, height: 30)
                 .contentShape(Circle())
@@ -75,47 +75,62 @@ struct GlassIconButton: View {
 // MARK: - Chips and badges
 
 /// Capsule showing a link's speed, coloured by speed tier.
+///
+/// The capsule's fill and outline use the link-speed ramp; the text uses
+/// `Lagoon.linkTextColor`, which stays legible for the slowest tiers. Under
+/// Increase Contrast the text is primary and the outline stronger.
 struct SpeedChip: View {
     var link: LinkInfo
     /// Compact shows only the rate ("10 Gb/s"); full shows "USB 3.2 Gen 2 @ 10 Gb/s".
     var compact: Bool = true
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         let color = Lagoon.linkColor(link.tier)
+        let isIncreased = contrast == .increased
         Text(compact ? (link.rateLabel ?? link.generation) : link.label)
-            .font(Lagoon.chipFont)
-            .monospacedDigit()
+            .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
             .lineLimit(1)
-            .foregroundStyle(color)
+            .foregroundStyle(isIncreased ? Lagoon.textPrimary : Lagoon.linkTextColor(link.tier))
             .padding(.horizontal, 7)
             .padding(.vertical, 2.5)
             .background(Capsule().fill(color.opacity(0.12)))
-            .overlay(Capsule().strokeBorder(color.opacity(0.35), lineWidth: 0.75))
+            .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35),
+                                            lineWidth: isIncreased ? 1 : 0.75))
             .help(link.label)
             .accessibilityLabel(Text(link.label))
     }
 }
 
-/// Capsule naming an active transport, with its speed when known.
+/// Capsule naming an active transport, with its speed when known. Colours
+/// follow the same rules as `SpeedChip`.
 struct TransportChip: View {
     var transport: TransportInfo
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
-        let color = transport.link.map { Lagoon.linkColor($0.tier) } ?? Lagoon.accent
+        let tier = transport.link?.tier
+        let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
+        let isIncreased = contrast == .increased
+        let textColor = isIncreased ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0) } ?? Lagoon.accent)
+        // The rate is a little softer than the name only where the colour is
+        // bright enough to stay legible that way.
+        let rateOpacity = !isIncreased && (tier ?? .legacy) >= .gbps10 ? 0.8 : 1
         HStack(spacing: 4) {
             Text(transport.kind.displayName)
             if let rate = transport.link?.rateLabel {
-                Text(rate).foregroundStyle(color.opacity(0.8))
+                Text(rate).foregroundStyle(textColor.opacity(rateOpacity))
             }
         }
-        .font(Lagoon.chipFont)
-        .monospacedDigit()
+        .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
         .lineLimit(1)
-        .foregroundStyle(color)
+        .foregroundStyle(textColor)
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
         .background(Capsule().fill(color.opacity(0.10)))
-        .overlay(Capsule().strokeBorder(color.opacity(0.30), lineWidth: 0.75))
+        .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.30), lineWidth: isIncreased ? 1 : 0.75))
         .help(transport.link?.label ?? transport.kind.displayName)
     }
 }
@@ -131,11 +146,10 @@ struct PowerBadge: View {
         let color = Lagoon.powerColor(direction)
         HStack(spacing: 3) {
             Image(systemName: arrowName)
-                .font(.system(size: 9, weight: .bold))
+                .lagoonFont(size: 9, weight: .bold)
             Text(Format.power(milliwatts: milliwatts))
         }
-        .font(Lagoon.chipFont)
-        .monospacedDigit()
+        .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
         .foregroundStyle(color.opacity(isMeasured ? 1 : 0.75))
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
@@ -191,7 +205,7 @@ struct DeviceIcon: View {
 
     var body: some View {
         Image(systemName: kind.symbolName)
-            .font(.system(size: size * 0.52, weight: .medium))
+            .lagoonFont(size: size * 0.52, weight: .medium)
             .foregroundStyle(dimmed ? Lagoon.textTertiary : Lagoon.accent)
             .frame(width: size, height: size)
             .background(
@@ -210,7 +224,7 @@ struct PortIcon: View {
 
     var body: some View {
         Image(systemName: kind.symbolName)
-            .font(.system(size: size * 0.5, weight: .semibold))
+            .lagoonFont(size: size * 0.5, weight: .semibold)
             .foregroundStyle(isActive ? Lagoon.accent : Lagoon.textTertiary)
             .frame(width: size, height: size)
             .background(
@@ -282,14 +296,13 @@ struct SectionHeader: View {
     var body: some View {
         HStack {
             Text(title.uppercased())
-                .font(.system(.caption2, design: .rounded).weight(.bold))
                 .tracking(0.8)
+                .lagoonFont(.caption2, weight: .bold, design: .rounded)
                 .foregroundStyle(Lagoon.textTertiary)
             Spacer()
             if let trailing {
                 Text(trailing)
-                    .font(.caption2)
-                    .monospacedDigit()
+                    .lagoonFont(.caption2, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textTertiary)
             }
         }
@@ -311,12 +324,11 @@ struct KeyValueRow: View {
             Spacer(minLength: 8)
             Text(value)
                 .foregroundStyle(Lagoon.textPrimary)
-                .font(monospaced ? .system(.body, design: .monospaced) : .body)
-                .monospacedDigit()
+                .lagoonFont(.body, design: monospaced ? .monospaced : .default, monospacedDigits: true)
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
         }
-        .font(.callout)
+        .lagoonFont(.callout)
     }
 }
 
@@ -329,13 +341,13 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: systemName)
-                .font(.system(size: 34, weight: .light))
+                .lagoonFont(size: 34, weight: .light)
                 .foregroundStyle(Lagoon.accent.opacity(0.7))
             Text(title)
-                .font(Lagoon.titleFont)
+                .lagoonFont(.headline, weight: .semibold)
                 .foregroundStyle(Lagoon.textPrimary)
             Text(message)
-                .font(.callout)
+                .lagoonFont(.callout)
                 .foregroundStyle(Lagoon.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
@@ -349,8 +361,8 @@ struct EmptyStateView: View {
 struct DemoBadge: View {
     var body: some View {
         Text("DEMO")
-            .font(.system(size: 9, weight: .heavy, design: .rounded))
             .tracking(1)
+            .lagoonFont(size: 9, weight: .heavy, design: .rounded)
             .foregroundStyle(Lagoon.background)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

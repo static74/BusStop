@@ -28,18 +28,18 @@ struct DiagnosticsBanner: View {
                     } label: {
                         HStack(alignment: .center, spacing: 10) {
                             Image(systemName: Lagoon.severitySymbol(first.severity))
-                                .font(.system(size: 15, weight: .semibold))
+                                .lagoonFont(size: 15, weight: .semibold)
                                 .foregroundStyle(color)
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(first.title)
-                                    .font(.callout.weight(.semibold))
+                                    .lagoonFont(.callout, weight: .semibold)
                                     .foregroundStyle(Lagoon.textPrimary)
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
                                 if diagnostics.count > 1 {
                                     Text(PopoverText.count(diagnostics.count - 1, "more issue", "more issues"))
-                                        .font(.caption)
+                                        .lagoonFont(.caption)
                                         .foregroundStyle(Lagoon.textSecondary)
                                 }
                             }
@@ -58,7 +58,7 @@ struct DiagnosticsBanner: View {
                         }
                     } label: {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .bold))
+                            .lagoonFont(size: 11, weight: .bold)
                             .foregroundStyle(Lagoon.textSecondary)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                             .frame(width: 22, height: 22)
@@ -117,20 +117,20 @@ private struct DiagnosticRow: View {
         Button(action: action) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: Lagoon.severitySymbol(diagnostic.severity))
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.severityColor(diagnostic.severity))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(diagnostic.title)
-                        .font(.caption.weight(.semibold))
+                        .lagoonFont(.caption, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
                     Text(diagnostic.detail)
-                        .font(.caption)
+                        .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let suggestion = diagnostic.suggestion {
                         Text(suggestion)
-                            .font(.caption)
+                            .lagoonFont(.caption)
                             .foregroundStyle(Lagoon.accent)
                             .fixedSize(horizontal: false, vertical: true)
                     }

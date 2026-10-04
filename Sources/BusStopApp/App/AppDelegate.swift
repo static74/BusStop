@@ -23,8 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItemController = StatusItemController(store: store, settings: settings)
 
-        store.onEvents = { events in
-            NotificationManager.shared.post(events, settings: settings)
+        store.onEvents = { [weak store] events in
+            // Demo data never notifies; the store does not report it either.
+            guard let store, !store.isDemo else { return }
+            NotificationManager.shared.post(events, settings: settings, diagnostics: store.snapshot.diagnostics)
         }
         if Self.wantsAnyNotification(settings) {
             Task {

@@ -21,10 +21,28 @@ enum PopoverText {
         } else if let contract = power.charger?.contractMilliwatts, contract > 0 {
             parts.append("\(Format.power(milliwatts: contract)) in")
         } else {
-            let out = max(power.portOutputMilliwatts, power.usbAllocatedMilliwatts)
+            var out = max(power.portOutputMilliwatts, power.usbAllocatedMilliwatts)
+            if out == 0 { out = unattributedUSBMilliwatts(snapshot) }
             if out > 0 { parts.append("\(Format.power(milliwatts: out)) out") }
         }
         return parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// USB power the Mac allocates to devices it could not tie to a port: the
+    /// USB devices under Other devices that it powers itself (not through a
+    /// Thunderbolt dock), stopping at self-powered hubs.
+    static func unattributedUSBMilliwatts(_ snapshot: HostSnapshot) -> Int {
+        snapshot.otherDevices
+            .filter { $0.bus == .usb && !$0.isTunneled }
+            .reduce(0) { $0 + $1.rolledUpMilliwatts }
+    }
+
+    /// The power figure for the menu bar: `PowerSummary.headlineMilliwatts`,
+    /// or what unattributed USB devices draw when the ports report nothing.
+    static func headlineMilliwatts(for snapshot: HostSnapshot) -> Int? {
+        if let headline = snapshot.power.headlineMilliwatts { return headline }
+        let unattributed = unattributedUSBMilliwatts(snapshot)
+        return unattributed > 0 ? unattributed : nil
     }
 
     /// "3 devices · 7.5 W" for hubs and docks.
