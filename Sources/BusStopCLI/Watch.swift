@@ -104,7 +104,8 @@ final class WatchSession {
         }
         let snapshot = Pipeline.snapshot(from: raw, isDemo: isDemo, baseline: baseline)
         if isFirst { announce(snapshot) }
-        let events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
+        var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
+        if options.redact { events = events.map { Exporter.redacted($0) } }
         previous = snapshot
         for event in events {
             eventCount += 1

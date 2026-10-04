@@ -73,10 +73,128 @@ struct DisplayTopologyTests {
         #expect(twoPorts.displays.first?.portKey == nil)
         #expect(twoPorts.ports.allSatisfy { $0.devices.isEmpty })
 
-        // One video port, two displays (daisy-chained over MST, say).
+        // One video port with one DisplayPort link, two displays: one of them
+        // uses no port link (Sidecar, AirPlay, DisplayLink), so neither is placed.
         let twoDisplays = TopologyBuilder.build(F.raw(ports: Self.dpPort(id: 10, number: 1, product: nil),
                                                       displays: [Self.dell, Self.lg]))
         #expect(twoDisplays.displays.allSatisfy { $0.portKey == nil })
+    }
+
+    // MARK: Several displays on the only video port
+
+    /// Port 1 with CIO up and the given tunnelled DisplayPort transports
+    /// (`ProductName` or nil each).
+    static func cioPort(products: [String?]) -> [RawNode] {
+        var nodes = [F.port(id: 10, number: 1, connected: true, active: ["CC", "CIO"]),
+                     F.transport(id: 11, parent: 10, kind: "CIO", portNumber: 1)]
+        for (offset, product) in products.enumerated() {
+            var extra: [String: PlistValue] = ["LinkRate": .int(Int64(4 - offset)), "LaneCount": 4]
+            if let product { extra["ProductName"] = .string(product) }
+            nodes.append(F.transport(id: 12 + UInt64(offset), parent: 11, kind: "DisplayPort", portNumber: 1,
+                                     tunneled: true, extra: extra))
+        }
+        return nodes
+    }
+
+    @Test func twoUnnamedTunnelsOnTheOnlyVideoPort() throws {
+        let snapshot = TopologyBuilder.build(F.raw(ports: Self.cioPort(products: [nil, nil]),
+                                                   displays: [Self.builtIn, Self.dell, Self.lg]))
+        let externals = snapshot.displays.filter { !$0.isBuiltin }
+        #expect(externals.count == 2)
+        #expect(externals.allSatisfy { $0.portKey == PortKey(type: 2, number: 1) })
+        // Each display takes its own transport.
+        #expect(Set(externals.compactMap { $0.link?.detail }).count == 2)
+        let port = try #require(snapshot.port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.map(\.name).sorted() == ["DELL U2723QE", "LG HDR 4K"])
+        #expect(port.devices.allSatisfy { $0.isTunneled })
+    }
+
+    @Test func namedAndUnnamedTunnelsShareThePort() throws {
+        let snapshot = TopologyBuilder.build(F.raw(ports: Self.cioPort(products: [nil, "LG HDR 4K"]),
+                                                   displays: [Self.dell, Self.lg]))
+        let lg = try #require(snapshot.displays.first { $0.name == "LG HDR 4K" })
+        let dell = try #require(snapshot.displays.first { $0.name == "DELL U2723QE" })
+        #expect(lg.portKey == PortKey(type: 2, number: 1))
+        #expect(lg.link?.detail == "HBR2 × 4")
+        // The Dell gets the transport the LG did not take.
+        #expect(dell.portKey == PortKey(type: 2, number: 1))
+        #expect(dell.link?.detail == "HBR3 × 4")
+    }
+
+    @Test func liveDisplayTunnelsCountWithoutTransports() throws {
+        // A dock driving two displays, no DisplayPort transports published:
+        // its two live display adapters still count.
+        let host = F.tbSwitch(id: 1000, depth: 0, uid: 0x05AC_0000_0000_0001,
+                              ports: [F.lane(id: 1001, portNumber: 1, socket: "1", speed: 0x2, width: 0x2)],
+                              ancestry: F.hostAncestry(acio: 0))
+        func dock(hops: [Bool]) -> RawThunderboltSwitch {
+            F.tbSwitch(id: 1100, parent: 1000, depth: 1, uid: 0x003D_0000_0000_0002, vendor: "CalDigit, Inc.",
+                       model: "TS5 Plus Dock", upstreamPort: 1,
+                       ports: [F.lane(id: 1101, portNumber: 1, speed: 0x2, width: 0x2),
+                               F.adapter(id: 1102, portNumber: 12, description: "USB Gen T Adapter", hops: true)]
+                           + hops.enumerated().map { offset, live in
+                               F.adapter(id: 1110 + UInt64(offset), portNumber: 10 + offset,
+                                         description: "DP or HDMI Adapter", hops: live)
+                           },
+                       ancestry: [RawAncestor(id: 1001, className: "IOThunderboltPort", name: "IOThunderboltPort")]
+                           + F.hostAncestry(acio: 0))
+        }
+        let ports = [F.port(id: 10, number: 1, connected: true, active: ["CC", "CIO"]),
+                     F.transport(id: 11, parent: 10, kind: "CIO", portNumber: 1)]
+        let both = TopologyBuilder.build(F.raw(ports: ports, thunderbolt: [host, dock(hops: [true, true])],
+                                               displays: [Self.dell, Self.lg]))
+        #expect(both.displays.allSatisfy { $0.portKey == PortKey(type: 2, number: 1) })
+        #expect(both.displays.allSatisfy { $0.link == nil })
+        let rows = both.port(PortKey(type: 2, number: 1))?.devices.filter { $0.bus == .displayPort } ?? []
+        #expect(rows.count == 2)
+        #expect(rows.allSatisfy { $0.isTunneled })
+        #expect(both.port(PortKey(type: 2, number: 1))?.devices.first { $0.bus == .thunderbolt }?.kind == .dock)
+
+        // One live tunnel, two displays: fail closed.
+        let one = TopologyBuilder.build(F.raw(ports: ports, thunderbolt: [host, dock(hops: [true, false])],
+                                              displays: [Self.dell, Self.lg]))
+        #expect(one.displays.allSatisfy { $0.portKey == nil })
+    }
+
+    @Test func virtualDisplayStaysOffAThunderboltDisplaysPort() throws {
+        // Only port 1, with the Studio Display, carries video.
+        var raw = ThunderboltTopologyTests.raw()
+        raw.portNodes.removeAll { [2, 21, 22].contains($0.id) }
+        raw.thunderboltSwitches.removeAll { [2000, 2100].contains($0.id) }
+        raw.displays = [Self.builtIn,
+                        RawDisplay(id: 9, name: "Studio Display XDR", vendorID: 0x610, productID: 0xAE3A,
+                                   serialNumber: 7, isBuiltin: false),
+                        RawDisplay(id: 10, name: "Sidecar Display", isBuiltin: false, pixelWidth: 2732,
+                                   pixelHeight: 2048)]
+        let snapshot = TopologyBuilder.build(raw)
+        let studio = try #require(snapshot.displays.first { $0.name == "Studio Display XDR" })
+        #expect(studio.portKey == PortKey(type: 2, number: 1))
+        #expect(studio.representingDeviceID == "tb:05ac000000001100")
+        let sidecar = try #require(snapshot.displays.first { $0.name == "Sidecar Display" })
+        #expect(sidecar.portKey == nil)
+        #expect(sidecar.representingDeviceID == nil)
+    }
+
+    // MARK: Refresh rates
+
+    @Test func hugeRefreshRateCannotTrap() throws {
+        var raw = F.raw(ports: Self.dpPort(id: 10, number: 1, product: nil), displays: [Self.dell])
+        raw.displays[0].refreshHz = 1e300
+        let decoded = try Exporter.decodeRaw(Exporter.rawJSON(raw, redact: false))
+        #expect(decoded.displays.first?.refreshHz == 1e300)
+        let snapshot = TopologyBuilder.build(decoded)
+        #expect(snapshot.displays.first?.refreshHz == nil)
+        #expect(snapshot.displays.first?.modeDescription == "3840 × 2160")
+        #expect(Exporter.textTree(snapshot).contains("DELL U2723QE · 3840 × 2160 · "))
+        #expect(!Exporter.markdown(snapshot).contains(" Hz"))
+
+        // A record built or decoded directly, without the parser.
+        for rate in [1e300, 9.3e18, -1e30, .infinity, .nan, 10_000.4] {
+            let info = DisplayInfo(id: "d", name: "D", isBuiltin: false, pixelWidth: 10, pixelHeight: 10, refreshHz: rate)
+            #expect(info.modeDescription == "10 × 10", "\(rate)")
+        }
+        let normal = DisplayInfo(id: "d", name: "D", isBuiltin: false, pixelWidth: 10, pixelHeight: 10, refreshHz: 59.94)
+        #expect(normal.modeDescription == "10 × 10 @ 60 Hz")
     }
 
     @Test func connectedHDMIPortCarriesVideo() throws {

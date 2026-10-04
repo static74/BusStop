@@ -176,7 +176,13 @@ struct ExporterTests {
         #expect(decoded.portNodes[0].properties.string("ConnectionUUID") == "REDACTED")
         // Non-sensitive data survives.
         #expect(decoded.portNodes[0].properties.data("FW Version") == Data([0x00, 0x99, 0x30, 0x00]))
-        #expect(decoded.smcChannels == F.rawCapture().smcChannels)
+        // SMC readings survive; the controller UUID gets the same stand-in as the port's.
+        let original = F.rawCapture().smcChannels
+        #expect(decoded.smcChannels.map(\.volts) == original.map(\.volts))
+        #expect(decoded.smcChannels.map(\.amps) == original.map(\.amps))
+        #expect(decoded.smcChannels.first?.uuid != original.first?.uuid)
+        #expect(decoded.smcChannels.first?.uuid == decoded.portControllerUUIDs["2/1"])
+        #expect(decoded.thunderboltSwitches[0].node.properties.int64("UID") == 0x0123_0000_0000_0001)
         #expect(decoded.captureNotes == ["SMC unavailable"])
     }
 

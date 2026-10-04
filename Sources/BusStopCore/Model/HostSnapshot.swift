@@ -14,10 +14,14 @@ public struct DisplayInfo: Sendable, Hashable, Codable, Identifiable {
     /// The port the display is attached to, when it could be determined.
     public var portKey: PortKey?
     public var link: LinkInfo?
+    /// The `DeviceNode.id` of the Thunderbolt chain device that stands for
+    /// this display in the port tree (a Studio Display, a Pro Display XDR),
+    /// when there is one. Nil for displays shown as their own row.
+    public var representingDeviceID: String?
 
     public init(id: String, name: String, vendorID: Int? = nil, productID: Int? = nil, serialNumber: Int? = nil,
                 isBuiltin: Bool, pixelWidth: Int? = nil, pixelHeight: Int? = nil, refreshHz: Double? = nil,
-                portKey: PortKey? = nil, link: LinkInfo? = nil) {
+                portKey: PortKey? = nil, link: LinkInfo? = nil, representingDeviceID: String? = nil) {
         self.id = id
         self.name = name
         self.vendorID = vendorID
@@ -29,15 +33,22 @@ public struct DisplayInfo: Sendable, Hashable, Codable, Identifiable {
         self.refreshHz = refreshHz
         self.portKey = portKey
         self.link = link
+        self.representingDeviceID = representingDeviceID
     }
 
-    /// "5120 × 2880 @ 120 Hz"
+    /// "5120 × 2880 @ 120 Hz". A refresh rate that is not a plausible whole
+    /// number of hertz (a corrupted or hand-edited capture) is left out.
     public var modeDescription: String? {
         guard let pixelWidth, let pixelHeight else { return nil }
         var s = "\(pixelWidth) × \(pixelHeight)"
-        if let refreshHz, refreshHz > 0 { s += " @ \(Int(refreshHz.rounded())) Hz" }
+        if let refreshHz, refreshHz > 0, refreshHz < Self.maxRefreshHz, let hz = Int(exactly: refreshHz.rounded()) {
+            s += " @ \(hz) Hz"
+        }
         return s
     }
+
+    /// Refresh rates at or above this are treated as missing.
+    public static let maxRefreshHz: Double = 10_000
 }
 
 /// How serious a diagnostic is.

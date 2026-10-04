@@ -5,7 +5,9 @@ extension Exporter {
     /// device tree, displays, diagnostics.
     ///
     /// Serial numbers are shown as "REDACTED" when `redact` is true. Raw
-    /// property bags are not part of the report.
+    /// property bags and ids are not part of the report. Text from the
+    /// capture is escaped and passed through `Format.terminalSafe`, so a
+    /// device name cannot break the layout or carry control characters.
     public static func markdown(_ snapshot: HostSnapshot, redact: Bool = true) -> String {
         var report = MarkdownReport(redact: redact)
         report.render(snapshot)
@@ -126,7 +128,7 @@ private struct MarkdownReport {
             if let charger = port.charger { facts.append("Charger: \(Self.escape(charger.displayName))") }
             if let cable = port.cable, let text = Self.cableText(cable) { facts.append("Cable: \(text)") }
             if port.liquidDetected { facts.append("Liquid detected: yes") }
-            facts.append("Registry name: `\(port.registryName)`")
+            facts.append("Registry name: `\(Format.terminalSafe(port.registryName).replacingOccurrences(of: "`", with: "'"))`")
             lines += facts.map { "- \($0)" }
             if port.devices.isEmpty {
                 lines.append("- Devices: none")
@@ -155,7 +157,8 @@ private struct MarkdownReport {
         lines.append("| Display | Mode | Port | Link | Serial number |")
         lines.append("|---|---|---|---|---|")
         for display in snapshot.displays {
-            var name = Self.escape(display.name.isEmpty ? "Display" : display.name)
+            let cleaned = Self.escape(display.name)
+            var name = cleaned.isEmpty ? "Display" : cleaned
             if display.isBuiltin { name += " (built-in)" }
             let port = display.portKey.flatMap { snapshot.port($0) }.map { Self.escape($0.label.title) } ?? ""
             let serial = display.serialNumber.map { serialText(String($0)) } ?? ""
@@ -201,8 +204,8 @@ private struct MarkdownReport {
     }
 
     private func deviceText(_ device: DeviceNode) -> String {
-        let name = device.name.trimmingCharacters(in: .whitespaces)
-        var parts = ["**\(Self.escape(name.isEmpty ? device.kind.displayName : name))** (\(device.kind.displayName))"]
+        let name = Self.escape(device.name)
+        var parts = ["**\(name.isEmpty ? device.kind.displayName : name)** (\(device.kind.displayName))"]
         if let link = device.link { parts.append(Self.escape(link.label)) }
         let milliwatts = device.rolledUpMilliwatts
         if milliwatts > 0 { parts.append("\(Format.power(milliwatts: milliwatts)) allocated") }
@@ -211,7 +214,7 @@ private struct MarkdownReport {
             let count = device.descendantCount
             parts.append(count == 1 ? "1 device" : "\(count) devices")
         }
-        if let ids = device.vendorProductIDString { parts.append("`\(ids)`") }
+        if let ids = device.vendorProductIDString { parts.append("`\(Format.terminalSafe(ids))`") }
         if device.isTunneled { parts.append("tunnelled") }
         if let serial = device.serialNumber { parts.append("serial \(serialText(serial))") }
         return parts.joined(separator: " · ")
@@ -290,16 +293,14 @@ private struct MarkdownReport {
         ISO8601DateFormatter().string(from: date)
     }
 
-    /// Escapes characters that Markdown would treat as formatting.
+    /// Escapes characters that Markdown would treat as formatting, after
+    /// `Format.terminalSafe` has turned control characters (line breaks and
+    /// escape sequences included) into single spaces.
     static func escape(_ text: String) -> String {
         var result = ""
-        for character in text {
+        for character in Format.terminalSafe(text) {
             if "\\`*_[]|<>".contains(character) { result.append("\\") }
-            if character == "\n" || character == "\r" {
-                result.append(" ")
-            } else {
-                result.append(character)
-            }
+            result.append(character)
         }
         return result
     }

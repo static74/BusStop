@@ -234,9 +234,63 @@ struct PortLabelTests {
     }
 
     @Test func sortKeyDropsRejectedDesktopMatches() {
+        // The rejected row is not used; the port sorts with the rear
+        // Thunderbolt rows (index 2 is the first of them) instead.
         let key = PortLabeler.sortKey(kind: .usbC, number: 1, siblings: [1, 2, 3, 5, 6], model: "Mac16,10",
                                       supportsThunderbolt: true)
-        #expect(key.0 == 1)
+        #expect(key == (0, 2, 1))
+    }
+
+    /// Labels and sort order for every USB-C port of a desktop whose kernel
+    /// numbering disagrees with the catalogue, given each port's capability.
+    private func desktopPorts(model: String, thunderbolt: [Int: Bool]) -> [(number: Int, location: String?,
+                                                                           source: LabelSource)] {
+        let siblings = thunderbolt.keys.sorted()
+        let ports = siblings.map { number -> (Int, PortLabel, (Int, Int, Int)) in
+            let labelled = PortLabeler.label(kind: .usbC, number: number,
+                                             key: PortKey(type: PortKey.usbCType, number: number),
+                                             siblings: siblings, model: model, userNames: [:],
+                                             supportsThunderbolt: thunderbolt[number], siblingCapabilities: thunderbolt)
+            let key = PortLabeler.sortKey(kind: .usbC, number: number, siblings: siblings, model: model,
+                                          supportsThunderbolt: thunderbolt[number], siblingCapabilities: thunderbolt)
+            return (number, labelled.label, key)
+        }
+        return ports.sorted { $0.2 < $1.2 }.map { ($0.0, $0.1.location, $0.1.source) }
+    }
+
+    @Test func inconsistentNumberingGivesAreaLabelsToEveryPort() {
+        // Mac mini M4 as WhatCable saw it: rear Thunderbolt 1-3, front USB 5 and 6.
+        let mini = desktopPorts(model: "Mac16,10", thunderbolt: [1: true, 2: true, 3: true, 5: false, 6: false])
+        #expect(mini.map { $0.location } == ["Front", "Front", "Rear", "Rear", "Rear"])
+        #expect(mini.map { $0.number } == [5, 6, 1, 2, 3])
+        #expect(mini.allSatisfy { $0.source == .catalogRank })
+
+        // Mac Studio M1 Max with rear Thunderbolt 1-4 and front USB 7 and 8.
+        let studio = desktopPorts(model: "Mac13,1",
+                                  thunderbolt: [1: true, 2: true, 3: true, 4: true, 7: false, 8: false])
+        #expect(studio.map { $0.location } == ["Front", "Front", "Rear", "Rear", "Rear", "Rear"])
+        #expect(studio.map { $0.number } == [7, 8, 1, 2, 3, 4])
+    }
+
+    @Test func builderLabelsAndOrdersADesktopWithOddNumbering() {
+        typealias T = TopologyFixtures
+        let thunderbolt = ["CC", "USB2", "USB3", "DisplayPort", "CIO"]
+        let ports = [1, 2, 3].map { T.port(id: UInt64($0), number: $0, supported: thunderbolt) }
+            + [5, 6].map { T.port(id: UInt64($0), number: $0, supported: ["USB2", "USB3"]) }
+            + [T.port(id: 9, type: 6, number: 1, description: "HDMI", supported: [],
+                      className: "AppleHDMIPortController")]
+        let snapshot = TopologyBuilder.build(T.raw(model: "Mac16,10", ports: ports))
+        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C", "Front · USB-C", "Rear · USB-C", "Rear · USB-C",
+                                                      "Rear · USB-C", "Rear · HDMI"])
+        #expect(snapshot.ports.map(\.number) == [5, 6, 1, 2, 3, 1])
+        #expect(snapshot.ports.prefix(5).allSatisfy { $0.label.source == .catalogRank })
+    }
+
+    @Test func consistentNumberingKeepsPreciseLabels() {
+        let mini = desktopPorts(model: "Mac16,10", thunderbolt: [1: false, 2: false, 3: true, 4: true, 5: true])
+        #expect(mini.map { $0.location } == ["Front (left)", "Front (right)", "Rear (left)", "Rear (center)",
+                                         "Rear (right)"])
+        #expect(mini.allSatisfy { $0.source == .catalog })
     }
 
     @Test func areaOfLocation() {

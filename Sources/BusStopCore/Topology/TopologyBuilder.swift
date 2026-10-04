@@ -140,19 +140,48 @@ public enum TopologyBuilder {
                 .compactMap(\.registryID)
             return !ids.isEmpty && ids.allSatisfy(thunderbolt.noVideoSwitchIDs.contains)
         })
+        var displayTunnels: [PortKey: Int] = [:]
+        for (key, roots) in chains {
+            let ids = roots.flatMap { $0.flattened().map(\.device) }.filter { $0.bus == .thunderbolt }
+                .compactMap(\.registryID)
+            let count = ids.reduce(0) { $0 + (thunderbolt.liveDisplayTunnels[$1] ?? 0) }
+            if count > 0 { displayTunnels[key] = count }
+        }
         let attributions = DisplayParser.attribute(displays, dpTransports: dpTransports, chainsByPort: chains,
                                                    videoPorts: videoPorts, nativeVideoPorts: nativeVideoPorts,
-                                                   idleThunderboltPorts: idleThunderboltPorts)
+                                                   idleThunderboltPorts: idleThunderboltPorts,
+                                                   displayTunnels: displayTunnels)
         var displayInfos: [DisplayInfo] = []
         for var display in displays {
             if let attribution = attributions[display.id] {
                 display.portKey = attribution.portKey
                 display.link = attribution.link
-                if !attribution.representedByThunderbolt {
+                if attribution.representedByThunderbolt {
+                    display.representingDeviceID = attribution.representingDeviceID
+                } else {
                     devices[attribution.portKey, default: []].append(DisplayParser.deviceNode(display, attribution: attribution))
                 }
             }
             displayInfos.append(display)
+        }
+
+        // Thunderbolt support per port, where it is known, for labels and order.
+        var thunderboltSupport: [PortKey: Bool] = [:]
+        for record in ports.records {
+            let hasSocket = (record.kind == .usbC || record.kind == .thunderbolt)
+                && thunderbolt.allSockets.contains(record.number)
+            if (record.supportedTransports ?? []).contains(.cio) || hasSocket {
+                thunderboltSupport[record.key] = true
+            } else if record.supportedTransports != nil {
+                thunderboltSupport[record.key] = false
+            }
+        }
+        func siblingCapabilities(_ kind: PortKind) -> [Int: Bool] {
+            var result: [Int: Bool] = [:]
+            for record in ports.records where record.kind == kind {
+                if let supported = thunderboltSupport[record.key] { result[record.number] = supported }
+            }
+            return result
         }
 
         // Ports without power yet.
@@ -165,15 +194,12 @@ public enum TopologyBuilder {
             let isConnected = record.connectionActive || !active.isEmpty || !portDevices.isEmpty
                 || thunderboltLinks[record.key] != nil || !(tunneledKinds[record.key] ?? []).isEmpty
             let supported = record.supportedTransports ?? []
-            let hasSocket = (record.kind == .usbC || record.kind == .thunderbolt)
-                && thunderbolt.allSockets.contains(record.number)
-            let supportsThunderbolt: Bool? = (supported.contains(.cio) || hasSocket)
-                ? true : (record.supportedTransports == nil ? nil : false)
             let siblings = ports.records.filter { $0.kind == record.kind }.map(\.number).sorted()
             let labelled = PortLabeler.label(kind: record.kind, number: record.number, key: record.key,
                                              siblings: siblings, model: raw.machine.model,
                                              userNames: options.userPortNames,
-                                             supportsThunderbolt: supportsThunderbolt)
+                                             supportsThunderbolt: thunderboltSupport[record.key],
+                                             siblingCapabilities: siblingCapabilities(record.kind))
             physicalPorts.append(PhysicalPort(
                 key: record.key, kind: record.kind, number: record.number, registryName: record.registryName,
                 label: labelled.label, capabilityDescription: labelled.capability, supportedTransports: supported,
@@ -187,7 +213,8 @@ public enum TopologyBuilder {
         // Power.
         let telemetry = PowerParser.telemetry(raw.battery)
         let connected = Set(physicalPorts.filter(\.isConnected).map(\.key))
-        let chargerPort = PowerParser.chargerPort(ports: ports, index: index, connected: connected)
+        let chargerPort = PowerParser.chargerPort(ports: ports, index: index, connected: connected,
+                                                  adapterMilliwatts: PowerParser.adapterMilliwatts(raw))
         var charger = PowerParser.charger(raw, portEvidence: chargerPort != nil)
         if var found = charger, let chargerPort {
             found.portKey = chargerPort.key
@@ -219,7 +246,9 @@ public enum TopologyBuilder {
         for port in physicalPorts {
             let siblings = physicalPorts.filter { $0.kind == port.kind }.map(\.number).sorted()
             order[port.key] = PortLabeler.sortKey(kind: port.kind, number: port.number, siblings: siblings,
-                                                  model: raw.machine.model)
+                                                  model: raw.machine.model,
+                                                  supportsThunderbolt: thunderboltSupport[port.key],
+                                                  siblingCapabilities: siblingCapabilities(port.kind))
         }
         physicalPorts.sort { lhs, rhs in
             let l = order[lhs.key] ?? (Int.max, Int.max, Int.max)

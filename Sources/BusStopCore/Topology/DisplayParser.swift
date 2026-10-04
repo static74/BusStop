@@ -13,7 +13,8 @@ enum DisplayParser {
 
     static func info(_ display: RawDisplay) -> DisplayInfo {
         let name = TopologyText.clean(display.name) ?? (display.isBuiltin ? "Built-in Display" : "External Display")
-        let refresh = display.refreshHz.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        // Implausible rates (from a corrupted or hand-edited capture) are dropped.
+        let refresh = display.refreshHz.flatMap { $0.isFinite && $0 > 0 && $0 < DisplayInfo.maxRefreshHz ? $0 : nil }
         return DisplayInfo(id: displayID(display), name: name, vendorID: display.vendorID, productID: display.productID,
                            serialNumber: display.serialNumber, isBuiltin: display.isBuiltin,
                            pixelWidth: display.pixelWidth.flatMap { $0 > 0 ? $0 : nil },
@@ -27,6 +28,8 @@ enum DisplayParser {
         var isTunneled: Bool
         /// A Thunderbolt chain device already stands for this display.
         var representedByThunderbolt: Bool
+        /// The id of that chain device, when `representedByThunderbolt`.
+        var representingDeviceID: String?
     }
 
     /// Ties external displays to ports, most reliable evidence first:
@@ -36,7 +39,16 @@ enum DisplayParser {
     ///    connected HDMI port) and exactly one external display is left;
     ///    or, when several do, but all except one native video port
     ///    (DisplayPort alt mode or HDMI) are Thunderbolt links to chains
-    ///    known to carry no display, that native port.
+    ///    known to carry no display, that native port;
+    /// 4. when several external displays are left, or the only video port
+    ///    already carries a display: every display left goes to that one
+    ///    port (the only video port, or the port rule 3 would pick), but
+    ///    only when the port shows enough display links for all of them.
+    ///    The count is the larger of its DisplayPort transports and its live
+    ///    Thunderbolt display tunnels, less the displays already tied to it.
+    ///    This keeps Sidecar, AirPlay and DisplayLink displays, which use no
+    ///    port link, off physical ports. Each display takes the next unused
+    ///    transport on the port, native before tunnelled.
     ///
     /// - Parameters:
     ///   - displays: built display records, sorted.
@@ -46,10 +58,13 @@ enum DisplayParser {
     ///   - nativeVideoPorts: video ports that carry DisplayPort or HDMI themselves.
     ///   - idleThunderboltPorts: video ports whose only video evidence is a
     ///     Thunderbolt link to a chain known to carry no display.
+    ///   - displayTunnels: per port, the live display tunnels (DisplayPort or
+    ///     HDMI adapters with a non-empty `Hop Table`) in its chains.
     static func attribute(_ displays: [DisplayInfo], dpTransports: [TopologyTransportRecord],
                           chainsByPort: [PortKey: [DeviceNode]], videoPorts: [PortKey],
                           nativeVideoPorts: Set<PortKey> = [],
-                          idleThunderboltPorts: Set<PortKey> = []) -> [String: Attribution] {
+                          idleThunderboltPorts: Set<PortKey> = [],
+                          displayTunnels: [PortKey: Int] = [:]) -> [String: Attribution] {
         var result: [String: Attribution] = [:]
         var usedTransports = Set<UInt64>()
         var usedChainDevices = Set<String>()
@@ -83,16 +98,18 @@ enum DisplayParser {
             usedChainDevices.insert(device.id)
             if var existing = result[display.id] {
                 existing.representedByThunderbolt = existing.portKey == key
+                existing.representingDeviceID = existing.representedByThunderbolt ? device.id : nil
                 result[display.id] = existing
             } else {
                 result[display.id] = Attribution(portKey: key, link: device.link, isTunneled: true,
-                                                 representedByThunderbolt: true)
+                                                 representedByThunderbolt: true, representingDeviceID: device.id)
             }
         }
 
         let taken = Set(result.values.map(\.portKey))
         let freePorts = videoPorts.filter { !taken.contains($0) }
         let left = externals.filter { result[$0.id] == nil }
+        guard !left.isEmpty else { return result }
         // A dock with idle display adapters does not make the HDMI port's
         // only display ambiguous.
         let candidates = freePorts.count == 1 ? freePorts : freePorts.filter { !idleThunderboltPorts.contains($0) }
@@ -103,6 +120,24 @@ enum DisplayParser {
                 ?? dpTransports.first { $0.portKey == key }
             result[left[0].id] = Attribution(portKey: key, link: transport?.link,
                                              isTunneled: transport?.isTunneled ?? false, representedByThunderbolt: false)
+            return result
+        }
+
+        // Rule 4: every display left on the one video port, within its links.
+        let target = videoPorts.count == 1 ? videoPorts[0] : (isUsable ? candidates[0] : nil)
+        guard let key = target else { return result }
+        let portTransports = dpTransports.filter { $0.portKey == key }
+        let links = max(portTransports.count, displayTunnels[key] ?? 0)
+        let alreadyThere = result.values.filter { $0.portKey == key }.count
+        guard left.count <= links - alreadyThere else { return result }
+        let unused = portTransports.filter { !usedTransports.contains($0.node.id) }
+        var queue = unused.filter { !$0.isTunneled } + unused.filter(\.isTunneled)
+        for display in left {
+            let transport = queue.isEmpty ? nil : queue.removeFirst()
+            if let transport { usedTransports.insert(transport.node.id) }
+            result[display.id] = Attribution(portKey: key, link: transport?.link,
+                                             isTunneled: transport?.isTunneled ?? !nativeVideoPorts.contains(key),
+                                             representedByThunderbolt: false)
         }
         return result
     }

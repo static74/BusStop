@@ -28,6 +28,9 @@ struct ThunderboltTopology {
     /// list their adapters, and every DisplayPort / HDMI adapter among them
     /// reports an empty `Hop Table`.
     var noVideoSwitchIDs: Set<UInt64> = []
+    /// Registry ID of a downstream switch → its live display tunnels
+    /// (DisplayPort or HDMI adapters whose `Hop Table` is not empty).
+    var liveDisplayTunnels: [UInt64: Int] = [:]
 
     /// The socket a USB device tunnelled through `apciecN` arrived on: the
     /// host root under `acioN` (same N). With several sockets on that host,
@@ -48,6 +51,10 @@ struct ThunderboltTopology {
 /// the USB-C port number. Every downstream switch becomes a `DeviceNode`
 /// whose link is the hop from its parent.
 enum ThunderboltParser {
+    /// Deepest chain level that is built. Thunderbolt allows six; the margin
+    /// is for odd captures.
+    static let maxChainDepth = 64
+
     static func parse(_ input: [RawThunderboltSwitch], options: BuildOptions) -> ThunderboltTopology {
         var seen = Set<UInt64>()
         let switches = input.filter { seen.insert($0.id).inserted }.sorted { $0.id < $1.id }
@@ -84,6 +91,10 @@ enum ThunderboltParser {
         var topology = ThunderboltTopology()
         topology.usbTunnelSwitchIDs = Set(switches.filter { !hostIDs.contains($0.id) && hasLiveUSBAdapter($0) }.map(\.id))
         topology.noVideoSwitchIDs = Set(switches.filter { !hostIDs.contains($0.id) && carriesNoDisplay($0) }.map(\.id))
+        for s in switches where !hostIDs.contains(s.id) {
+            let live = s.ports.filter { isDisplayAdapter($0) && TopologyValues.isEmpty($0.properties["Hop Table"]) == false }
+            if !live.isEmpty { topology.liveDisplayTunnels[s.id] = live.count }
+        }
         for host in hosts {
             let sockets = Set(lanePorts(host).compactMap(socketID)).sorted()
             topology.allSockets.formUnion(sockets)
@@ -92,11 +103,15 @@ enum ThunderboltParser {
             }
         }
 
-        // Builds one switch and everything below it.
+        // Builds one switch and everything below it, down to `maxChainDepth`
+        // levels: deeper switches only come from a malformed capture, and
+        // stopping there bounds every later walk of the tree.
         var visited = Set<UInt64>()
         func build(_ id: UInt64, parent: RawThunderboltSwitch?, depthHint: Int) -> DeviceNode? {
             guard visited.insert(id).inserted, let s = byID[id] else { return nil }
-            let below = (children[id] ?? []).compactMap { build($0, parent: s, depthHint: depthHint + 1) }
+            let below = depthHint < maxChainDepth
+                ? (children[id] ?? []).compactMap { build($0, parent: s, depthHint: depthHint + 1) }
+                : []
             var node = deviceNode(for: s, parent: parent, depthHint: depthHint, options: options)
             node.children = below
             return node
@@ -117,7 +132,7 @@ enum ThunderboltParser {
         // Switches whose parent was not captured: find their host through
         // the shared `acioN` ancestor, or leave them unattributed.
         for orphan in orphans {
-            let hint = min(max(depth(orphan) ?? 1, 1), 64)
+            let hint = min(max(depth(orphan) ?? 1, 1), maxChainDepth)
             guard let chain = build(orphan.id, parent: nil, depthHint: hint) else { continue }
             let host = acioIndex(orphan.ancestry).flatMap { index in
                 hosts.first { acioIndex($0.ancestry) == index }

@@ -15,7 +15,12 @@ import Foundation
 /// Catalogue numbers are not always the kernel's numbers, so a catalogue row
 /// is rejected when its capability contradicts the port's (a Thunderbolt row
 /// for a port without Thunderbolt, or the reverse) on models whose rows for
-/// that connector mix both kinds. Step 4 then names the port instead.
+/// that connector mix both kinds. One such contradiction shows that this Mac
+/// does not number that connector the catalogue's way, so when the
+/// capabilities of the sibling ports are known, every port of the connector
+/// then falls to step 4 together: they read "Rear" and "Front" alike rather
+/// than some precise and some general. Step 4 ports sort where the
+/// catalogue's first row with their capability sits.
 public enum PortLabeler {
     /// Label for one port.
     ///
@@ -29,15 +34,19 @@ public enum PortLabeler {
     ///   - userNames: port key string → user name.
     ///   - supportsThunderbolt: whether the port lists `CIO` in `TransportsSupported`,
     ///     used to tell rear Thunderbolt ports from front USB-C ports on desktops.
+    ///   - siblingCapabilities: port number → Thunderbolt support, for the
+    ///     ports of this kind whose support is known (the port itself
+    ///     included). Used to tell whether the Mac follows the catalogue's
+    ///     numbering for this connector.
     /// - Returns: the label, and the catalogue's capability text for the port
     ///   ("Thunderbolt 5") when the catalogue describes it. A user-named port
     ///   keeps the catalogue capability.
     public static func label(kind: PortKind, number: Int, key: PortKey, siblings: [Int], model: String,
-                             userNames: [String: String],
-                             supportsThunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?) {
+                             userNames: [String: String], supportsThunderbolt: Bool? = nil,
+                             siblingCapabilities: [Int: Bool] = [:]) -> (label: PortLabel, capability: String?) {
         let connector = kind.displayName
         let match = acceptedMatch(kind: kind, number: number, siblings: siblings, model: model,
-                                  supportsThunderbolt: supportsThunderbolt)
+                                  supportsThunderbolt: supportsThunderbolt, siblingCapabilities: siblingCapabilities)
         let guess = match == nil
             ? capabilityLocation(kind: kind, model: model, supportsThunderbolt: supportsThunderbolt)
             : nil
@@ -64,12 +73,24 @@ public enum PortLabeler {
     ///
     /// Ports matched to a catalogue row sort first, in the catalogue's order
     /// (left side rear to front, then right side, as PortScope lists them).
-    /// Other ports follow, by kind rank and then number.
+    /// A port named from its capability (step 4 of `label`) sorts at the
+    /// catalogue's first row with that capability, so the rear Thunderbolt
+    /// ports of a desktop stay together. Other ports follow, by kind rank and
+    /// then number. Pass the same capability arguments as to `label`.
     public static func sortKey(kind: PortKind, number: Int, siblings: [Int], model: String,
-                               supportsThunderbolt: Bool? = nil) -> (Int, Int, Int) {
+                               supportsThunderbolt: Bool? = nil,
+                               siblingCapabilities: [Int: Bool] = [:]) -> (Int, Int, Int) {
         if let match = acceptedMatch(kind: kind, number: number, siblings: siblings, model: model,
-                                     supportsThunderbolt: supportsThunderbolt) {
+                                     supportsThunderbolt: supportsThunderbolt,
+                                     siblingCapabilities: siblingCapabilities) {
             return (0, match.index, number)
+        }
+        if let supportsThunderbolt,
+           capabilityLocation(kind: kind, model: model, supportsThunderbolt: supportsThunderbolt) != nil,
+           let index = PortLocationCatalog.entry(for: model)?.ports.firstIndex(where: { row in
+               row.connector == kind.catalogConnector && row.isThunderbolt == supportsThunderbolt
+           }) {
+            return (0, index, number)
         }
         return (1, kind.sortRank, number)
     }
@@ -117,14 +138,36 @@ public enum PortLabeler {
     }
 
     /// `catalogMatch`, unless the row's capability contradicts the port's on
-    /// a model whose rows for this connector mix Thunderbolt and plain USB.
+    /// a model whose rows for this connector mix Thunderbolt and plain USB,
+    /// or the row of any sibling contradicts that sibling's capability
+    /// (`numberingConsistent`).
     static func acceptedMatch(kind: PortKind, number: Int, siblings: [Int], model: String,
-                              supportsThunderbolt: Bool?) -> CatalogMatch? {
+                              supportsThunderbolt: Bool?, siblingCapabilities: [Int: Bool] = [:]) -> CatalogMatch? {
         guard let match = catalogMatch(kind: kind, number: number, siblings: siblings, model: model) else {
             return nil
         }
-        guard let supportsThunderbolt, hasMixedCapabilities(kind: kind, model: model) else { return match }
-        return match.row.isThunderbolt == supportsThunderbolt ? match : nil
+        guard hasMixedCapabilities(kind: kind, model: model) else { return match }
+        if let supportsThunderbolt, match.row.isThunderbolt != supportsThunderbolt { return nil }
+        guard numberingConsistent(kind: kind, siblings: siblings, model: model,
+                                  capabilities: siblingCapabilities) else { return nil }
+        return match
+    }
+
+    /// False when a sibling port with a known capability is matched to a
+    /// catalogue row with the other capability, on a model whose rows for
+    /// this connector mix both: the Mac then does not number this connector
+    /// the catalogue's way, and no row of it can be trusted.
+    static func numberingConsistent(kind: PortKind, siblings: [Int], model: String,
+                                    capabilities: [Int: Bool]) -> Bool {
+        guard !capabilities.isEmpty, hasMixedCapabilities(kind: kind, model: model) else { return true }
+        let numbers = Set(siblings).union(capabilities.keys).sorted()
+        for (number, thunderbolt) in capabilities {
+            if let row = catalogMatch(kind: kind, number: number, siblings: numbers, model: model)?.row,
+               row.isThunderbolt != thunderbolt {
+                return false
+            }
+        }
+        return true
     }
 
     /// True when the model's catalogue rows for this connector include both
