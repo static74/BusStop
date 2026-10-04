@@ -77,7 +77,7 @@ These close gaps users reported against similar tools (WhatCable, WhatPort and P
 ### 3.1 Menu bar item
 
 - `NSStatusItem` with a template icon. Icon choices: Bus Stop sign (default), cable connector, bolt, ports grid.
-- Optional text next to the icon, monospaced digits: none, total power ("38 W"), device count ("5"), or both ("5 · 38 W").
+- Optional text next to the icon, monospaced digits, compact to save menu bar space: none, total power ("38W"), device count ("5"), or both ("5 · 38W"). Power precision is automatic (one decimal below 10 W), whole watts, or one decimal.
 - Left click toggles the popover. Right click opens a menu: Open Topology, Refresh, Export submenu, Settings, About Bus Stop, Quit.
 - Relaunching the app while it is running opens the popover.
 - The item can be hidden from Settings; when hidden, launching the app opens the topology window.
