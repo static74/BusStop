@@ -89,6 +89,16 @@ struct DisplayTopologyTests {
         #expect(snapshot.displays.first?.portKey == port.key)
     }
 
+    @Test func hdmiHotPlugDetectCountsAsConnected() throws {
+        let hdmi = RawNode(id: 30, className: "AppleHDMIPortController", name: "Port-HDMI", location: "1",
+                           properties: ["PortTypeDescription": "HDMI", "PortNumber": 1, "HDMI_HPD": true])
+        let snapshot = TopologyBuilder.build(F.raw(ports: [hdmi], displays: [Self.dell]))
+        let port = try #require(snapshot.ports.first)
+        #expect(port.key == PortKey(type: PortKey.hdmiType, number: 1))
+        #expect(port.isConnected)
+        #expect(port.devices.map(\.name) == ["DELL U2723QE"])
+    }
+
     @Test func thunderboltDisplayIsNotDuplicated() throws {
         var raw = ThunderboltTopologyTests.raw()
         raw.displays = [Self.builtIn,

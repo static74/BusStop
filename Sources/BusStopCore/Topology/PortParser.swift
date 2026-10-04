@@ -28,8 +28,10 @@ struct TopologyPortRecord {
         return Set(Self.kinds(names).filter { $0 != .cc })
     }
 
-    /// `ConnectionActive`.
-    var connectionActive: Bool { properties.bool("ConnectionActive") == true }
+    /// `ConnectionActive`, or hot-plug detect (`HDMI_HPD`) on an HDMI port.
+    var connectionActive: Bool {
+        properties.bool("ConnectionActive") == true || (kind == .hdmi && properties.bool("HDMI_HPD") == true)
+    }
 
     /// Sorted, de-duplicated transport kinds from IOKit names.
     static func kinds(_ names: [String]) -> [TransportKind] {
