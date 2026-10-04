@@ -17,6 +17,9 @@ struct ThunderboltTopology {
     var socketsByACIO: [Int: [Int]] = [:]
     /// Every socket ID published by a host-root lane adapter.
     var allSockets: Set<Int> = []
+    /// Registry IDs of downstream switches with a live USB tunnel (a USB
+    /// adapter whose `Hop Table` is not empty).
+    var usbTunnelSwitchIDs: Set<UInt64> = []
 
     /// The socket a USB device tunnelled through `apciecN` arrived on: the
     /// host root under `acioN` (same N). With several sockets on that host,
@@ -71,6 +74,7 @@ enum ThunderboltParser {
         let peerPortIDs = Set(switches.flatMap { $0.ancestry.map(\.id) })
 
         var topology = ThunderboltTopology()
+        topology.usbTunnelSwitchIDs = Set(switches.filter { !hostIDs.contains($0.id) && hasLiveUSBAdapter($0) }.map(\.id))
         for host in hosts {
             let sockets = Set(lanePorts(host).compactMap(socketID)).sorted()
             topology.allSockets.formUnion(sockets)
@@ -198,15 +202,34 @@ enum ThunderboltParser {
         return nil
     }
 
-    /// The model name with a doubled leading word removed ("Ugreen Ugreen
-    /// Revodok" → "Ugreen Revodok").
-    static func modelName(_ raw: String?) -> String? {
+    /// The model name with a repeated vendor prefix removed: "Ugreen Ugreen
+    /// Revodok" → "Ugreen Revodok", and with vendor "Other World Computing",
+    /// "Other World Computing Other World Computing Envoy" → "Other World
+    /// Computing Envoy".
+    static func modelName(_ raw: String?, vendor: String? = nil) -> String? {
         guard let cleaned = TopologyText.clean(raw) else { return nil }
         var words = cleaned.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        if let vendor = TopologyText.clean(vendor) {
+            let prefix = vendor.split(separator: " ", omittingEmptySubsequences: true).map { $0.lowercased() }
+            let n = prefix.count
+            while n > 0, words.count > 2 * n,
+                  words[0..<n].map({ $0.lowercased() }) == prefix,
+                  words[n..<(2 * n)].map({ $0.lowercased() }) == prefix {
+                words.removeFirst(n)
+            }
+        }
         while words.count >= 2, words[0].lowercased() == words[1].lowercased() {
             words.removeFirst()
         }
         return words.joined(separator: " ")
+    }
+
+    /// A USB adapter carrying a live tunnel.
+    static func hasLiveUSBAdapter(_ s: RawThunderboltSwitch) -> Bool {
+        s.ports.contains { port in
+            let description = port.properties.string("Description")?.lowercased() ?? ""
+            return description.contains("usb") && TopologyValues.isEmpty(port.properties["Hop Table"]) == false
+        }
     }
 
     /// Display, dock or generic Thunderbolt device, from the name and the
@@ -238,7 +261,7 @@ enum ThunderboltParser {
                            options: BuildOptions) -> DeviceNode {
         let p = s.node.properties
         let vendor = TopologyText.clean(p.string("Device Vendor Name"))
-        let name = modelName(p.string("Device Model Name"))
+        let name = modelName(p.string("Device Model Name"), vendor: vendor)
             ?? vendor.map { "\($0) Thunderbolt Device" }
             ?? "Thunderbolt Device"
         var depth = p.int("Depth") ?? depthHint

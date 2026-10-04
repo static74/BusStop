@@ -66,6 +66,26 @@ public enum TopologyBuilder {
                                                            link: thunderboltLinks[record.key], record: record)
         }
 
+        // Tunnelled transports (a dock's USB 3 or DisplayPort inside CIO) are
+        // never the port's own, but they show something is attached, and a
+        // live tunnelled USB 3 marks an otherwise anonymous device as a dock.
+        var tunneledKinds: [PortKey: Set<TransportKind>] = [:]
+        for record in ports.records {
+            let kinds = Set(TransportParser.tunneledTransports(for: record.key, transports: transports).map(\.kind))
+                .subtracting([.cc])
+            tunneledKinds[record.key] = kinds
+            if kinds.contains(.usb3), let roots = chains[record.key] {
+                chains[record.key] = roots.map { root in
+                    var node = root
+                    if node.kind == .thunderboltDevice, let id = node.registryID,
+                       thunderbolt.usbTunnelSwitchIDs.contains(id) {
+                        node.kind = .dock
+                    }
+                    return node
+                }
+            }
+        }
+
         // USB trees, attributed to ports.
         var transportPorts: [UInt64: PortKey] = [:]
         for transport in transports { transportPorts[transport.node.id] = transport.portKey }
@@ -125,7 +145,7 @@ public enum TopologyBuilder {
             var link: LinkInfo?
             for transport in active { link = LinkDecoding.faster(link, transport.link) }
             let isConnected = record.connectionActive || !active.isEmpty || !portDevices.isEmpty
-                || thunderboltLinks[record.key] != nil
+                || thunderboltLinks[record.key] != nil || !(tunneledKinds[record.key] ?? []).isEmpty
             let supported = record.supportedTransports ?? []
             let hasSocket = (record.kind == .usbC || record.kind == .thunderbolt)
                 && thunderbolt.allSockets.contains(record.number)

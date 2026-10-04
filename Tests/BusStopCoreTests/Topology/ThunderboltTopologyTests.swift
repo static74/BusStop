@@ -276,7 +276,40 @@ struct ThunderboltTopologyTests {
         #expect(port.link?.bitsPerSecond == 40_000_000_000)
     }
 
+    @Test func liveUSBTunnelMarksAnAnonymousDeviceAsADock() throws {
+        let host = F.tbSwitch(id: 1, depth: 0, ports: [F.lane(id: 2, portNumber: 1, socket: "1", speed: 0x4, width: 0x2)],
+                              ancestry: F.hostAncestry(acio: 0))
+        let device = F.tbSwitch(id: 3, parent: 1, depth: 1, uid: 3, vendor: "Acme", model: "Model X",
+                                ports: [F.adapter(id: 4, portNumber: 9, description: "USB Adapter", hops: true),
+                                        F.adapter(id: 5, portNumber: 8, description: "PCIe Adapter", hops: true)])
+        func build(tunnelledUSB3: Bool) -> PhysicalPort? {
+            var ports = [F.port(id: 10, number: 1, connected: true, active: ["CC", "CIO"]),
+                         F.transport(id: 11, parent: 10, kind: "CIO", portNumber: 1)]
+            if tunnelledUSB3 {
+                ports.append(F.transport(id: 12, parent: 11, kind: "USB3", portNumber: 1, tunneled: true))
+            }
+            return TopologyBuilder.build(F.raw(ports: ports, thunderbolt: [host, device])).ports.first
+        }
+        #expect(build(tunnelledUSB3: true)?.devices.first?.kind == .dock)
+        #expect(build(tunnelledUSB3: false)?.devices.first?.kind == .thunderboltDevice)
+        // Tunnelled transports never become the port's own.
+        #expect(build(tunnelledUSB3: true)?.activeTransports.map(\.kind) == [.cio])
+    }
+
+    @Test func tunnelledTransportsAloneMeanConnected() throws {
+        var port = F.port(id: 10, number: 1, connected: false, active: [])
+        port.properties["TransportsActive"] = nil
+        let raw = F.raw(ports: [port, F.transport(id: 12, parent: 10, kind: "USB3", portNumber: 1, tunneled: true)])
+        let result = try #require(TopologyBuilder.build(raw).ports.first)
+        #expect(result.isConnected)
+        #expect(result.activeTransports.isEmpty)
+    }
+
     @Test func modelNameCleanup() {
+        #expect(ThunderboltParser.modelName("Other World Computing Other World Computing Envoy",
+                                            vendor: "Other World Computing") == "Other World Computing Envoy")
+        #expect(ThunderboltParser.modelName("OWC Envoy", vendor: "OWC") == "OWC Envoy")
+        #expect(ThunderboltParser.modelName("OWC OWC", vendor: "OWC") == "OWC")
         #expect(ThunderboltParser.modelName("Ugreen Ugreen Revodok") == "Ugreen Revodok")
         #expect(ThunderboltParser.modelName("  Studio Display ") == "Studio Display")
         #expect(ThunderboltParser.modelName("") == nil)
