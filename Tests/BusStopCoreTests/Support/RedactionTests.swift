@@ -303,6 +303,15 @@ struct RedactionTests {
         #expect(same == plain)
     }
 
+    @Test func singleIdsForCopyDetails() {
+        #expect(Exporter.redactedID("display:1e6d:5b71:204588") == "display:1e6d:5b71:REDACTED")
+        #expect(Exporter.redactedID("display:1e6d:5b71:204588#cg2") == "display:1e6d:5b71:REDACTED#cg2")
+        #expect(Exporter.redactedID("display:1e6d:5b71:cg2") == "display:1e6d:5b71:cg2")
+        #expect(Exporter.redactedID("tb:003d5a1177c20501") == "tb:REDACTED")
+        #expect(Exporter.redactedID("tb:reg-3e8") == "tb:reg-3e8")
+        #expect(Exporter.redactedID("usb:0x01110000:04e8:61fb") == "usb:0x01110000:04e8:61fb")
+    }
+
     // MARK: Markdown
 
     @Test func markdownStripsControlCharacters() {

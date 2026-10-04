@@ -122,6 +122,15 @@ extension Exporter {
         return copy
     }
 
+    /// A device, display or diagnostic id with the serial number at the end
+    /// of a `display:` id and the UID in a `tb:` id replaced by "REDACTED",
+    /// for showing a single id (a "Copy Details" line, say) with redaction on.
+    /// USB ids carry no serial number and stay as they are.
+    public static func redactedID(_ id: String) -> String {
+        var found = Set<String>()
+        return IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
+    }
+
     /// True for property keys whose values identify a specific unit and are
     /// replaced with "REDACTED": any key containing "serial" (any case) and
     /// "ConnectionUUID". Unit identifiers that other data refers to (UIDs,
