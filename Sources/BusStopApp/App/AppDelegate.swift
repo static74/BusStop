@@ -40,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !settings.showMenuBarItem {
             WindowManager.shared.showTopology()
         }
+
+        Automation.run(statusItemController: statusItemController)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

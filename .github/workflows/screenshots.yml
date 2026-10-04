@@ -1,0 +1,96 @@
+name: Screenshots
+
+# Launches the real app on a macOS 27 runner in demo mode, captures the
+# popover, the topology window and settings, and publishes the images to the
+# `screenshots` branch for design review and the README.
+
+on:
+  push:
+    branches: [claude/bus-stop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select Xcode 27
+        run: sudo xcode-select -s /Applications/Xcode_27.0.app
+
+      - name: Try a larger display mode
+        continue-on-error: true
+        run: |
+          brew install jakehilborn/jakehilborn/displayplacer >/dev/null 2>&1 || true
+          if command -v displayplacer >/dev/null; then
+            displayplacer list | tail -40
+            ID=$(displayplacer list | awk '/Persistent screen id/ {print $4; exit}')
+            for RES in 1920x1200 1920x1080 1680x1050 1440x900; do
+              if displayplacer "id:$ID res:$RES" 2>/dev/null; then echo "Set $RES"; break; fi
+            done
+          fi
+          system_profiler SPDisplaysDataType | grep -i resolution || true
+
+      - name: Build app bundle
+        run: |
+          if [ -x scripts/build-app.sh ]; then
+            ./scripts/build-app.sh
+            echo "APP=build/Bus Stop.app" >> "$GITHUB_ENV"
+          else
+            swift build -c release --product BusStopApp
+            BIN=$(swift build -c release --show-bin-path)
+            APP="build/Bus Stop.app"
+            mkdir -p "$APP/Contents/MacOS"
+            cp "$BIN/BusStopApp" "$APP/Contents/MacOS/BusStop"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string io.github.static74.busstop" \
+              -c "Add :CFBundleExecutable string BusStop" -c "Add :CFBundleName string Bus Stop" \
+              -c "Add :CFBundlePackageType string APPL" -c "Add :LSUIElement bool true" \
+              -c "Add :CFBundleShortVersionString string 1.0.0" "$APP/Contents/Info.plist"
+            codesign --force --sign - "$APP"
+            echo "APP=$APP" >> "$GITHUB_ENV"
+          fi
+
+      - name: Capture views
+        run: |
+          set -u
+          mkdir -p shots
+          capture() {
+            local name="$1" view="$2"; shift 2
+            BUSSTOP_AUTOMATION="$view" "$APP/Contents/MacOS/BusStop" "$@" > "shots/$name.log" 2>&1 &
+            local pid=$!
+            sleep 7
+            screencapture -x "shots/$name.png" || echo "screencapture failed for $name"
+            if ! kill -0 "$pid" 2>/dev/null; then echo "::warning::App exited early during $name"; cat "shots/$name.log"; fi
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            sleep 1
+          }
+          for scenario in studioDesk travel dockStation unplugged; do
+            capture "$scenario-popover" popover -demoMode YES -demoScenario "$scenario"
+            capture "$scenario-topology" topology -demoMode YES -demoScenario "$scenario"
+          done
+          capture "live-popover" popover -demoMode NO
+          capture "live-topology" topology -demoMode NO
+          for tab in general menuBar appearance notifications ports advanced; do
+            capture "settings-$tab" "settings:$tab" -demoMode YES -demoScenario studioDesk
+          done
+          capture "about" about -demoMode YES
+          ls -la shots
+
+      - name: Publish to the screenshots branch
+        run: |
+          SRC_SHA=$(git rev-parse --short HEAD)
+          cd shots
+          git init -q -b screenshots
+          git config user.name "Bus Stop CI"
+          git config user.email "busstop-ci@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screenshots for $SRC_SHA"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screenshots
