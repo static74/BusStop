@@ -140,28 +140,50 @@ enum PowerParser {
 
     /// Why a port was picked as the charging port, strongest first.
     enum ChargerPortEvidence: Int, Comparable {
-        case magSafe = 0
-        case powerSource = 1
+        case powerSource = 0
+        case magSafe = 1
         case powerIn = 2
         case appleCharger = 3
 
         static func < (lhs: ChargerPortEvidence, rhs: ChargerPortEvidence) -> Bool { lhs.rawValue < rhs.rawValue }
     }
 
-    /// The port the Mac is charging through: a connected MagSafe port; else
-    /// a port whose `IOPortFeaturePowerSource` has a winning option; else a
-    /// port with "Power In" in `FeaturesEnabled`; else a port where an Apple
-    /// charger identified itself (`AppleUVDM` "User String"). Only connected
-    /// ports count.
-    static func chargerPort(ports: TopologyPortTable, index: TopologyNodeIndex,
-                            connected: Set<PortKey>) -> (key: PortKey, evidence: ChargerPortEvidence)? {
-        var candidates: [(PortKey, ChargerPortEvidence, Int)] = []
+    /// The adapter's rated power in mW (`AdapterDetails` or the IOPS adapter
+    /// `Watts`), for telling several charging ports apart.
+    static func adapterMilliwatts(_ raw: RawSnapshot) -> Int? {
+        let watts = [raw.battery?.bag("AdapterDetails"), raw.adapter].lazy.compactMap { $0?.int("Watts") }
+            .first { (1...10_000).contains($0) }
+        return watts.map { $0 * 1000 }
+    }
+
+    /// The port the Mac is charging through, most to least reliable
+    /// evidence (only connected ports count):
+    /// 1. a port whose `IOPortFeaturePowerSource` holds a winning option,
+    ///    that is, a live power contract;
+    /// 2. a connected MagSafe port (third-party MagSafe bricks never win a
+    ///    PD contract);
+    /// 3. a port with "Power In" in `FeaturesEnabled`;
+    /// 4. a port where an Apple charger identified itself (`AppleUVDM`
+    ///    "User String").
+    ///
+    /// Several ports can hold a winning option (a USB-C monitor that supplies
+    /// power next to the charger, or a stale MagSafe contract). macOS then
+    /// charges from the one with the most power: the port whose option is
+    /// marked `[*]`, then whose `Max Power (mW)` matches the adapter's rated
+    /// power (`adapterMilliwatts`, within 5 %), then the highest `Max Power`.
+    /// If that still leaves a tie, the answer is nil, so the charger is shown
+    /// without a port rather than on the wrong one.
+    static func chargerPort(ports: TopologyPortTable, index: TopologyNodeIndex, connected: Set<PortKey>,
+                            adapterMilliwatts: Int? = nil) -> (key: PortKey, evidence: ChargerPortEvidence)? {
+        var candidates: [(PortKey, ChargerPortEvidence)] = []
         for record in ports.records where connected.contains(record.key) {
-            if record.kind == .magSafe { candidates.append((record.key, .magSafe, 0)) }
+            if record.kind == .magSafe { candidates.append((record.key, .magSafe)) }
             if record.properties.strings("FeaturesEnabled")?.contains("Power In") == true {
-                candidates.append((record.key, .powerIn, 0))
+                candidates.append((record.key, .powerIn))
             }
         }
+        // Per port, the best winning option: (rank, Max Power).
+        var contracts: [PortKey: (rank: Int, maxPower: Int?)] = [:]
         for node in index.nodes {
             let isPowerSource = TopologyClass.has(node, prefix: "IOPortFeaturePowerSource")
                 || node.properties.has("WinningPowerSourceOption")
@@ -169,21 +191,48 @@ enum PowerParser {
                let key = ports.owner(of: node, index: index), connected.contains(key) {
                 let name = node.properties.string("PowerSourceName") ?? node.name
                 let rank = node.name.contains("[*]") ? 0 : (name.hasPrefix("USB-PD") ? 1 : name.hasPrefix("Brick") ? 2 : 3)
-                candidates.append((key, .powerSource, rank))
+                let maxPower = node.properties.bag("WinningPowerSourceOption")?.int("Max Power (mW)")
+                    .flatMap { $0 > 0 ? $0 : nil }
+                if let current = contracts[key],
+                   current.rank < rank || (current.rank == rank && (current.maxPower ?? 0) >= (maxPower ?? 0)) {
+                    continue
+                }
+                contracts[key] = (rank, maxPower)
             }
             if TopologyClass.mentions(node, "AppleUVDM") || node.properties.string("ProtocolName") == "AppleUVDM",
                let text = node.properties.string("User String")?.lowercased(),
                text.contains("adapter") || text.contains("charger"),
                let key = ports.owner(of: node, index: index), connected.contains(key) {
-                candidates.append((key, .appleCharger, 0))
+                candidates.append((key, .appleCharger))
             }
         }
+        if !contracts.isEmpty {
+            return chargingContract(contracts, adapterMilliwatts: adapterMilliwatts).map { ($0, .powerSource) }
+        }
         guard let best = candidates.min(by: { lhs, rhs in
-            if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }
-            if lhs.2 != rhs.2 { return lhs.2 < rhs.2 }
-            return lhs.0 < rhs.0
+            lhs.1 != rhs.1 ? lhs.1 < rhs.1 : lhs.0 < rhs.0
         }) else { return nil }
         return (best.0, best.1)
+    }
+
+    /// The port among several holding a winning option that the Mac charges
+    /// from, or nil when that cannot be told (see `chargerPort`).
+    private static func chargingContract(_ contracts: [PortKey: (rank: Int, maxPower: Int?)],
+                                         adapterMilliwatts: Int?) -> PortKey? {
+        guard let bestRank = contracts.values.map({ $0.rank }).min() else { return nil }
+        var pool = contracts.filter { $0.value.rank == bestRank }
+        if pool.count == 1 { return pool.first?.key }
+        if let adapter = adapterMilliwatts, adapter > 0 {
+            let matching = pool.filter { entry in
+                guard let power = entry.value.maxPower else { return false }
+                return abs(power - adapter) * 100 <= adapter * 5
+            }
+            if !matching.isEmpty { pool = matching }
+            if pool.count == 1 { return pool.first?.key }
+        }
+        let powers = pool.compactMap { $0.value.maxPower }
+        guard let most = powers.max(), powers.filter({ $0 == most }).count == 1 else { return nil }
+        return pool.first { $0.value.maxPower == most }?.key
     }
 
     /// Fills charger fields the adapter dictionaries left empty from the
@@ -229,6 +278,14 @@ enum PowerParser {
 
     /// The SMC channel for each port, joined by HPM controller UUID. A UUID
     /// shared by several ports is ambiguous and joins nothing.
+    ///
+    /// Some Macs publish a blank `UUID` on one HPM controller while the SMC
+    /// still lists its channel. That port is joined by elimination (after
+    /// WhatPort's `PortManager.joinUnidentifiedPortByElimination`), only when
+    /// everything lines up: exactly one USB-C port has no UUID, exactly one
+    /// channel's UUID belongs to no port, there is one channel per USB-C and
+    /// MagSafe port, and the spare channel's index is the port's rank among
+    /// the USB-C ports (channels count from 1).
     static func smcChannels(_ raw: RawSnapshot, ports: TopologyPortTable) -> [PortKey: SMCChannel] {
         var uuidPorts: [String: [PortKey]] = [:]
         for record in ports.records {
@@ -242,6 +299,20 @@ enum PowerParser {
                   result[keys[0]] == nil else { continue }
             result[keys[0]] = channel
         }
+
+        // Join by elimination.
+        let usbC = ports.records.filter { $0.kind == .usbC || $0.kind == .thunderbolt }
+            .sorted { ($0.number, $0.key) < ($1.number, $1.key) }
+        let unidentified = usbC.filter { normalizedUUID(raw.portControllerUUIDs[$0.key.description]) == nil }
+        let spare = raw.smcChannels.filter { channel in
+            guard let uuid = normalizedUUID(channel.uuid) else { return false }
+            return uuidPorts[uuid] == nil
+        }
+        let magSafeCount = ports.records.filter { $0.kind == .magSafe }.count
+        guard unidentified.count == 1, spare.count == 1, raw.smcChannels.count == usbC.count + magSafeCount,
+              let rank = usbC.firstIndex(where: { $0.key == unidentified[0].key }),
+              spare[0].index == rank + 1, result[unidentified[0].key] == nil else { return result }
+        result[unidentified[0].key] = spare[0]
         return result
     }
 
@@ -274,11 +345,17 @@ enum PowerParser {
     /// Power through one port, best source first: SMC, `PowerOutDetails`
     /// (USB-C only, never the charger port), telemetry or contract for the
     /// charger port, then the sum of USB allocations.
+    ///
+    /// `PowerOutDetails` can freeze at its last value after a device is
+    /// unplugged, so it counts only on a connected port, and not when the
+    /// port's SMC channel is live and reads (almost) nothing.
     static func portPower(for port: PhysicalPort, isChargerPort: Bool, charger: ChargerInfo?,
                           smc: SMCChannel?, powerOut: [Int: PortPower], telemetry: Telemetry) -> PortPower? {
         let direction: PowerDirection = isChargerPort ? .input : .output
         if let smc, let reading = smcPower(smc, direction: direction) { return reading }
-        if !isChargerPort, port.kind == .usbC || port.kind == .thunderbolt, let reading = powerOut[port.number] {
+        let smcReadsNothing = smc.map { $0.volts?.isFinite == true && $0.amps?.isFinite == true } ?? false
+        if !isChargerPort, port.isConnected, !smcReadsNothing, port.kind == .usbC || port.kind == .thunderbolt,
+           let reading = powerOut[port.number] {
             return reading
         }
         if isChargerPort {
@@ -295,12 +372,10 @@ enum PowerParser {
         return allocated > 0 ? PortPower(direction: .output, milliwatts: allocated, source: .usbAllocation) : nil
     }
 
-    /// USB power the Mac itself supplies through a port: the allocations of
-    /// the port's USB device trees, stopping at self-powered hubs. Trees
-    /// reached through a Thunderbolt / USB4 tunnel, and everything below a
-    /// Thunderbolt device, are left out: the dock or display at the far end
-    /// powers them, and the Mac's own draw there shows up in the SMC instead.
+    /// USB power the Mac itself supplies through a port
+    /// (`PhysicalPort.hostAllocatedMilliwatts`). The Mac's own draw toward a
+    /// dock or display shows up in the SMC instead.
     static func hostAllocatedMilliwatts(_ port: PhysicalPort) -> Int {
-        port.devices.filter { $0.bus == .usb && !$0.isTunneled }.reduce(0) { $0 + $1.rolledUpMilliwatts }
+        port.hostAllocatedMilliwatts
     }
 }

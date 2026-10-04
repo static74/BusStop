@@ -377,9 +377,23 @@ public struct PhysicalPort: Sendable, Hashable, Codable, Identifiable {
         devices.reduce(0) { $0 + 1 + $1.descendantCount }
     }
 
-    /// Sum of USB power allocations on this port (bus-powered subtrees only).
+    /// Sum of USB power allocations of every device tree on this port,
+    /// whoever supplies the power: trees reached through a Thunderbolt /
+    /// USB4 tunnel and devices behind a dock or display count too. Stops at
+    /// self-powered hubs. For what the Mac itself supplies, see
+    /// `hostAllocatedMilliwatts`.
     public var allocatedMilliwatts: Int {
         devices.reduce(0) { $0 + $1.rolledUpMilliwatts }
+    }
+
+    /// USB power the Mac itself supplies through this port: the allocations
+    /// of the port's own (untunnelled) USB device trees, stopping at
+    /// self-powered hubs. Trees reached through a Thunderbolt / USB4 tunnel,
+    /// and everything below a Thunderbolt device, are left out, because the
+    /// dock or display at the far end powers them. This is the figure the
+    /// builder uses for `power` when nothing better is known.
+    public var hostAllocatedMilliwatts: Int {
+        devices.filter { $0.bus == .usb && !$0.isTunneled }.reduce(0) { $0 + $1.rolledUpMilliwatts }
     }
 
     /// True when the port supports Thunderbolt / USB4.

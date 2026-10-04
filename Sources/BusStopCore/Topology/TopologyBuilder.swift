@@ -197,7 +197,8 @@ public enum TopologyBuilder {
         // Power.
         let telemetry = PowerParser.telemetry(raw.battery)
         let connected = Set(physicalPorts.filter(\.isConnected).map(\.key))
-        let chargerPort = PowerParser.chargerPort(ports: ports, index: index, connected: connected)
+        let chargerPort = PowerParser.chargerPort(ports: ports, index: index, connected: connected,
+                                                  adapterMilliwatts: PowerParser.adapterMilliwatts(raw))
         var charger = PowerParser.charger(raw, portEvidence: chargerPort != nil)
         if var found = charger, let chargerPort {
             found.portKey = chargerPort.key
