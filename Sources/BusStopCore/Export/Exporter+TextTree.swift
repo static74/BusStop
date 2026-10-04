@@ -14,10 +14,12 @@ extension Exporter {
     ///
     /// Then, when present, sections for other devices, displays and
     /// diagnostics. The output is deterministic, has no colour codes and no
-    /// trailing spaces, and ends with a newline.
+    /// trailing spaces, and ends with a newline. Text from the capture
+    /// (names, versions) goes through `Format.terminalSafe`, so it cannot
+    /// carry control characters or terminal escape sequences.
     public static func textTree(_ snapshot: HostSnapshot) -> String {
         var lines: [String] = []
-        let os = snapshot.machine.osVersion.trimmingCharacters(in: .whitespaces)
+        let os = TextTree.clean(snapshot.machine.osVersion)
         var header = "\(TextTree.clean(snapshot.machine.name)) · macOS"
         if !os.isEmpty { header += " \(os)" }
         if snapshot.isDemo { header += " · demo" }
@@ -93,7 +95,7 @@ enum TextTree {
     /// "Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W".
     static func portText(_ port: PhysicalPort) -> String {
         var columns = [clean(port.label.title)]
-        if let link = port.link { columns.append(link.label) }
+        if let link = port.link { columns.append(clean(link.label)) }
         if let charger = port.charger { columns.append(clean(charger.displayName)) }
         if let badge = powerBadge(port.power) { columns.append(badge) }
         if columns.count == 1 && port.devices.isEmpty {
@@ -125,7 +127,7 @@ enum TextTree {
     static func deviceText(_ device: DeviceNode) -> String {
         let name = clean(device.name)
         var parts = [name.isEmpty ? device.kind.displayName : name]
-        if let rate = device.link?.rateLabel ?? device.link?.generation { parts.append(rate) }
+        if let rate = device.link?.rateLabel ?? device.link?.generation { parts.append(clean(rate)) }
         let milliwatts = device.rolledUpMilliwatts
         if milliwatts > 0 { parts.append(Format.power(milliwatts: milliwatts)) }
         return parts.joined(separator: " · ")
@@ -152,14 +154,12 @@ enum TextTree {
         }
     }
 
-    /// Text with control characters (including escape sequences) replaced by
-    /// spaces and surrounding whitespace removed, so device-supplied names
-    /// cannot break lines or inject terminal codes.
+    /// Text with control and format characters (including escape sequences)
+    /// replaced by spaces and surrounding whitespace removed, so
+    /// device-supplied names cannot break lines or inject terminal codes.
+    /// See `Format.terminalSafe`.
     static func clean(_ text: String) -> String {
-        let scalars = text.unicodeScalars.map { scalar -> Character in
-            CharacterSet.controlCharacters.contains(scalar) ? " " : Character(scalar)
-        }
-        return String(scalars).trimmingCharacters(in: .whitespaces)
+        Format.terminalSafe(text)
     }
 
     static func trimTrailing(_ line: String) -> String {
