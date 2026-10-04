@@ -102,9 +102,11 @@ for arch in "${ARCH_LIST[@]}"; do
     bin_path="$(swift build -c "$CONFIGURATION" ${arch_args[@]+"${arch_args[@]}"} --show-bin-path)"
     [[ -x "$bin_path/BusStopApp" ]] || fail "BusStopApp was not found in $bin_path"
     [[ -x "$bin_path/busstop" ]] || fail "busstop was not found in $bin_path"
+    # Staged as "app" and "cli": "BusStop" and "busstop" would be one file on
+    # a case-insensitive volume.
     mkdir -p "$STAGE/$arch"
-    cp "$bin_path/BusStopApp" "$STAGE/$arch/BusStop"
-    cp "$bin_path/busstop" "$STAGE/$arch/busstop"
+    cp "$bin_path/BusStopApp" "$STAGE/$arch/app"
+    cp "$bin_path/busstop" "$STAGE/$arch/cli"
 done
 
 # Copies one staged binary into the bundle, merging architectures with lipo.
@@ -128,8 +130,8 @@ log "Assembling $APP"
 rm -rf "$APP" "$ZIP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
 
-install_binary BusStop "$APP/Contents/MacOS/BusStop"
-install_binary busstop "$APP/Contents/Helpers/busstop"
+install_binary app "$APP/Contents/MacOS/BusStop"
+install_binary cli "$APP/Contents/Helpers/busstop"
 
 cp Support/Info.plist "$APP/Contents/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"

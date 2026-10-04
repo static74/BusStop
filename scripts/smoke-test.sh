@@ -166,6 +166,11 @@ if [[ "$(cat "$APP/Contents/PkgInfo" 2> /dev/null)" == "APPL????" ]]; then
 else
     failed "PkgInfo does not read APPL????"
 fi
+if cmp -s "$APP_BINARY" "$CLI"; then
+    failed "Contents/MacOS/BusStop and Contents/Helpers/busstop are the same binary"
+else
+    pass "the app and the CLI are different binaries"
+fi
 if [[ ! -x "$CLI" ]]; then
     printf 'FAIL: the bundled CLI is missing, so nothing else can be checked.\n'
     exit 1
