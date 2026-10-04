@@ -31,6 +31,10 @@ struct USBForest {
 /// Builds USB device trees from `RawSnapshot.usbDevices` and ties each tree
 /// to a physical port (SPEC §5.4 "USB device attribution").
 enum USBTreeBuilder {
+    /// Deepest level of a built USB tree (0 = root). Real hardware stops at
+    /// seven tiers; anything deeper comes from a malformed capture.
+    static let maxTreeDepth = 32
+
     static func build(_ input: [RawUSBDevice], context: USBAttributionContext, options: BuildOptions) -> USBForest {
         var seen = Set<UInt64>()
         let devices = input.filter { seen.insert($0.id).inserted }.sorted { $0.id < $1.id }
@@ -66,13 +70,20 @@ enum USBTreeBuilder {
         }
 
         // Builds a device and its subtree, once each, even if the capture
-        // contains a parent cycle.
+        // contains a parent cycle. Below `maxTreeDepth` levels children are
+        // left out; they stay unplaced and start trees of their own below,
+        // so a hand-made capture with a very long chain cannot exhaust the
+        // stack here or in the passes that walk the tree later.
         var placed = Set<UInt64>()
-        func makeTree(_ id: UInt64, inheritedTunnel: Bool) -> DeviceNode? {
+        func makeTree(_ id: UInt64, inheritedTunnel: Bool, depth: Int = 0) -> DeviceNode? {
             guard placed.insert(id).inserted, let device = byID[id] else { return nil }
             var node = makeNode(device, options: options)
             node.isTunneled = node.isTunneled || inheritedTunnel
-            node.children = (children[id] ?? []).compactMap { makeTree($0, inheritedTunnel: node.isTunneled) }
+            if depth < maxTreeDepth {
+                node.children = (children[id] ?? []).compactMap {
+                    makeTree($0, inheritedTunnel: node.isTunneled, depth: depth + 1)
+                }
+            }
             node.kind = DeviceClassifier.refineHub(node)
             return node
         }

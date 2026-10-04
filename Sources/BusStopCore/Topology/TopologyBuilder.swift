@@ -140,15 +140,25 @@ public enum TopologyBuilder {
                 .compactMap(\.registryID)
             return !ids.isEmpty && ids.allSatisfy(thunderbolt.noVideoSwitchIDs.contains)
         })
+        var displayTunnels: [PortKey: Int] = [:]
+        for (key, roots) in chains {
+            let ids = roots.flatMap { $0.flattened().map(\.device) }.filter { $0.bus == .thunderbolt }
+                .compactMap(\.registryID)
+            let count = ids.reduce(0) { $0 + (thunderbolt.liveDisplayTunnels[$1] ?? 0) }
+            if count > 0 { displayTunnels[key] = count }
+        }
         let attributions = DisplayParser.attribute(displays, dpTransports: dpTransports, chainsByPort: chains,
                                                    videoPorts: videoPorts, nativeVideoPorts: nativeVideoPorts,
-                                                   idleThunderboltPorts: idleThunderboltPorts)
+                                                   idleThunderboltPorts: idleThunderboltPorts,
+                                                   displayTunnels: displayTunnels)
         var displayInfos: [DisplayInfo] = []
         for var display in displays {
             if let attribution = attributions[display.id] {
                 display.portKey = attribution.portKey
                 display.link = attribution.link
-                if !attribution.representedByThunderbolt {
+                if attribution.representedByThunderbolt {
+                    display.representingDeviceID = attribution.representingDeviceID
+                } else {
                     devices[attribution.portKey, default: []].append(DisplayParser.deviceNode(display, attribution: attribution))
                 }
             }

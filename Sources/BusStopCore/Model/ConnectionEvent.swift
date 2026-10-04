@@ -25,9 +25,21 @@ public struct ConnectionEvent: Sendable, Hashable, Codable, Identifiable {
     public var deviceID: String?
     /// For `.linkChanged`: true when the new link is slower.
     public var isDowngrade: Bool
+    /// For `.diagnosticRaised`: the diagnostic's severity. Info findings
+    /// (charging on hold, a Thunderbolt bottleneck, a deep chain, reduced
+    /// detail) belong in the event log but are not worth an alert, so
+    /// notifications should skip events whose severity is `.info`. Nil for
+    /// other kinds and for events stored before this field existed.
+    public var severity: DiagnosticSeverity?
+    /// What the event is about: the device id, display id or diagnostic id,
+    /// or `"charger"`. The same subject keeps the same value from event to
+    /// event, so it can key de-duplication (a diagnostic that clears and
+    /// comes back). Nil for events stored before this field existed.
+    public var subjectID: String?
 
     public init(id: String, date: Date, kind: Kind, title: String, detail: String, portKey: PortKey? = nil,
-                deviceID: String? = nil, isDowngrade: Bool = false) {
+                deviceID: String? = nil, isDowngrade: Bool = false, severity: DiagnosticSeverity? = nil,
+                subjectID: String? = nil) {
         self.id = id
         self.date = date
         self.kind = kind
@@ -36,6 +48,8 @@ public struct ConnectionEvent: Sendable, Hashable, Codable, Identifiable {
         self.portKey = portKey
         self.deviceID = deviceID
         self.isDowngrade = isDowngrade
+        self.severity = severity
+        self.subjectID = subjectID
     }
 
     public var symbolName: String {
