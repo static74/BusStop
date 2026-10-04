@@ -111,7 +111,7 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 - **`BusStopCore` stays Foundation-only** (no IOKit, AppKit, SwiftUI or CoreGraphics), so it builds and tests on Linux. Hardware access belongs in `BusStopKit`.
 - **Read every IORegistry key defensively.** Keys can be missing or have an unexpected type on another Mac or macOS version, and keys starting with `Apple` are not API. Use the optional accessors on `PropertyBag` and `PlistValue`; never force-unwrap or force-cast registry data.
 - **Avoid Foundation's type names** for new types: `Port`, `Process`, `Host`, `Thread`, `Timer` and the like collide on macOS (Foundation's `NSPort` is imported as `Port`).
-- **Document types and non-obvious members** with `///` comments. Explain why, not just what.
+- **Document types and non-obvious members** with `///` comments, including the reason behind anything surprising.
 - **Plain, direct English** in comments and user-facing text. No emoji.
 - Four-space indentation, lines up to about 120 characters, one type per file where practical.
 - Guard APIs newer than macOS 26 with `#available(macOS 27, *)`, and code that needs the macOS 27 SDK with `#if compiler(>=6.4)`, so the project still builds with Xcode 26.6.
