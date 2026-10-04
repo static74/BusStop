@@ -1,0 +1,85 @@
+name: Release
+
+# Pushing a tag such as v1.0.0 builds a universal, ad-hoc-signed app, runs the
+# smoke test and publishes a GitHub release with the zip and its SHA-256.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The build number in Info.plist is the commit count.
+          fetch-depth: 0
+      - name: Select Xcode 27
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          xcodebuild -version
+          swift --version
+          sw_vers
+      - name: Read the version from the tag
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          source_version="$(sed -nE 's/.*static let string = "([^"]+)".*/\1/p' Sources/BusStopCore/Version.swift | head -n 1)"
+          if [ "$version" != "$source_version" ]; then
+            echo "::warning::Tag $GITHUB_REF_NAME does not match BusStopVersion.string ($source_version). The CLI outside the app bundle will report $source_version."
+          fi
+      - name: Test
+        run: swift test
+      - name: Assemble app bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ARCHS: universal
+        run: ./scripts/build-app.sh
+      - name: Smoke-test
+        run: ./scripts/smoke-test.sh
+      - name: Checksum and release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd build
+          shasum -a 256 BusStop.zip | tee BusStop.zip.sha256
+          checksum="$(cut -d ' ' -f 1 BusStop.zip.sha256)"
+          # The CHANGELOG section for this version, without its heading.
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if (index($0, "[" v "]") || index($0, " " v " ") || $0 == "## " v) { found = 1; next } }
+            found { print }
+          ' ../CHANGELOG.md > notes.md
+          {
+            echo
+            echo "## Install"
+            echo
+            echo "1. Download BusStop.zip, open it and move Bus Stop to Applications."
+            echo "2. Bus Stop is signed ad hoc, not notarized. The first time, open it, then go to"
+            echo "   System Settings › Privacy & Security and click Open Anyway next to the Bus Stop message."
+            echo "3. The command-line tool is inside the app at"
+            echo "   \`Bus Stop.app/Contents/Helpers/busstop\`."
+            echo
+            echo "SHA-256 of BusStop.zip: \`$checksum\`"
+          } >> notes.md
+          cat notes.md
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Bus Stop ${{ steps.version.outputs.version }}
+          body_path: build/notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            build/BusStop.zip
+            build/BusStop.zip.sha256
