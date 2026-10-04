@@ -118,7 +118,9 @@ public struct PowerSummary: Sendable, Hashable, Codable {
     public var systemLoadMilliwatts: Int?
     /// Sum of measured or estimated power delivered out of the ports, mW.
     public var portOutputMilliwatts: Int
-    /// Sum of USB power allocations across all ports, mW.
+    /// Sum of USB power allocations drawn from the Mac's own ports, mW.
+    /// Devices behind a Thunderbolt dock or a self-powered hub are left out,
+    /// because their power comes from that dock or hub.
     public var usbAllocatedMilliwatts: Int
     public var hasBattery: Bool
 

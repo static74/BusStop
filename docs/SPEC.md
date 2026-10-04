@@ -128,7 +128,7 @@ Local `UserNotifications`. Title names the device; body names the port and link,
 
 ### 3.6 Command-line tool
 
-`busstop` (built alongside the app, also embedded in the app bundle at `Contents/MacOS/busstop`):
+`busstop` (built alongside the app, also embedded in the app bundle at `Contents/Helpers/busstop`, because `busstop` and `BusStop` would collide in `Contents/MacOS` on a case-insensitive disk):
 
 ```
 busstop                 # human-readable tree
