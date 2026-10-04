@@ -2,8 +2,8 @@ import Dispatch
 import Foundation
 
 /// Decides when a requested capture runs. `LiveMonitor` owns one on its queue
-/// and only does the cancelling and `asyncAfter` the answers call for, so the
-/// coalescing rules can be tested with chosen times and no IOKit.
+/// and only cancels and queues the work items it asks for, so the coalescing
+/// rules can be tested with chosen times and no IOKit.
 ///
 /// Urgent requests (start, poll ticks, `refreshNow`, the UI appearing) run as
 /// soon as the queue is free. Other requests (IOKit, power-source and display
