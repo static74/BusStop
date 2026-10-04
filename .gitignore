@@ -8,3 +8,6 @@ xcuserdata/
 .DS_Store
 /Packages
 *.zip
+
+# Local agent worktrees and tool state
+.claude/
