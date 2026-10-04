@@ -42,6 +42,22 @@ struct RegistryCaptureTests {
         }
     }
 
+    @Test func concurrentCapturesAreSafe() async {
+        let counts = await withTaskGroup(of: [Int].self) { group in
+            for _ in 0..<4 {
+                group.addTask {
+                    let raw = RegistryCapture.capture()
+                    return [raw.portNodes.count, raw.usbDevices.count, raw.displays.count]
+                }
+            }
+            var results: [[Int]] = []
+            for await result in group { results.append(result) }
+            return results
+        }
+        #expect(counts.count == 4)
+        #expect(Set(counts).count == 1)
+    }
+
     @Test func captureWithoutSMC() {
         let raw = RegistryCapture.capture(includeSMC: false)
         #expect(raw.smcChannels.isEmpty)

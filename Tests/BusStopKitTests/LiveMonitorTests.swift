@@ -96,6 +96,25 @@ struct LiveMonitorTests {
         monitor.stop()
     }
 
+    @Test func rapidStartStopCyclesDeliverNothingAfterStop() async throws {
+        let recorder = SnapshotRecorder()
+        for _ in 0..<10 {
+            let monitor = LiveMonitor(configuration: Self.configuration)
+            monitor.start { raw in recorder.snapshots.append(raw) }
+            monitor.refreshNow()
+            monitor.setUIVisible(true)
+            monitor.stop()
+            #expect(monitor.registrations == LiveMonitor.Registrations(
+                isRunning: false, matchIterators: 0, interestNotifications: 0,
+                hasNotificationPort: false, hasPollTimer: false, hasPowerSourceNotification: false
+            ))
+        }
+        // Each monitor was stopped before the main actor could run any
+        // delivery it queued, so every delivery is dropped.
+        try await Task.sleep(for: .milliseconds(1_000))
+        #expect(recorder.snapshots.isEmpty)
+    }
+
     @Test func releasingTheMonitorTearsDown() async throws {
         var monitor: LiveMonitor? = LiveMonitor(configuration: Self.configuration)
         let recorder = SnapshotRecorder()
