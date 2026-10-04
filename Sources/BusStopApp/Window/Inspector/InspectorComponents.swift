@@ -131,7 +131,8 @@ struct PortNameEditor: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            TextField(placeholder, text: $draft)
+            TextField("Port name", text: $draft, prompt: Text(placeholder))
+                .labelsHidden()
                 .focused($isFocused)
                 .onSubmit(commit)
                 .accessibilityLabel("Name for \(port.label.title)")

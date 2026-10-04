@@ -78,6 +78,7 @@ struct TopologyOutlineView: View {
                 onToggle: { toggle(row.id) }
             )
             .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 12))
+            .selectionDisabled(isDeparting)
         case .display(let display, let depth):
             OutlineDisplayRow(display: display, depth: depth)
                 .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 12))

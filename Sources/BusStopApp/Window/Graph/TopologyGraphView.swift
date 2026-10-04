@@ -38,9 +38,16 @@ struct TopologyGraphView: View {
                 .frame(width: layout.size.width * scale, height: layout.size.height * scale, alignment: .topLeading)
                 .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
             }
-            .overlay(alignment: .bottomTrailing) {
-                GraphZoomControl(zoom: $zoom, fitZoom: fitZoom(content: layout.size, viewport: proxy.size))
-                    .padding(16)
+            .overlay(alignment: .bottom) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    ViewThatFits(in: .horizontal) {
+                        GraphSpeedLegend()
+                        Color.clear.frame(width: 0, height: 0)
+                    }
+                    Spacer(minLength: 0)
+                    GraphZoomControl(zoom: $zoom, fitZoom: fitZoom(content: layout.size, viewport: proxy.size))
+                }
+                .padding(16)
             }
         }
         .simultaneousGesture(
@@ -144,7 +151,7 @@ struct GraphCanvas: View {
             GraphBackdrop(hostFrame: layout.hostNode?.frame)
             GraphLinksLayer(strokes: GraphPaint.strokes(for: layout, dimmed: dimmed))
             GraphPulseLayer(tracks: GraphPaint.pulseTracks(for: layout, dimmed: dimmed), animate: animate)
-            GraphChipsLayer(edges: layout.edges, dimmed: dimmed)
+            GraphChipsLayer(edges: layout.edges, dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6)
             ForEach(layout.nodes) { node in
                 GraphNodeView(
                     node: node,
@@ -220,5 +227,43 @@ struct GraphZoomControl: View {
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
+    }
+}
+
+/// Key for the link colours: one swatch per speed tier.
+struct GraphSpeedLegend: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(SpeedTier.allCases, id: \.self) { tier in
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(Lagoon.linkColor(tier))
+                        .frame(width: 16, height: Lagoon.linkWidth(tier))
+                        .shadow(color: Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
+                    Text(Self.title(tier))
+                        .font(.caption2.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Lagoon.textSecondary)
+                        .fixedSize()
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
+        .overlay(Capsule().strokeBorder(Lagoon.stroke, lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Link colours: dim for USB 2, brighter and thicker for faster links, glowing at 40 gigabits per second and above")
+    }
+
+    static func title(_ tier: SpeedTier) -> String {
+        switch tier {
+        case .legacy: return "USB 2"
+        case .gbps5: return "5 Gb/s"
+        case .gbps10: return "10 Gb/s"
+        case .gbps20: return "20 Gb/s"
+        case .gbps40: return "40 Gb/s"
+        case .gbps80: return "80+ Gb/s"
+        }
     }
 }

@@ -200,6 +200,8 @@ struct GraphPulseLayer: View {
 struct GraphChipsLayer: View {
     var edges: [GraphEdge]
     var dimmed: Set<String>
+    /// Chips never grow wider than the gap between columns.
+    var maxChipWidth: CGFloat = 84
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -207,7 +209,8 @@ struct GraphChipsLayer: View {
                 if let link = edge.link, let point = edge.chipPoint {
                     SpeedChip(link: link)
                         .background(Capsule().fill(Lagoon.background))
-                        .fixedSize()
+                        .frame(maxWidth: maxChipWidth)
+                        .fixedSize(horizontal: false, vertical: true)
                         .position(point)
                         .opacity(dimmed.contains(edge.toID) ? 0.25 : 1)
                 }
