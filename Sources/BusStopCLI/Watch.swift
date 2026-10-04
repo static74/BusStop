@@ -149,7 +149,8 @@ final class WatchSession {
             }
             return #"{"error":"could not encode event"}"#
         }
-        var text = "\(timeFormatter.string(from: event.date)) \(Self.marker(for: event)) \(Format.terminalSafe(event.title))"
+        let title = Format.terminalSafe(event.title)
+        var text = "\(timeFormatter.string(from: event.date)) \(Self.marker(for: event)) \(title)"
         let detail = Format.terminalSafe(event.detail)
         if !detail.isEmpty { text += " · \(detail)" }
         return text
