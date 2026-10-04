@@ -51,6 +51,7 @@ struct DeviceRowView: View {
             if !isDeparting {
                 if let link = device.link {
                     SpeedChip(link: link)
+                        .fixedSize()
                 }
                 if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0 {
                     Text(Format.power(milliwatts: milliwatts))

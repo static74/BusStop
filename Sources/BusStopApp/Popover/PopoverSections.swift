@@ -75,6 +75,7 @@ private struct DisplayRow: View {
             Spacer(minLength: 4)
             if let link = display.link {
                 SpeedChip(link: link)
+                    .fixedSize()
             }
         }
         .contentShape(Rectangle())
