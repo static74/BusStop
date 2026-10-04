@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Checks a bundle made by scripts/build-app.sh: layout, Info.plist, signature
-# and icon; the bundled CLI against every demo scenario and against this Mac;
-# and that the app is still running a few seconds after launch.
+# Checks a bundle made by scripts/build-app.sh: layout, licence notices,
+# Info.plist, signature and icon; the zip next to it; the bundled CLI against
+# every demo scenario and against this Mac; and that the app is still running
+# a few seconds after launch.
 #
 # Usage: scripts/smoke-test.sh [--skip-live] [path/to/Bus Stop.app]
 #
@@ -23,7 +24,7 @@ for argument in "$@"; do
     case "$argument" in
         --skip-live) SKIP_LIVE=1 ;;
         -h | --help)
-            sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         -*) printf 'smoke-test.sh: unknown option %s\n' "$argument" >&2; exit 2 ;;
@@ -34,13 +35,14 @@ done
 CLI="$APP/Contents/Helpers/busstop"
 APP_BINARY="$APP/Contents/MacOS/BusStop"
 PLIST="$APP/Contents/Info.plist"
+ZIP="$(dirname "$APP")/BusStop.zip"
 OUT="$ROOT/build/smoke"
 DEMOS=(studioDesk travel dockStation unplugged)
 CLI_TIME_LIMIT=120
 FAILURES=()
 CHECKS=0
 
-for tool in plutil codesign lipo iconutil python3; do
+for tool in plutil codesign lipo iconutil python3 zipinfo; do
     if ! command -v "$tool" > /dev/null 2>&1; then
         printf 'smoke-test.sh: %s was not found; run this on macOS with Xcode installed.\n' "$tool" >&2
         exit 1
@@ -132,6 +134,25 @@ plist_key() {
     fi
 }
 
+# Checks that a licence file exists, is not empty and names everyone it must.
+# Usage: notice_file LABEL FILE TEXT...
+notice_file() {
+    local label="$1" file="$2" text missing=()
+    shift 2
+    if [[ ! -s "$file" ]]; then
+        failed "$label is missing or empty"
+        return
+    fi
+    for text in "$@"; do
+        grep -qF "$text" "$file" || missing+=("$text")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        pass "$label carries $(printf "'%s' " "$@")"
+    else
+        failed "$label lacks $(printf "'%s' " "${missing[@]}")"
+    fi
+}
+
 # Prints the newest crash report for a process name, if there is one.
 show_crash_report() {
     local name="$1" report
@@ -213,6 +234,31 @@ if cmp -s "$APP_BINARY" "$CLI"; then
     failed "Contents/MacOS/BusStop and Contents/Helpers/busstop are the same binary"
 else
     pass "the app and the CLI are different binaries"
+fi
+
+# The MIT licences of PortScope, WhatPort and WhatCable require their notices
+# in every copy of the software.
+LICENCE_TEXT="Permission is hereby granted"
+notice_file "Contents/Resources/LICENSE.txt" "$APP/Contents/Resources/LICENSE.txt" "$LICENCE_TEXT"
+notice_file "Contents/Resources/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md" \
+    "PortScope" "Alex Zenla" "WhatPort" "WhatCable" "Darryl Morley" "$LICENCE_TEXT"
+
+section "Zip: $ZIP"
+if [[ -f "$ZIP" ]]; then
+    ZIP_LIST="$OUT/zip-contents.txt"
+    if zipinfo -1 "$ZIP" > "$ZIP_LIST" 2> "$ZIP_LIST.stderr"; then
+        cat "$ZIP_LIST"
+        for entry in "Bus Stop.app/Contents/MacOS/BusStop" "Bus Stop.app/Contents/Helpers/busstop" \
+            "Bus Stop.app/Contents/Resources/LICENSE.txt" "Bus Stop.app/Contents/Resources/THIRD_PARTY_NOTICES.md" \
+            "LICENSE.txt" "THIRD_PARTY_NOTICES.md"; do
+            if grep -qxF "$entry" "$ZIP_LIST"; then pass "the zip holds $entry"; else failed "the zip lacks $entry"; fi
+        done
+    else
+        show stderr "$ZIP_LIST.stderr"
+        failed "zipinfo cannot read $ZIP"
+    fi
+else
+    printf 'No zip next to the app; skipping the zip checks.\n'
 fi
 if [[ ! -x "$CLI" ]]; then
     printf 'FAIL: the bundled CLI is missing, so nothing else can be checked.\n'

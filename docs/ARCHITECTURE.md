@@ -131,7 +131,7 @@ A Mac missing from the catalogue still works; it just shows generic names until 
 |---|---|
 | `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`, on Linux and macOS. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures) and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, determinism and robustness against missing or wrongly typed keys. |
 | `BusStopKit` | `Tests/BusStopKitTests` on macOS: the CF bridge, a live capture on the CI machine, rapid `LiveMonitor` start and stop cycles. |
-| Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), `--watch` stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
+| Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle and the zip, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
 | App UI | Built on both supported Xcode versions in CI; checked by hand with demo mode. |
 
 CI runs on every push:
@@ -154,8 +154,13 @@ Bus Stop.app/
     MacOS/BusStop           the app
     Helpers/busstop         the command-line tool
     Resources/AppIcon.icns  drawn by scripts/make-icon.py
+    Resources/LICENSE.txt   Bus Stop's MIT License
+    Resources/THIRD_PARTY_NOTICES.md
+                            the MIT notices of PortScope, WhatPort and WhatCable
 ```
 
 The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed ad hoc with the hardened runtime (helper first, then the bundle). The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
+
+The MIT licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. The smoke test checks both.
 
 When `busstop` runs from inside the bundle (directly or through the symbolic link `scripts/install.sh --link-cli` makes), `--version` reads the bundle's `Info.plist`, so it reports the same version and build as the app.

@@ -70,6 +70,9 @@ jobs:
             echo "3. The command-line tool is inside the app at"
             echo "   \`Bus Stop.app/Contents/Helpers/busstop\`."
             echo
+            echo "The zip also holds LICENSE.txt and THIRD_PARTY_NOTICES.md, the licences of Bus Stop"
+            echo "and of the MIT-licensed projects it builds on. The app carries copies in Contents/Resources."
+            echo
             echo "SHA-256 of BusStop.zip: \`$checksum\`"
           } >> notes.md
           cat notes.md
