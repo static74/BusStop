@@ -23,6 +23,9 @@ struct TopologyOutlineView: View {
         Group {
             if sections.isEmpty {
                 PortListEmptyView(state: PortListEmptyState.resolve(searchText: searchText, store: store), store: store)
+                    .onChange(of: scrollRequest, initial: true) { _, request in
+                        if request != nil { scrollRequest = nil }
+                    }
             } else {
                 ScrollViewReader { proxy in
                     list(sections)

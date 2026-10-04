@@ -31,6 +31,10 @@ struct TopologyGraphView: View {
         let layout = GraphLayout.make(input, metrics: GraphMetrics.standard.scaled(by: textScale))
         if Self.isOnlyHost(input) {
             PortListEmptyView(state: PortListEmptyState.resolve(searchText: "", store: store), store: store)
+                .onChange(of: scrollRequest, initial: true) { _, request in
+                    // Nothing to scroll to; do not leave the request for a later graph.
+                    if request != nil { scrollRequest = nil }
+                }
         } else {
             graph(layout)
         }
