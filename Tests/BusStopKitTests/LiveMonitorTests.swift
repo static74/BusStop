@@ -96,6 +96,24 @@ struct LiveMonitorTests {
         monitor.stop()
     }
 
+    @Test func showingTheUICapturesAtOnce() async throws {
+        // Polls far apart, so only showing the UI can cause the capture.
+        let monitor = LiveMonitor(configuration: LiveMonitor.Configuration(
+            visibleInterval: 30, backgroundInterval: 30, debounce: 0.1, includeSMC: false
+        ))
+        let recorder = SnapshotRecorder()
+        monitor.start { raw in recorder.snapshots.append(raw) }
+        try await wait(timeout: 10) { !recorder.snapshots.isEmpty }
+        // Let the start-up capture age past the window in which it counts as fresh.
+        try await Task.sleep(for: .milliseconds(800))
+
+        let count = monitor.completedCaptures
+        monitor.setUIVisible(true)
+        try await wait(timeout: 5) { monitor.completedCaptures > count }
+        #expect(monitor.completedCaptures > count)
+        monitor.stop()
+    }
+
     @Test func burstOfChangesCoalescesIntoOneCapture() async throws {
         let monitor = LiveMonitor(configuration: LiveMonitor.Configuration(
             visibleInterval: 30, backgroundInterval: 30, debounce: 0.1, includeSMC: false

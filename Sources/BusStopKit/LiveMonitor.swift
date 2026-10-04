@@ -87,6 +87,8 @@ public final class LiveMonitor: @unchecked Sendable {
     private var pendingCapture: DispatchWorkItem?
     /// Coalescing state of `pendingCapture` (see `CaptureScheduler`).
     private var scheduler = CaptureScheduler()
+    /// When the last capture finished; poll deadlines are measured from it.
+    private var lastCaptureTime: DispatchTime?
     private var captureCount = 0
 
     public init(configuration: Configuration = Configuration()) {
@@ -140,11 +142,21 @@ public final class LiveMonitor: @unchecked Sendable {
         queue.async { [weak self] in self?.scheduleCapture(urgent: true) }
     }
 
-    /// Switches between the visible and background polling intervals.
+    /// Switches between the visible and background polling intervals. When
+    /// the UI appears it also captures at once, so it shows fresh power
+    /// values instead of the last background capture.
     public func setUIVisible(_ visible: Bool) {
         queue.async { [weak self] in
             guard let self else { return }
+            let capturesNow = Self.capturesOnVisibilityChange(
+                wasVisible: self.uiVisible, visible: visible, lastCapture: self.lastCaptureTime, now: .now()
+            )
             self.uiVisible = visible
+            if capturesNow {
+                // Before the timer update, so the next poll is one interval
+                // after this capture.
+                self.scheduleCapture(urgent: true)
+            }
             self.updatePollTimer()
         }
     }
@@ -375,6 +387,7 @@ public final class LiveMonitor: @unchecked Sendable {
         guard isRunning, let handler else { return }
         let raw = RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
         captureCount += 1
+        lastCaptureTime = .now()
         let generation = self.generation
         let gate = self.gate
         DispatchQueue.main.async {
@@ -385,13 +398,19 @@ public final class LiveMonitor: @unchecked Sendable {
         }
     }
 
+    /// Creates the poll timer, or moves its next tick when the interval
+    /// changes (see `nextPollDeadline`).
     private func updatePollTimer() {
         guard isRunning else { return }
         let interval = Self.pollInterval(visible: uiVisible, configuration: configuration)
         let leeway = DispatchTimeInterval.milliseconds(max(10, Int(interval * 100)))
         if let timer = pollTimer {
             guard pollInterval != interval else { return }
-            timer.schedule(deadline: .now() + interval, repeating: interval, leeway: leeway)
+            let deadline = Self.nextPollDeadline(
+                now: .now(), lastCapture: lastCaptureTime,
+                captureImminent: scheduler.hasPending && scheduler.pendingIsUrgent, interval: interval
+            )
+            timer.schedule(deadline: deadline, repeating: interval, leeway: leeway)
         } else {
             let timer = DispatchSource.makeTimerSource(queue: queue)
             timer.setEventHandler { [weak self] in self?.pollTick() }

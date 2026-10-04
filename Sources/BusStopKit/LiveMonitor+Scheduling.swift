@@ -73,7 +73,8 @@ struct CaptureScheduler: Sendable, Equatable {
 // MARK: - Poll timing
 
 extension LiveMonitor {
-    /// Shortest polling interval accepted, in seconds.
+    /// Shortest polling interval accepted, in seconds. The UI appearing does
+    /// not capture again when a capture finished more recently than this.
     static let minimumPollInterval: TimeInterval = 0.5
     /// Longest polling interval accepted, in seconds.
     static let maximumPollInterval: TimeInterval = 3_600
@@ -92,5 +93,27 @@ extension LiveMonitor {
     static func pollInterval(visible: Bool, configuration: Configuration) -> TimeInterval {
         let requested = visible ? configuration.visibleInterval : configuration.backgroundInterval
         return clamp(requested, to: minimumPollInterval...maximumPollInterval, fallback: fallbackPollInterval)
+    }
+
+    /// When the next poll is due after the polling interval changes to
+    /// `interval`. Measured from the last capture, so showing and hiding the
+    /// UI in quick succession cannot keep pushing the poll back, and hiding it
+    /// does not delay a poll that was nearly due. When a capture is about to
+    /// run (`captureImminent`), or none has run yet, it is one interval from
+    /// `now`. Never earlier than `now`.
+    static func nextPollDeadline(now: DispatchTime, lastCapture: DispatchTime?, captureImminent: Bool,
+                                 interval: TimeInterval) -> DispatchTime {
+        guard !captureImminent, let lastCapture else { return now + interval }
+        return max(now, lastCapture + interval)
+    }
+
+    /// Whether a visibility change should capture at once: only when the UI
+    /// appears (hidden to visible), and not when a capture finished less than
+    /// `minimumPollInterval` before `now`, since that one is still fresh.
+    static func capturesOnVisibilityChange(wasVisible: Bool, visible: Bool, lastCapture: DispatchTime?,
+                                           now: DispatchTime) -> Bool {
+        guard visible && !wasVisible else { return false }
+        guard let lastCapture else { return true }
+        return now >= lastCapture + minimumPollInterval
     }
 }

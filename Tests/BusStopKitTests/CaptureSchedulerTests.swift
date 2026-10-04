@@ -145,4 +145,108 @@ struct CaptureSchedulerTests {
         #expect(LiveMonitor.pollInterval(visible: true, configuration: invalid) == LiveMonitor.fallbackPollInterval)
         #expect(LiveMonitor.pollInterval(visible: false, configuration: invalid) == LiveMonitor.minimumPollInterval)
     }
+
+    @Test func pollDeadlineCountsFromTheLastCapture() {
+        // No capture yet, or one about to run: one interval from now.
+        #expect(LiveMonitor.nextPollDeadline(now: at(5), lastCapture: nil, captureImminent: false, interval: 2)
+                == at(5) + 2)
+        #expect(LiveMonitor.nextPollDeadline(now: at(5), lastCapture: at(4), captureImminent: true, interval: 2)
+                == at(5) + 2)
+        // Otherwise one interval after the last capture, so hiding the UI
+        // does not delay a background poll that was nearly due...
+        #expect(LiveMonitor.nextPollDeadline(now: at(5), lastCapture: at(4), captureImminent: false, interval: 10)
+                == at(4) + 10)
+        // ...and never in the past.
+        #expect(LiveMonitor.nextPollDeadline(now: at(5), lastCapture: at(1), captureImminent: false, interval: 2)
+                == at(5))
+    }
+
+    @Test func onlyShowingTheUICapturesAtOnce() {
+        let now = at(10)
+        #expect(LiveMonitor.capturesOnVisibilityChange(wasVisible: false, visible: true, lastCapture: nil, now: now))
+        #expect(LiveMonitor.capturesOnVisibilityChange(wasVisible: false, visible: true, lastCapture: at(8), now: now))
+        // A capture that just finished is fresh enough.
+        #expect(!LiveMonitor.capturesOnVisibilityChange(wasVisible: false, visible: true, lastCapture: at(9.8),
+                                                       now: now))
+        // A second window appearing, or the UI hiding, does not capture.
+        #expect(!LiveMonitor.capturesOnVisibilityChange(wasVisible: true, visible: true, lastCapture: at(1), now: now))
+        #expect(!LiveMonitor.capturesOnVisibilityChange(wasVisible: true, visible: false, lastCapture: at(1), now: now))
+        #expect(!LiveMonitor.capturesOnVisibilityChange(wasVisible: false, visible: false, lastCapture: at(1),
+                                                       now: now))
+    }
+
+    /// Quick popover glances used to re-phase the poll timer on every change
+    /// without capturing, so neither the visible nor the background deadline
+    /// was ever reached and power values froze.
+    @Test(arguments: [0.3, 0.4, 1.0, 1.9])
+    func quickGlancesKeepPowerValuesFresh(glance: TimeInterval) throws {
+        let configuration = LiveMonitor.Configuration(visibleInterval: 2, backgroundInterval: 10)
+        var toggles: [(time: Double, visible: Bool)] = []
+        var time = glance
+        while time < 60 {
+            toggles.append((time, true))
+            toggles.append((time + glance, false))
+            time += glance * 2
+        }
+        let captures = simulate(toggles: toggles, until: 60, configuration: configuration)
+
+        // Every glance shows a capture under half a second old.
+        for toggle in toggles where toggle.visible {
+            let now = at(toggle.time)
+            #expect(captures.contains { $0 <= now && now < $0 + LiveMonitor.minimumPollInterval })
+        }
+        // Captures are never further apart than the background interval.
+        for (earlier, later) in zip(captures, captures.dropFirst()) {
+            #expect(later <= earlier + 10)
+        }
+        #expect(try #require(captures.last) + 10 >= at(60))
+    }
+
+    @Test func pollsKeepTheirCadenceWhileTheUIStaysVisible() {
+        let configuration = LiveMonitor.Configuration(visibleInterval: 2, backgroundInterval: 10)
+        let captures = simulate(toggles: [(5, true), (20, false)], until: 40, configuration: configuration)
+        // Start-up capture at 0. The UI appears at 5 s and captures then,
+        // polls every 2 s from that capture, and once it hides the next
+        // background poll is 10 s after the last capture.
+        let expected: [Double] = [0, 5, 7, 9, 11, 13, 15, 17, 19, 29, 39]
+        #expect(captures == expected.map { at($0) })
+    }
+
+    /// Replays visibility changes against the poll policy the way
+    /// `LiveMonitor` applies it, with captures taking no time. Returns the
+    /// capture times, starting with the one `start()` makes at zero.
+    private func simulate(toggles: [(time: Double, visible: Bool)], until end: Double,
+                          configuration: LiveMonitor.Configuration) -> [DispatchTime] {
+        var visible = false
+        var interval = LiveMonitor.pollInterval(visible: visible, configuration: configuration)
+        var captures = [at(0)]
+        var timer = at(0) + interval
+
+        func runTimer(until now: DispatchTime) {
+            while timer <= now {
+                captures.append(timer)
+                timer = timer + interval
+            }
+        }
+
+        for toggle in toggles {
+            let now = at(toggle.time)
+            runTimer(until: now)
+            let capturesNow = LiveMonitor.capturesOnVisibilityChange(
+                wasVisible: visible, visible: toggle.visible, lastCapture: captures.last, now: now
+            )
+            visible = toggle.visible
+            let newInterval = LiveMonitor.pollInterval(visible: visible, configuration: configuration)
+            if newInterval != interval {
+                interval = newInterval
+                timer = LiveMonitor.nextPollDeadline(now: now, lastCapture: captures.last,
+                                                     captureImminent: capturesNow, interval: interval)
+            }
+            if capturesNow {
+                captures.append(now)
+            }
+        }
+        runTimer(until: at(end))
+        return captures
+    }
 }
