@@ -129,7 +129,7 @@ final class PortStore {
     }
 
     /// Ports in the order chosen in settings, optionally without empty ones.
-    var visiblePorts: [Port] {
+    var visiblePorts: [PhysicalPort] {
         var ports = snapshot.ports
         if settings.hideEmptyPorts { ports = ports.filter(\.isConnected) }
         if settings.portOrder == .connectedFirst {

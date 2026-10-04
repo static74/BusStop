@@ -122,7 +122,7 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
     public var capturedAt: Date
     public var machine: MachineSummary
     /// Physical ports in physical order (catalogue order, then kind and number).
-    public var ports: [Port]
+    public var ports: [PhysicalPort]
     /// Devices that could not be tied to a port.
     public var otherDevices: [DeviceNode]
     public var displays: [DisplayInfo]
@@ -131,7 +131,7 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
     public var captureNotes: [String]
     public var isDemo: Bool
 
-    public init(capturedAt: Date, machine: MachineSummary, ports: [Port] = [], otherDevices: [DeviceNode] = [],
+    public init(capturedAt: Date, machine: MachineSummary, ports: [PhysicalPort] = [], otherDevices: [DeviceNode] = [],
                 displays: [DisplayInfo] = [], power: PowerSummary = PowerSummary(), diagnostics: [Diagnostic] = [],
                 captureNotes: [String] = [], isDemo: Bool = false) {
         self.capturedAt = capturedAt
@@ -151,7 +151,7 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
                      machine: MachineSummary(model: "Mac", name: "This Mac", osVersion: "", isLaptop: false))
     }
 
-    public var connectedPorts: [Port] { ports.filter(\.isConnected) }
+    public var connectedPorts: [PhysicalPort] { ports.filter(\.isConnected) }
 
     /// Devices on every port plus unattributed ones, counting every level.
     public var deviceCount: Int {
@@ -159,8 +159,8 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
     }
 
     /// Every device with the port it hangs off (nil for unattributed) and its depth.
-    public var allDevices: [(device: DeviceNode, port: Port?, depth: Int)] {
-        var result: [(DeviceNode, Port?, Int)] = []
+    public var allDevices: [(device: DeviceNode, port: PhysicalPort?, depth: Int)] {
+        var result: [(DeviceNode, PhysicalPort?, Int)] = []
         for port in ports {
             for (device, depth) in port.allDevices { result.append((device, port, depth)) }
         }
@@ -170,10 +170,10 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
         return result
     }
 
-    public func port(_ key: PortKey) -> Port? { ports.first { $0.key == key } }
+    public func port(_ key: PortKey) -> PhysicalPort? { ports.first { $0.key == key } }
 
     /// The port a device hangs off, by device ID.
-    public func port(containing deviceID: String) -> Port? {
+    public func port(containing deviceID: String) -> PhysicalPort? {
         ports.first { port in port.allDevices.contains { $0.device.id == deviceID } }
     }
 

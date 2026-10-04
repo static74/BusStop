@@ -312,7 +312,7 @@ public struct PortStatistics: Sendable, Hashable, Codable {
 }
 
 /// One physical port on the Mac and everything attached to it.
-public struct Port: Sendable, Hashable, Codable, Identifiable {
+public struct PhysicalPort: Sendable, Hashable, Codable, Identifiable {
     public var key: PortKey
     public var kind: PortKind
     public var number: Int
