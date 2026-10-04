@@ -13,6 +13,8 @@ struct GraphNodeView: View {
     var onSelect: () -> Void
 
     @State private var isHovered = false
+    @State private var hasAppeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -30,6 +32,12 @@ struct GraphNodeView: View {
         }
         .opacity(isDimmed ? 0.28 : 1)
         .onHover { isHovered = $0 }
+        // New nodes fade in and slide 8 pt from their link (SPEC §4.5).
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(x: hasAppeared || reduceMotion ? 0 : -8)
+        .onAppear {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) { hasAppeared = true }
+        }
     }
 
     private var card: some View {
