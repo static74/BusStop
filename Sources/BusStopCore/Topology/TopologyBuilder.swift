@@ -211,7 +211,7 @@ public enum TopologyBuilder {
             portOutputMilliwatts: physicalPorts.reduce(0) { total, port in
                 port.power?.direction == .output ? total + (port.power?.milliwatts ?? 0) : total
             },
-            usbAllocatedMilliwatts: physicalPorts.reduce(0) { $0 + $1.allocatedMilliwatts },
+            usbAllocatedMilliwatts: physicalPorts.reduce(0) { $0 + PowerParser.hostAllocatedMilliwatts($1) },
             hasBattery: hasBattery)
 
         // Physical order.

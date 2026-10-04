@@ -291,7 +291,16 @@ enum PowerParser {
             }
             return nil
         }
-        let allocated = port.allocatedMilliwatts
+        let allocated = hostAllocatedMilliwatts(port)
         return allocated > 0 ? PortPower(direction: .output, milliwatts: allocated, source: .usbAllocation) : nil
+    }
+
+    /// USB power the Mac itself supplies through a port: the allocations of
+    /// the port's USB device trees, stopping at self-powered hubs. Trees
+    /// reached through a Thunderbolt / USB4 tunnel, and everything below a
+    /// Thunderbolt device, are left out: the dock or display at the far end
+    /// powers them, and the Mac's own draw there shows up in the SMC instead.
+    static func hostAllocatedMilliwatts(_ port: PhysicalPort) -> Int {
+        port.devices.filter { $0.bus == .usb && !$0.isTunneled }.reduce(0) { $0 + $1.rolledUpMilliwatts }
     }
 }
