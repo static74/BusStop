@@ -211,7 +211,7 @@ enum WindowText {
 }
 
 /// A power figure ready for a `PowerBadge`.
-struct WindowPowerReading: Equatable {
+nonisolated struct WindowPowerReading: Sendable, Equatable {
     var milliwatts: Int
     var direction: PowerDirection
     var isMeasured: Bool
@@ -253,6 +253,33 @@ nonisolated enum TopologySearch {
         var copy = device
         copy.children = children
         return copy
+    }
+}
+
+// MARK: - Displays outside device trees
+
+/// External displays that CoreGraphics reports but the device trees do not
+/// contain, so the graph and the list can still show them.
+nonisolated enum TopologyExtras {
+    /// Displays tied to one of `ports` but missing from that port's tree.
+    static func portDisplays(in snapshot: HostSnapshot, ports: [PhysicalPort]) -> [PortKey: [DisplayInfo]] {
+        var result: [PortKey: [DisplayInfo]] = [:]
+        for port in ports {
+            let shown = Set(port.allDevices.filter { $0.device.kind == .display }.map(\.device.name))
+            let missing = snapshot.displays.filter {
+                $0.portKey == port.key && !$0.isBuiltin && !shown.contains($0.name)
+            }
+            if !missing.isEmpty { result[port.key] = missing }
+        }
+        return result
+    }
+
+    /// External displays not tied to any port and not among the other devices.
+    static func otherDisplays(in snapshot: HostSnapshot) -> [DisplayInfo] {
+        let shown = Set(snapshot.otherDevices.flatMap { $0.flattened() }
+            .filter { $0.device.kind == .display }
+            .map(\.device.name))
+        return snapshot.displays.filter { !$0.isBuiltin && $0.portKey == nil && !shown.contains($0.name) }
     }
 }
 

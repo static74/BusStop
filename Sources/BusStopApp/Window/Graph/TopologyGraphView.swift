@@ -81,26 +81,11 @@ struct TopologyGraphView: View {
             }
         }
 
-        var portDisplays: [PortKey: [DisplayInfo]] = [:]
-        for port in ports {
-            let shown = Set(port.allDevices.filter { $0.device.kind == .display }.map(\.device.name))
-            let missing = snapshot.displays.filter { $0.portKey == port.key && !$0.isBuiltin && !shown.contains($0.name) }
-            if !missing.isEmpty { portDisplays[port.key] = missing }
-        }
-
-        var otherDisplays: [DisplayInfo] = []
-        if includeOther {
-            let shown = Set(snapshot.otherDevices.flatMap { $0.flattened() }
-                .filter { $0.device.kind == .display }
-                .map(\.device.name))
-            otherDisplays = snapshot.displays.filter { !$0.isBuiltin && $0.portKey == nil && !shown.contains($0.name) }
-        }
-
         return GraphInput(
             ports: ports,
             otherDevices: includeOther ? snapshot.otherDevices : [],
-            otherDisplays: otherDisplays,
-            portDisplays: portDisplays,
+            otherDisplays: includeOther ? TopologyExtras.otherDisplays(in: snapshot) : [],
+            portDisplays: TopologyExtras.portDisplays(in: snapshot, ports: ports),
             departingByPort: departingByPort,
             departingOther: departingOther
         )
