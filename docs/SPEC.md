@@ -173,7 +173,7 @@ Link-speed ramp (colour and stroke width of topology links): USB 1/2 `#3C5E5A` 1
 
 ### 4.3 Typography
 
-SF Pro via system fonts. Titles `.headline` semibold; values `.body` with `.monospacedDigit()`; chips `.caption` semibold with rounded design; machine name `.title3` bold. All sizes scale with the Text Size setting through `dynamicTypeSize`.
+SF Pro via system fonts. Titles `.headline` semibold; values `.body` with `.monospacedDigit()`; chips `.caption` semibold with rounded design; machine name `.title3` bold. All sizes scale with the Text Size setting (90 %, 100 %, 115 %, 130 %) through the `lagoonFont` modifier and the `lagoonTextScale` environment value, because macOS does not scale text styles with `dynamicTypeSize`.
 
 ### 4.4 Materials and glass
 
