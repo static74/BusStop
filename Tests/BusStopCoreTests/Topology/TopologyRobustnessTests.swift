@@ -110,7 +110,7 @@ struct TopologyRobustnessTests {
     }
 
     @Test func randomCapturesNeverCrash() throws {
-        var rng = SplitMix64(seed: 0xB05_5709)
+        var rng = TopologyTestRandom(seed: 0xB05_5709)
         var portsSeen = 0
         var devicesSeen = 0
         var attributedSeen = 0
@@ -187,7 +187,7 @@ struct TopologyRobustnessTests {
                                   "AppleT8132USBXHCI", "AppleT6050USBXHCIAUSS", "AppleEmbeddedUSBXHCIFL1100",
                                   "IOThunderboltPort", "IOPCI2PCIBridge", "Other"]
 
-    static func randomValue(_ rng: inout SplitMix64, depth: Int = 0) -> PlistValue {
+    static func randomValue(_ rng: inout TopologyTestRandom, depth: Int = 0) -> PlistValue {
         switch rng.next(12) {
         case 0, 1, 2, 3: return oddValues[rng.next(oddValues.count)]
         case 4: return .int(Int64(rng.next(20)))
@@ -203,20 +203,20 @@ struct TopologyRobustnessTests {
         }
     }
 
-    static func randomBag(_ rng: inout SplitMix64, count: Int, depth: Int = 0) -> PropertyBag {
+    static func randomBag(_ rng: inout TopologyTestRandom, count: Int, depth: Int = 0) -> PropertyBag {
         var bag = PropertyBag()
         for _ in 0..<count { bag[knownKeys[rng.next(knownKeys.count)]] = randomValue(&rng, depth: depth) }
         return bag
     }
 
-    static func randomAncestry(_ rng: inout SplitMix64) -> [RawAncestor] {
+    static func randomAncestry(_ rng: inout TopologyTestRandom) -> [RawAncestor] {
         (0..<rng.next(6)).map { _ in
             RawAncestor(id: UInt64(rng.next(40)), className: ancestorClasses[rng.next(ancestorClasses.count)],
                         name: ancestorNames[rng.next(ancestorNames.count)])
         }
     }
 
-    static func randomRaw(_ rng: inout SplitMix64) -> RawSnapshot {
+    static func randomRaw(_ rng: inout TopologyTestRandom) -> RawSnapshot {
         func id() -> UInt64 { UInt64(rng.next(40)) }
         var nodes: [RawNode] = []
         for _ in 0..<rng.next(14) {
@@ -273,8 +273,8 @@ struct TopologyRobustnessTests {
     }
 }
 
-/// A small deterministic generator (SplitMix64) so random tests repeat exactly.
-struct SplitMix64 {
+/// A small deterministic generator (TopologyTestRandom) so random tests repeat exactly.
+struct TopologyTestRandom {
     private var state: UInt64
 
     init(seed: UInt64) { state = seed }
