@@ -33,6 +33,10 @@ final class PortStore {
     private(set) var hasLoaded = false
     private(set) var departing: [DepartingDevice] = []
     var selection: StoreSelection? = .host
+    /// Bumped by `reveal(_:)`. The topology window watches it to navigate to
+    /// the selection (switch sidebar section, scroll the graph, show the
+    /// inspector) even when the selection itself did not change.
+    private(set) var revealGeneration = 0
 
     /// Called with the events of each refresh (used for notifications).
     @ObservationIgnored var onEvents: (([ConnectionEvent]) -> Void)?
@@ -136,6 +140,12 @@ final class PortStore {
             ports = ports.filter(\.isConnected) + ports.filter { !$0.isConnected }
         }
         return ports
+    }
+
+    /// Selects `selection` and asks the topology window to bring it into view.
+    func reveal(_ selection: StoreSelection) {
+        self.selection = selection
+        revealGeneration += 1
     }
 
     func departing(on key: PortKey?) -> [DepartingDevice] {

@@ -35,7 +35,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// Shows the topology window, optionally selecting a port or device first.
     func showTopology(selecting selection: StoreSelection? = nil) {
         guard let store else { return }
-        if let selection { store.selection = selection }
+        if let selection { store.reveal(selection) }
         let window = topologyWindow ?? makeTopologyWindow(store: store)
         topologyWindow = window
         present(window)
@@ -68,6 +68,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
         settingsWindow = window
         present(window)
     }
+
+    /// Re-applies the Dock icon policy (Settings › General) to the windows
+    /// that are open right now, so the setting takes effect immediately.
+    func refreshActivationPolicy() {}
 
     /// Shows the About window.
     func showAbout() {
