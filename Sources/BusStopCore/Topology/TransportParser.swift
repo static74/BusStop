@@ -40,7 +40,7 @@ enum TransportParser {
     /// True for `IOPortTransportState*` nodes and anything else that
     /// describes itself with `TransportTypeDescription`.
     static func isTransportNode(_ node: RawNode) -> Bool {
-        node.className.hasPrefix("IOPortTransportState") || node.properties.has("TransportTypeDescription")
+        TopologyClass.has(node, prefix: "IOPortTransportState") || node.properties.has("TransportTypeDescription")
     }
 
     /// The transport kind from `TransportTypeDescription`, else from the
@@ -51,8 +51,8 @@ enum TransportParser {
             return kind
         }
         let prefix = "IOPortTransportState"
-        if node.className.hasPrefix(prefix) {
-            return TransportKind(ioKitName: String(node.className.dropFirst(prefix.count)))
+        if let className = TopologyClass.first(node, prefix: prefix) {
+            return TransportKind(ioKitName: String(className.dropFirst(prefix.count)))
         }
         return nil
     }
@@ -162,8 +162,8 @@ enum TransportParser {
             .filter { isCableMarker($0) && ports.owner(of: $0, index: index) == record.key }
             .min { lhs, rhs in
                 // Prefer the near end (SOP') over the far end (SOP'').
-                let l = lhs.className.hasSuffix("SOPpp") ? 1 : 0
-                let r = rhs.className.hasSuffix("SOPpp") ? 1 : 0
+                let l = isFarEnd(lhs) ? 1 : 0
+                let r = isFarEnd(rhs) ? 1 : 0
                 return l != r ? l < r : lhs.id < rhs.id
             }
 
@@ -187,6 +187,8 @@ enum TransportParser {
             if info.typeDescription == nil { info.typeDescription = decoded.typeDescription }
             if info.isActive == nil, let active = decoded.isActive { info.isActive = active }
         }
+        if info.vendorID == nil { info.vendorID = plainInt(mp["Vendor ID"]) }
+        if info.productID == nil { info.productID = plainInt(mp["Product ID"]) }
         if info.isActive == nil, let type = info.typeDescription?.lowercased() {
             if type.contains("active") { info.isActive = true } else if type.contains("passive") { info.isActive = false }
         }
@@ -195,9 +197,24 @@ enum TransportParser {
 
     /// True for SOP' and SOP'' component nodes (the cable's e-marker).
     static func isCableMarker(_ node: RawNode) -> Bool {
-        if node.className.hasPrefix("IOPortTransportComponentCCUSBPDSOPp") { return true }
+        if TopologyClass.has(node, prefix: "IOPortTransportComponentCCUSBPDSOPp") { return true }
         let name = node.properties.string(["ComponentName", "AddressDescription", "Address Description"])
         return name == "SOP'" || name == "SOP''"
+    }
+
+    /// The far end of the cable (SOP'').
+    static func isFarEnd(_ node: RawNode) -> Bool {
+        if TopologyClass.first(node, prefix: "IOPortTransportComponentCCUSBPDSOPp")?.hasSuffix("SOPpp") == true {
+            return true
+        }
+        return node.properties.string(["ComponentName", "AddressDescription", "Address Description"]) == "SOP''"
+    }
+
+    /// A positive 16-bit ID stored as a number. IDs stored as `Data` are
+    /// big-endian on these nodes, so they are not decoded here.
+    static func plainInt(_ value: PlistValue?) -> Int? {
+        guard case .int(let v)? = value, v > 0, v <= 0xFFFF else { return nil }
+        return Int(v)
     }
 
     /// A VDO as a 32-bit value: 4-byte little-endian `Data` or a number.
@@ -264,7 +281,7 @@ enum TransportParser {
                                ports: TopologyPortTable) -> Bool {
         if record.properties.bool("LDCM_LiquidDetected") == true { return true }
         return index.nodes.contains { node in
-            let isLDCM = node.className.hasPrefix("AppleHPMLDCM")
+            let isLDCM = TopologyClass.has(node, prefix: "AppleHPMLDCM")
                 || node.properties.string("FeatureTypeDescription") == "LDCM"
             return isLDCM && node.properties.bool("LiquidDetected") == true
                 && ports.owner(of: node, index: index) == record.key

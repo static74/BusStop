@@ -163,7 +163,7 @@ enum PowerParser {
             }
         }
         for node in index.nodes {
-            let isPowerSource = node.className.hasPrefix("IOPortFeaturePowerSource")
+            let isPowerSource = TopologyClass.has(node, prefix: "IOPortFeaturePowerSource")
                 || node.properties.has("WinningPowerSourceOption")
             if isPowerSource, TopologyValues.isEmpty(node.properties["WinningPowerSourceOption"]) == false,
                let key = ports.owner(of: node, index: index), connected.contains(key) {
@@ -171,7 +171,7 @@ enum PowerParser {
                 let rank = node.name.contains("[*]") ? 0 : (name.hasPrefix("USB-PD") ? 1 : name.hasPrefix("Brick") ? 2 : 3)
                 candidates.append((key, .powerSource, rank))
             }
-            if node.className.contains("AppleUVDM") || node.properties.string("ProtocolName") == "AppleUVDM",
+            if TopologyClass.mentions(node, "AppleUVDM") || node.properties.string("ProtocolName") == "AppleUVDM",
                let text = node.properties.string("User String")?.lowercased(),
                text.contains("adapter") || text.contains("charger"),
                let key = ports.owner(of: node, index: index), connected.contains(key) {
@@ -193,7 +193,7 @@ enum PowerParser {
                        index: TopologyNodeIndex) {
         for node in index.nodes where ports.owner(of: node, index: index) == port {
             let p = node.properties
-            if node.className.contains("AppleUVDM") || p.string("ProtocolName") == "AppleUVDM" {
+            if TopologyClass.mentions(node, "AppleUVDM") || p.string("ProtocolName") == "AppleUVDM" {
                 if charger.name == nil { charger.name = TopologyText.clean(p.string("User String")) }
                 if charger.manufacturer == nil { charger.manufacturer = TopologyText.clean(p.string("Vendor")) }
                 if charger.serialNumber == nil { charger.serialNumber = TopologyText.clean(p.string("Serial Number")) }

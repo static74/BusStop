@@ -217,6 +217,29 @@ struct PortTopologyTests {
         #expect(cable?.vendorID == nil)
     }
 
+    @Test func subclassesAreRecognisedThroughTheClassChain() throws {
+        // A driver subclass without TransportTypeDescription, a subclassed
+        // e-marker with IDs as plain numbers, and a subclassed LDCM feature.
+        let transport = RawNode(id: 2, parentID: 1, className: "AppleHPMTransportUSB3",
+                                classChain: ["AppleHPMTransportUSB3", "IOPortTransportStateUSB3", "IOPortTransportState"],
+                                name: "USB3", properties: ["Active": true, "SuperSpeedSignaling": 2])
+        let marker = RawNode(id: 3, parentID: 1, className: "AppleHPMCableMarker",
+                             classChain: ["AppleHPMCableMarker", "IOPortTransportComponentCCUSBPDSOPp"],
+                             name: "SOP'", properties: ["Vendor ID": 0x2B89, "Product ID": .data(Data([0x12, 0x34])),
+                                                        "Product Type Description": "Passive Cable"])
+        let ldcm = RawNode(id: 4, parentID: 1, className: "AppleHPMLiquidSensor",
+                           classChain: ["AppleHPMLiquidSensor", "AppleHPMLDCMType9"], name: "LDCM",
+                           properties: ["LiquidDetected": true])
+        let raw = F.raw(ports: [F.port(id: 1, number: 1, connected: true, active: ["CC", "USB3"]), transport, marker, ldcm])
+        let port = try #require(TopologyBuilder.build(raw).ports.first)
+        #expect(port.activeTransports.map(\.kind) == [.usb3])
+        #expect(port.link?.label == "USB 3.2 Gen 2 @ 10 Gb/s")
+        #expect(port.cable?.vendorID == 0x2B89)
+        #expect(port.cable?.productID == nil)
+        #expect(port.cable?.isActive == false)
+        #expect(port.liquidDetected)
+    }
+
     @Test func liquidDetection() {
         let byPortKey = TopologyBuilder.build(F.raw(ports: [
             F.port(id: 1, number: 1, extra: ["LDCM_LiquidDetected": true]), F.port(id: 2, number: 2),

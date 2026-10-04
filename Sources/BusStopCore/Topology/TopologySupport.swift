@@ -35,6 +35,26 @@ struct TopologyNodeIndex {
     }
 }
 
+/// Class-name checks that also look at the recorded superclass chain, so a
+/// driver subclass of a known class is still recognised.
+enum TopologyClass {
+    /// True when the node's class or a recorded superclass starts with `prefix`.
+    static func has(_ node: RawNode, prefix: String) -> Bool {
+        node.className.hasPrefix(prefix) || node.classChain.contains { $0.hasPrefix(prefix) }
+    }
+
+    /// The first of the class and its superclasses that starts with `prefix`.
+    static func first(_ node: RawNode, prefix: String) -> String? {
+        if node.className.hasPrefix(prefix) { return node.className }
+        return node.classChain.first { $0.hasPrefix(prefix) }
+    }
+
+    /// True when the class or a recorded superclass contains `text`.
+    static func mentions(_ node: RawNode, _ text: String) -> Bool {
+        node.className.contains(text) || node.classChain.contains { $0.contains(text) }
+    }
+}
+
 /// Small string helpers shared by the topology parsers.
 enum TopologyText {
     /// Trims whitespace and NULs; returns nil for empty strings and for

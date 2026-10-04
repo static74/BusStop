@@ -138,7 +138,9 @@ enum PortParser {
     /// `PortNumber`, has no `ParentPortType` (transports and features carry
     /// one), and is not marked `BuiltIn = No` (inductive and virtual ports).
     static func isPortNode(_ node: RawNode) -> Bool {
-        if node.className.hasPrefix("IOPortTransport") || node.className.hasPrefix("IOPortFeature") { return false }
+        if TopologyClass.has(node, prefix: "IOPortTransport") || TopologyClass.has(node, prefix: "IOPortFeature") {
+            return false
+        }
         let p = node.properties
         guard let description = p.string("PortTypeDescription"), p.int("PortNumber") != nil else { return false }
         if p.has("ParentPortType") || p.has("ParentBuiltInPortType") { return false }
