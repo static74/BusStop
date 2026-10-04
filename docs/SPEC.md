@@ -229,7 +229,7 @@ IOKit / IOPS / SMC / CoreGraphics
    PortStore (@Observable, @MainActor) → SwiftUI views, status item text
 ```
 
-- `LiveMonitor` triggers a full capture on any IOKit match/terminate/interest notification (debounced 250 ms), on power-source and display changes, and on a timer (power polling every 2 s while UI is visible, every 10 s otherwise for the menu bar text).
+- `LiveMonitor` triggers a full capture on any IOKit match/terminate/interest notification (debounced 250 ms, a burst never delays a capture by more than 1 s), on power-source and display changes, when the popover or a window appears, and on a timer (power polling every 2 s while UI is visible, every 10 s otherwise for the menu bar text). Poll deadlines are measured from the last capture, so quickly opening and closing the popover cannot starve them.
 - Captures run on one serial background queue and never overlap. Results are delivered to the main actor.
 - Demo mode swaps the capture source for `DemoScenarios`, which produce `RawSnapshot` values, so the same builder path is exercised.
 
@@ -269,7 +269,7 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 4. `usb-drdN` `port-number`.
 5. Otherwise "Unattributed" (shown in an "Other devices" section). Internal devices behind `usb-auss` / `AppleUSBXHCIAUSS` and Apple internal hubs (`USBPortType == 2`) are excluded.
 
-**USB device tree.** Parent = nearest `IOUSBHostDevice` ancestor. Hubs are `bDeviceClass == 9`. A USB 3 hub and its USB 2 companion (same vendor, consecutive ports) are shown as one hub when both are present.
+**USB device tree.** Parent = nearest `IOUSBHostDevice` ancestor. Hubs are `bDeviceClass == 9`. A USB 3 hub and its USB 2 companion are shown as one hub when both are present: same vendor and a matching name on the same physical port, and below the first level also the same downstream port and tier depth. When several candidates tie, nothing is merged. Trees are cut at 32 levels and Thunderbolt chains at 64 to stay safe on malformed captures.
 
 **Speed.** `UsbLinkSpeed` (bits/s) first; else `Device Speed` (0 Low 1.5 Mb/s, 1 Full 12 Mb/s, 2 High 480 Mb/s, 3 SuperSpeed 5 Gb/s, 4 SuperSpeed+ 10 Gb/s, 5 SuperSpeed+ 20 Gb/s); else `USBSpeed` (`tIOUSBHostConnectionSpeed`: 1 Full, 2 Low, 3 High, 4 Super, 5 Super+, 6 Super+ 2x2). Never mix the two enums.
 
@@ -284,11 +284,11 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 
 **Power.**
 - Charger: `AdapterDetails` / IOPS adapter: `Name`, `Manufacturer`, `Watts`, `AdapterVoltage` (mV), `Current` (mA), `UsbHvcMenu` (PDOs, keys `MaxVoltage`/`MaxCurrent` or `Voltage`/`Current`), `UsbHvcHvcIndex` (active PDO), `IsWireless`.
-- Which port the charger is on: `IOPortFeaturePowerSource` with a winning option, or `FeaturesEnabled` containing "Power In", or MagSafe with `ConnectionActive`.
+- Which port the charger is on, strongest evidence first: an `IOPortFeaturePowerSource` with a winning option (when several ports have one, the `[*]`-marked source wins, then the one within 5 % of the adapter's watts, then the most power; a remaining tie leaves the charger without a port), then a connected MagSafe port, then `FeaturesEnabled` containing "Power In", then an Apple charger identity (`AppleUVDM` "User String").
 - System input: `PowerTelemetryData.SystemPowerIn` (mW), `SystemLoad`, `BatteryPower`.
 - Per-port output, best source first: SMC `DxJV × DxJI` joined by HPM `UUID` = `DxUI`; then `PowerOutDetails[].Watts` (mW) joined by `PortIndex` = USB-C port number; then the sum of USB allocations.
 
-**Displays.** A display is attached to a port through `IOPortTransportStateDisplayPort` (`ProductName`) or a Thunderbolt "DP or HDMI Adapter" with a non-empty `Hop Table`. If exactly one port carries DisplayPort, all external displays go there. Otherwise displays without a confident port are listed under "Other displays".
+**Displays.** A display is attached to a port through `IOPortTransportStateDisplayPort` (`ProductName`) or a Thunderbolt "DP or HDMI Adapter" with a non-empty `Hop Table`. If exactly one port carries video and exactly one external display is left, it goes there. Several remaining displays go to the single video port only when that port shows enough display links for all of them (DisplayPort transports or live Thunderbolt display tunnels). Otherwise displays without a confident port are listed under "Other displays" (this keeps Sidecar and AirPlay displays off physical ports).
 
 **Diagnostics.**
 
@@ -322,7 +322,7 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 - No network code, no analytics, no crash reporting. The app does not request the network client entitlement.
 - Reads only: IORegistry properties, the power-source API and the SMC read selectors.
 - Unsandboxed, hardened-runtime-compatible, ad-hoc signed in CI. Users who build from source run their own binary.
-- Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default).
+- Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default). Redaction also replaces per-unit identifiers: Thunderbolt router UIDs (also inside `tb:` device ids), HPM controller and SMC channel UUIDs, USB and DisplayID container IDs, `ConnectionUUID`, EDID and DisplayID serial fields, and the computer name. Stand-ins keep their shape so a redacted raw capture still builds the same topology. `busstop --watch` and "Copy Details" apply the same redaction.
 
 ---
 

@@ -35,6 +35,11 @@ final class NotificationManager {
 
     /// Events of the current burst, oldest first.
     private var pending: [ConnectionEvent] = []
+    /// When each diagnostic last raised an alert, keyed by its subject. A
+    /// finding that clears and comes back (a flaky cable, a charger hold that
+    /// toggles) alerts at most once per `diagnosticCooldown`.
+    private var lastDiagnosticAlert: [String: Date] = [:]
+    static let diagnosticCooldown: TimeInterval = 30 * 60
     private var burstStart: Date?
     private var flushTask: Task<Void, Never>?
 
@@ -66,13 +71,15 @@ final class NotificationManager {
     /// stay in the event log only.
     func post(_ events: [ConnectionEvent], settings: AppSettings, diagnostics: [Diagnostic] = []) {
         guard isAvailable, !events.isEmpty else { return }
+        let now = Date()
         let wanted = events.filter { event in
-            Self.isEnabled(event, settings: settings, severity: Self.severity(of: event, in: diagnostics))
+            let severity = event.severity ?? Self.severity(of: event, in: diagnostics)
+            guard Self.isEnabled(event, settings: settings, severity: severity) else { return false }
+            return !isCoolingDown(event, now: now)
         }
         guard !wanted.isEmpty else { return }
 
         pending += wanted
-        let now = Date()
         let start = burstStart ?? now
         burstStart = start
         let deadline = min(now.addingTimeInterval(Self.quietWindow),
@@ -104,6 +111,18 @@ final class NotificationManager {
     /// Whether the user's toggles allow a notification for this event.
     /// A new finding notifies only when it is a warning or worse; pass its
     /// `severity` when known (unknown counts as a warning).
+    /// True for a diagnostic that already alerted within the cooldown.
+    /// Records the alert time otherwise.
+    private func isCoolingDown(_ event: ConnectionEvent, now: Date) -> Bool {
+        guard event.kind == .diagnosticRaised else { return false }
+        let subject = event.subjectID ?? event.title
+        if let last = lastDiagnosticAlert[subject], now.timeIntervalSince(last) < Self.diagnosticCooldown {
+            return true
+        }
+        lastDiagnosticAlert[subject] = now
+        return false
+    }
+
     static func isEnabled(_ event: ConnectionEvent, settings: AppSettings,
                           severity: DiagnosticSeverity? = nil) -> Bool {
         switch event.kind {

@@ -440,7 +440,7 @@ struct DisplayInspector: View {
         InspectorSection(title: "Display") {
             InspectorRow(label: "Name", value: display.name, copyable: true)
             InspectorRow(label: "Mode", value: display.modeDescription)
-            InspectorRow(label: "Refresh rate", value: display.refreshHz.map { "\(Int($0.rounded())) Hz" })
+            InspectorRow(label: "Refresh rate", value: display.refreshHz.flatMap { Int(exactly: $0.rounded()) }.map { "\($0) Hz" })
             InspectorRow(label: "Vendor ID", value: display.vendorID.map(Format.hex4), monospaced: true)
             InspectorRow(label: "Product ID", value: display.productID.map(Format.hex4), monospaced: true)
             InspectorRow(label: "Serial number", value: display.serialNumber.map { "\($0)" }, monospaced: true, copyable: true)

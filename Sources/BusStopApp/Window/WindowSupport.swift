@@ -116,8 +116,10 @@ enum WindowText {
         if let power = port.power, let milliwatts = power.milliwatts, milliwatts > 0, power.direction != .none {
             return WindowPowerReading(milliwatts: milliwatts, direction: power.direction, isMeasured: power.isMeasured)
         }
-        if port.allocatedMilliwatts > 0 {
-            return WindowPowerReading(milliwatts: port.allocatedMilliwatts, direction: .output, isMeasured: false)
+        // Only what the Mac itself supplies; devices behind a dock or a
+        // self-powered hub draw from that supply instead.
+        if port.hostAllocatedMilliwatts > 0 {
+            return WindowPowerReading(milliwatts: port.hostAllocatedMilliwatts, direction: .output, isMeasured: false)
         }
         return nil
     }

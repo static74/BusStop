@@ -160,7 +160,7 @@ enum PopoverText {
         if let serial = device.serialNumber, !serial.isEmpty, !redactSerials {
             lines.append("Serial: \(serial)")
         }
-        lines.append("ID: \(device.id)")
+        lines.append("ID: \(redactSerials ? Exporter.redactedID(device.id) : device.id)")
         return lines.joined(separator: "\n")
     }
 
