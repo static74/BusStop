@@ -42,6 +42,15 @@ struct RegistryCaptureTests {
         }
     }
 
+    /// `kUSBContainerID` is unique to each USB device instance and no parser
+    /// uses it, so it is never captured.
+    @Test func captureLeavesOutUSBContainerIDs() {
+        #expect(!RegistryKeys.usbDevice.contains("kUSBContainerID"))
+        #expect(!RegistryKeys.anyPortChild.contains("kUSBContainerID"))
+        let raw = RegistryCapture.capture(includeSMC: false)
+        #expect(raw.usbDevices.allSatisfy { !$0.node.properties.has("kUSBContainerID") })
+    }
+
     @Test func concurrentCapturesAreSafe() async {
         let counts = await withTaskGroup(of: [Int].self) { group in
             for _ in 0..<4 {
