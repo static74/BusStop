@@ -47,8 +47,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Launching the app again while it runs opens the popover (or the
-    /// topology window when the menu bar item is hidden).
+    /// topology window when the menu bar item is hidden). A click on the Dock
+    /// icon while a window is open keeps the standard behaviour and brings
+    /// that window forward.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if flag && NSApp.activationPolicy() == .regular {
+            return true
+        }
         if AppSettings.shared.showMenuBarItem, let statusItemController {
             statusItemController.showPopover()
         } else {
