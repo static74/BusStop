@@ -43,9 +43,13 @@ Each work package was built on its own branch against the contracts, then merged
 3. macOS 27 CI: build, test, assemble the `.app`, run the CLI against demo data and the live runner.
 4. macOS 26 CI: build and test with Xcode 26.6.
 
-## Phase 4: review
+## Phase 4: review (done)
 
-Independent reviewers check correctness (IOKit object lifetimes, concurrency, key handling), spec conformance, visual design and accessibility. Confirmed findings are fixed and re-verified in CI.
+Eight independent reviewers covered IOKit capture, topology, support modules, the app shell, the windows, tooling, privacy/security and spec/UX (using screenshots of the running app from CI). Every finding was checked by one or two adversarial verifiers before it counted: 69 findings were reported, 66 confirmed, 3 refuted. The confirmed ones (3 high, 27 medium, 36 low, with overlaps between reviewers) were fixed in five packages (core, capture, app shell, windows, tooling), each on its own branch and green in CI before merging. Core tests grew from 219 to 263 and the macOS smoke test from 73 to 88 checks.
+
+## Visual verification
+
+The `Screenshots` workflow launches the real app on the macOS 27 runner at 1920 × 1080 with a dark system appearance, in every demo scenario plus live data, and publishes the images to the `screenshots` branch. The popover, topology window, settings panes and About window were reviewed from these images and polished (name wrapping, contrast, fit-to-window graph, window placement).
 
 ## Future work
 
