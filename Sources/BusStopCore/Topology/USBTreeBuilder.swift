@@ -1,3 +1,8 @@
+// Portions adapted from WhatCable (MIT License, © 2026 Darryl Morley).
+// The adapted parts are which xHCI controller classes mark a
+// Thunderbolt-tunnelled USB device and the apciecN / acioN pairing used to
+// find its port.
+
 import Foundation
 
 /// What the USB builder needs from the port, transport and Thunderbolt parsers.

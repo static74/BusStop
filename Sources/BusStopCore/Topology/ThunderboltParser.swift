@@ -1,3 +1,7 @@
+// Portions adapted from PortScope (MIT License, © 2026 Alex Zenla).
+// The adapted part is the rule that a lane adapter is live only with a peer,
+// a non-empty Hop Table or a Link Bandwidth above the idle default of 100.
+
 import Foundation
 
 /// What the Thunderbolt / USB4 switch capture says about each physical socket.
