@@ -104,6 +104,90 @@ enum Lagoon {
     static let captionFont = Font.system(.caption, design: .default)
 }
 
+// MARK: - Scalable fonts
+
+extension EnvironmentValues {
+    /// Text scale from the Text Size setting (1 = medium). Set once at the root
+    /// of the popover and each window; read by `lagoonFont`.
+    @Entry var lagoonTextScale: CGFloat = 1
+}
+
+extension Lagoon {
+    /// macOS point sizes of the system text styles at the default size.
+    static func baseSize(_ style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: return 26
+        case .title: return 22
+        case .title2: return 17
+        case .title3: return 15
+        case .headline: return 13
+        case .subheadline: return 11
+        case .body: return 13
+        case .callout: return 12
+        case .footnote: return 10
+        case .caption: return 10
+        case .caption2: return 10
+        @unknown default: return 13
+        }
+    }
+
+    /// A system font for `style` scaled by `scale`. Headline defaults to semibold
+    /// as on macOS.
+    static func font(_ style: Font.TextStyle, scale: CGFloat, weight: Font.Weight? = nil,
+                     design: Font.Design = .default) -> Font {
+        let resolvedWeight = weight ?? (style == .headline ? .semibold : .regular)
+        return .system(size: (baseSize(style) * scale).rounded(), weight: resolvedWeight, design: design)
+    }
+
+    /// A fixed point size scaled by `scale` (for icons and dense chips).
+    static func font(size: CGFloat, scale: CGFloat, weight: Font.Weight = .regular,
+                     design: Font.Design = .default) -> Font {
+        .system(size: (size * scale).rounded(), weight: weight, design: design)
+    }
+}
+
+/// Applies a text style scaled by the Text Size setting.
+struct LagoonFontModifier: ViewModifier {
+    var style: Font.TextStyle?
+    var size: CGFloat?
+    var weight: Font.Weight?
+    var design: Font.Design
+    var monospacedDigits: Bool
+    @Environment(\.lagoonTextScale) private var scale
+
+    func body(content: Content) -> some View {
+        let font: Font
+        if let size {
+            font = Lagoon.font(size: size, scale: scale, weight: weight ?? .regular, design: design)
+        } else {
+            font = Lagoon.font(style ?? .body, scale: scale, weight: weight, design: design)
+        }
+        return content.font(monospacedDigits ? font.monospacedDigit() : font)
+    }
+}
+
+extension View {
+    /// `.lagoonFont(.caption, weight: .semibold)`: like `.font(.caption)` but
+    /// honours the Text Size setting. Use this instead of `.font` in app views.
+    func lagoonFont(_ style: Font.TextStyle, weight: Font.Weight? = nil, design: Font.Design = .default,
+                    monospacedDigits: Bool = false) -> some View {
+        modifier(LagoonFontModifier(style: style, size: nil, weight: weight, design: design,
+                                    monospacedDigits: monospacedDigits))
+    }
+
+    /// Fixed-size variant: `.lagoonFont(size: 9, weight: .bold)`.
+    func lagoonFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default,
+                    monospacedDigits: Bool = false) -> some View {
+        modifier(LagoonFontModifier(style: nil, size: size, weight: weight, design: design,
+                                    monospacedDigits: monospacedDigits))
+    }
+
+    /// Sets the text scale for everything below (use at view roots).
+    func lagoonTextScale(_ setting: TextSizeSetting) -> some View {
+        environment(\.lagoonTextScale, setting.scale)
+    }
+}
+
 extension Color {
     /// `Color(hex: 0x3EE6D4)`
     init(hex: UInt32, opacity: Double = 1) {

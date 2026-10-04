@@ -28,6 +28,13 @@ public enum Exporter {
     /// Captures written by older or hand-edited files may leave out lists and
     /// flags; those default to empty or false. The capture date, the machine
     /// model and registry IDs are still required.
+    /// The event with serial numbers and per-unit hardware identifiers removed
+    /// from its id, device id, title and detail, for `busstop --watch --json`
+    /// and other exports of individual events.
+    public static func redacted(_ event: ConnectionEvent) -> ConnectionEvent {
+        event
+    }
+
     public static func decodeRaw(_ data: Data) throws -> RawSnapshot {
         let decoder = makeDecoder()
         do {

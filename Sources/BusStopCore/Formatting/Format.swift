@@ -30,8 +30,36 @@ public enum Format {
     }
 
     /// Compact form for the menu bar: "38W", "4.5W".
-    public static func compactPower(milliwatts mw: Int) -> String {
-        power(milliwatts: mw).replacingOccurrences(of: " ", with: "")
+    /// `decimals` forces 0 or 1 decimal places; nil uses `power(milliwatts:)` rules.
+    public static func compactPower(milliwatts mw: Int, decimals: Int? = nil) -> String {
+        guard let decimals else {
+            return power(milliwatts: mw).replacingOccurrences(of: " ", with: "")
+        }
+        let watts = Double(mw) / 1000
+        if decimals <= 0 { return "\(Int(watts.rounded()))W" }
+        return String(format: "%.1fW", watts)
+    }
+
+    /// Removes control characters (including ANSI escape sequences) and
+    /// collapses runs of whitespace, so device-supplied names cannot alter a
+    /// terminal or break one-line output.
+    public static func terminalSafe(_ text: String) -> String {
+        var result = ""
+        result.unicodeScalars.reserveCapacity(text.unicodeScalars.count)
+        var lastWasSpace = false
+        for scalar in text.unicodeScalars {
+            let isControl = scalar.properties.generalCategory == .control
+                || scalar.properties.generalCategory == .format
+                || (0x80...0x9F).contains(scalar.value)
+            if isControl || CharacterSet.whitespacesAndNewlines.contains(scalar) {
+                if !lastWasSpace && !result.isEmpty { result.unicodeScalars.append(" ") }
+                lastWasSpace = true
+            } else {
+                result.unicodeScalars.append(scalar)
+                lastWasSpace = false
+            }
+        }
+        return result.trimmingCharacters(in: .whitespaces)
     }
 
     /// "20 V", "5 V", "15 V", "9.5 V".

@@ -66,6 +66,35 @@ enum PortOrder: String, CaseIterable, Identifiable {
     }
 }
 
+/// How many decimals the menu bar shows for power.
+enum PowerPrecision: String, CaseIterable, Identifiable {
+    /// "38W" (one decimal below 10 W: "4.5W").
+    case automatic
+    /// Always whole watts: "38W", "5W".
+    case whole
+    /// Always one decimal: "38.2W", "4.5W".
+    case oneDecimal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: return "Automatic"
+        case .whole: return "Whole watts"
+        case .oneDecimal: return "One decimal"
+        }
+    }
+
+    /// Decimals passed to `Format.compactPower(milliwatts:decimals:)`; nil means automatic.
+    var decimals: Int? {
+        switch self {
+        case .automatic: return nil
+        case .whole: return 0
+        case .oneDecimal: return 1
+        }
+    }
+}
+
 enum TextSizeSetting: String, CaseIterable, Identifiable {
     case small
     case medium
@@ -80,6 +109,17 @@ enum TextSizeSetting: String, CaseIterable, Identifiable {
         case .medium: return "Medium"
         case .large: return "Large"
         case .extraLarge: return "Extra Large"
+        }
+    }
+
+    /// Multiplier applied to every font through `lagoonFont(_:)`. macOS does not
+    /// scale text styles with `dynamicTypeSize`, so Bus Stop scales sizes itself.
+    var scale: CGFloat {
+        switch self {
+        case .small: return 0.9
+        case .medium: return 1.0
+        case .large: return 1.15
+        case .extraLarge: return 1.3
         }
     }
 
@@ -114,6 +154,9 @@ final class AppSettings {
 
     var menuBarIcon: MenuBarIconStyle { didSet { defaults.set(menuBarIcon.rawValue, forKey: Key.menuBarIcon) } }
     var menuBarText: MenuBarTextMode { didSet { defaults.set(menuBarText.rawValue, forKey: Key.menuBarText) } }
+    var menuBarPowerPrecision: PowerPrecision {
+        didSet { defaults.set(menuBarPowerPrecision.rawValue, forKey: Key.menuBarPowerPrecision) }
+    }
 
     // MARK: Appearance
 
@@ -164,6 +207,7 @@ final class AppSettings {
         portOrder = string(Key.portOrder).flatMap(PortOrder.init(rawValue:)) ?? .physical
         menuBarIcon = string(Key.menuBarIcon).flatMap(MenuBarIconStyle.init(rawValue:)) ?? .busStop
         menuBarText = string(Key.menuBarText).flatMap(MenuBarTextMode.init(rawValue:)) ?? .power
+        menuBarPowerPrecision = string(Key.menuBarPowerPrecision).flatMap(PowerPrecision.init(rawValue:)) ?? .automatic
         backgroundOpacity = min(max(double(Key.backgroundOpacity, 0.88), 0.6), 1)
         glassTint = min(max(double(Key.glassTint, 0.22), 0), 0.5)
         textSize = string(Key.textSize).flatMap(TextSizeSetting.init(rawValue:)) ?? .medium
@@ -192,6 +236,7 @@ final class AppSettings {
         portOrder = fresh.portOrder
         menuBarIcon = fresh.menuBarIcon
         menuBarText = fresh.menuBarText
+        menuBarPowerPrecision = fresh.menuBarPowerPrecision
         backgroundOpacity = fresh.backgroundOpacity
         glassTint = fresh.glassTint
         textSize = fresh.textSize
@@ -217,6 +262,7 @@ final class AppSettings {
         static let portOrder = "portOrder"
         static let menuBarIcon = "menuBarIcon"
         static let menuBarText = "menuBarText"
+        static let menuBarPowerPrecision = "menuBarPowerPrecision"
         static let backgroundOpacity = "backgroundOpacity"
         static let glassTint = "glassTint"
         static let textSize = "textSize"
@@ -236,6 +282,7 @@ final class AppSettings {
 
         static let all = [
             showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, menuBarIcon, menuBarText,
+            menuBarPowerPrecision,
             backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
             notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
             demoScenario, portNames,
