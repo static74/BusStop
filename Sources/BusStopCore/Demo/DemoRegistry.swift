@@ -145,6 +145,7 @@ extension DemoRegistry {
                           state: DemoPortState) -> DemoPortRef {
         var port = DemoPortRef(id: newID(), type: type, number: number, typeDescription: typeDescription)
         let connected = state.isConnected
+        let carriesUSB = state.active.contains("USB2") || state.active.contains("USB3")
         var p: [String: PlistValue] = [
             "PortTypeDescription": .string(typeDescription),
             "PortType": .int(Int64(type)),
@@ -170,9 +171,9 @@ extension DemoRegistry {
             "DisplayPortPinAssignment": 0,
             "AuthorizationRequired": .bool(connected),
             "UserAuthorizationStatusDescription": .string(connected ? "Authorized" : "No Action"),
-            "IOAccessoryUSBActive": .bool(state.active.contains("USB2") || state.active.contains("USB3")),
+            "IOAccessoryUSBActive": .bool(carriesUSB),
             "IOAccessoryUSBSuperSpeedActive": .bool(state.active.contains("USB3")),
-            "IOAccessoryUSBConnectString": .string(connected ? "Host" : "None"),
+            "IOAccessoryUSBConnectString": .string(carriesUSB ? "Host" : "None"),
             "IOAccessoryPowerMode": 3,
             "IOAccessoryActivePowerMode": 1,
             "IOPersonalityPublisher": "com.apple.driver.AppleHPM",
