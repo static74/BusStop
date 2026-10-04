@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Builds "build/Bus Stop.app" from the Swift package, signs it ad hoc and zips
-# it to build/BusStop.zip.
+# it, with the licence and third-party notices beside it, to build/BusStop.zip.
 #
 # Usage: scripts/build-app.sh
 #
@@ -21,9 +21,18 @@
 #   Contents/MacOS/BusStop         the BusStopApp product
 #   Contents/Helpers/busstop       the command-line tool
 #   Contents/Resources/AppIcon.icns
+#   Contents/Resources/LICENSE.txt                Bus Stop's MIT License
+#   Contents/Resources/THIRD_PARTY_NOTICES.md     PortScope, WhatPort, WhatCable
 #
 # The CLI lives in Contents/Helpers because Contents/MacOS/busstop and
 # Contents/MacOS/BusStop would be the same file on a case-insensitive volume.
+#
+# The MIT licences of the projects Bus Stop adapts code and data from require
+# their notices in every copy, so the bundle carries them, and the zip holds
+# them again next to the app:
+#   Bus Stop.app
+#   LICENSE.txt
+#   THIRD_PARTY_NOTICES.md
 
 set -euo pipefail
 
@@ -35,6 +44,7 @@ BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/$APP_NAME.app"
 ZIP="$BUILD_DIR/BusStop.zip"
 STAGE="$BUILD_DIR/stage"
+ZIP_ROOT="$BUILD_DIR/zip-root"
 CONFIGURATION="${CONFIGURATION:-release}"
 HELPER_IDENTIFIER="io.github.static74.busstop.cli"
 
@@ -141,6 +151,14 @@ plutil -lint "$APP/Contents/Info.plist"
 [[ -f Support/AppIcon.icns ]] || fail "Support/AppIcon.icns is missing; run scripts/make-icon.py"
 cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# Licence notices. They go in before signing: a file added afterwards would
+# break the bundle's seal.
+for notice in LICENSE THIRD_PARTY_NOTICES.md; do
+    [[ -s "$notice" ]] || fail "$notice is missing or empty; every copy of the app must carry it"
+done
+cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
+cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
+
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 # MARK: Sign
@@ -156,8 +174,15 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # MARK: Package
 
 log "Zipping"
-ditto -c -k --keepParent "$APP" "$ZIP"
-rm -rf "$STAGE"
+# The zip holds the app and, beside it, the same notices as the bundle.
+# ditto copies the signed bundle unchanged.
+rm -rf "$ZIP_ROOT"
+mkdir -p "$ZIP_ROOT"
+ditto "$APP" "$ZIP_ROOT/$APP_NAME.app"
+cp LICENSE "$ZIP_ROOT/LICENSE.txt"
+cp THIRD_PARTY_NOTICES.md "$ZIP_ROOT/THIRD_PARTY_NOTICES.md"
+ditto -c -k "$ZIP_ROOT" "$ZIP"
+rm -rf "$STAGE" "$ZIP_ROOT"
 
 log "Done"
 printf '  App:       %s\n' "$APP"

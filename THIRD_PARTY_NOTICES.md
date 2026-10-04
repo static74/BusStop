@@ -2,6 +2,8 @@
 
 Bus Stop is released under the MIT License (see [LICENSE](LICENSE)). It builds on the published work of the projects below. Their licences require the copyright notice and permission notice to be included with copies or substantial portions of their software, so each is reproduced here in full.
 
+Every build made by `scripts/build-app.sh` carries this file and Bus Stop's licence (as `LICENSE.txt`) in `Bus Stop.app/Contents/Resources`, and the release zip holds both again next to the app.
+
 Files in this repository that adapt code from one of these projects say so in a comment at the top, in the form "Portions adapted from <project> (MIT License, © <year> <author>)."
 
 No code licensed under the GPL or another copyleft licence is included in Bus Stop.

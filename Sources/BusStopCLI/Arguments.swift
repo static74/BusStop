@@ -201,12 +201,13 @@ enum ArgumentParser {
         Watching:
           --watch           Print one line per connection change until Control-C.
                             With --json, print one JSON object per line instead.
-                            With --demo, a sample device is unplugged and plugged
-                            back in every few seconds.
+                            With --demo (except unplugged), a sample device is
+                            unplugged and plugged back in every few seconds.
 
         Other:
-          --no-redact       Keep serial numbers and the computer name in --json,
-                            --markdown and --raw output (redacted by default).
+          --no-redact       Keep serial numbers, other unit identifiers and the
+                            computer name in --json, --markdown, --raw and
+                            --watch output (redacted by default).
           --no-smc          Do not read per-port power from the SMC.
           --version         Print the version.
           -h, --help        Print this help.

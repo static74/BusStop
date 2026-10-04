@@ -9,6 +9,12 @@ import Foundation
 /// `SnapshotDiffer` compares it with the previous one. Event lines go to
 /// standard output; the start and stop notices go to standard error so they
 /// never mix with `--json` lines.
+///
+/// Unless `--no-redact` is given, every event passes through
+/// `Exporter.redacted(_:)` first, so display serial numbers and other unit
+/// identifiers stay out of both output formats. Text lines also pass names
+/// through `Format.terminalSafe`, because device-supplied names could
+/// otherwise carry terminal escape sequences.
 @MainActor
 final class WatchSession {
     /// Demo ticker interval, matching the app's demo mode.
@@ -114,17 +120,28 @@ final class WatchSession {
     }
 
     /// "Watching MacBook Pro (demo: Studio desk): 4 ports, 6 devices. Press Control-C to stop."
+    ///
+    /// For a demo setup with nothing to unplug, a second line says that no
+    /// events will appear.
     private func announce(_ snapshot: HostSnapshot) {
-        var subject = snapshot.machine.name
+        var subject = Format.terminalSafe(snapshot.machine.name)
         if case .demo(let scenario) = options.source { subject += " (demo: \(scenario.title))" }
         let ports = snapshot.ports.count
         let devices = snapshot.deviceCount
         Console.err("Watching \(subject): \(ports) \(ports == 1 ? "port" : "ports"), "
             + "\(devices) \(devices == 1 ? "device" : "devices"). Press Control-C to stop.\n")
+        if case .demo(let scenario) = options.source, !DemoWatch.hasRemovableDevice(scenario) {
+            Console.err(DemoWatch.nothingToUnplugNotice)
+        }
     }
 
     /// One output line: a JSON object with `--json`, otherwise
     /// "14:03:12 + Samsung T9 connected · Left Front · USB-C · USB 3.2 Gen 2 @ 10 Gb/s".
+    ///
+    /// The title and detail of a text line go through `Format.terminalSafe`:
+    /// they hold device-supplied names, which must not be able to break the
+    /// line or send escape sequences to the terminal. JSON needs no such step,
+    /// because `JSONEncoder` escapes control characters.
     func line(for event: ConnectionEvent) -> String {
         if options.format == .json {
             if let data = try? lineEncoder.encode(event), let text = String(data: data, encoding: .utf8) {
@@ -132,10 +149,11 @@ final class WatchSession {
             }
             return #"{"error":"could not encode event"}"#
         }
-        var text = "\(timeFormatter.string(from: event.date)) \(Self.marker(for: event)) \(event.title)"
-        let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = Format.terminalSafe(event.title)
+        var text = "\(timeFormatter.string(from: event.date)) \(Self.marker(for: event)) \(title)"
+        let detail = Format.terminalSafe(event.detail)
         if !detail.isEmpty { text += " · \(detail)" }
-        return text.replacingOccurrences(of: "\n", with: " ")
+        return text
     }
 
     /// A one-character hint at the start of each line.
@@ -164,9 +182,16 @@ final class WatchSession {
 /// Demo scenarios describe a fixed setup, so on their own they would never
 /// produce an event. To show what watching looks like, one sample device is
 /// unplugged for two ticks and plugged back in for two ticks, in a loop.
+/// A scenario with no USB devices (`unplugged`) has nothing to unplug, so
+/// the session says so on standard error instead of staying silent.
 enum DemoWatch {
     /// Ticks the sample device stays in each state.
     static let ticksPerPhase = 2
+
+    /// Printed to standard error when the demo setup has no device that
+    /// `raw(_:tick:at:)` can unplug.
+    static let nothingToUnplugNotice =
+        "This demo setup has nothing plugged in, so no events will appear. Try --demo studioDesk.\n"
 
     static func raw(_ scenario: DemoScenario, tick: Int, at date: Date) -> RawSnapshot {
         var raw = scenario.raw(at: date, tick: tick)
@@ -175,6 +200,12 @@ enum DemoWatch {
             raw.usbDevices.removeAll { $0.id == id }
         }
         return raw
+    }
+
+    /// True when the scenario has a device that `raw(_:tick:at:)` unplugs, so
+    /// watching it produces events.
+    static func hasRemovableDevice(_ scenario: DemoScenario) -> Bool {
+        removableDeviceID(in: scenario.raw(at: Date(), tick: 0)) != nil
     }
 
     /// The last USB device that has no devices below it, so removing it never

@@ -3,6 +3,13 @@ name: Screenshots
 # Launches the real app on a macOS 27 runner in demo mode, captures the
 # popover, the topology window and settings, and publishes the images to the
 # `screenshots` branch for design review and the README.
+#
+# The work is split so that no build or downloaded tool ever runs next to a
+# token that can write to the repository:
+# - `capture` has a read-only token, which the checkout does not store. It
+#   builds and runs the app and uploads the images as an artifact.
+# - `publish` has `contents: write` but runs no project or third-party code:
+#   it downloads that artifact and force-pushes it with plain git.
 
 on:
   push:
@@ -10,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: screenshots-${{ github.ref }}
@@ -19,8 +26,12 @@ concurrency:
 jobs:
   capture:
     runs-on: xcode-27
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Select Xcode 27
         run: sudo xcode-select -s /Applications/Xcode_27.0.app
@@ -28,7 +39,9 @@ jobs:
       - name: Try a larger display mode
         continue-on-error: true
         run: |
-          brew install jakehilborn/jakehilborn/displayplacer >/dev/null 2>&1 || true
+          # displayplacer from homebrew-core: a reviewed formula built from a
+          # release archive with a fixed checksum, not a third-party tap.
+          brew install displayplacer >/dev/null 2>&1 || true
           if command -v displayplacer >/dev/null; then
             displayplacer list | tail -40
             ID=$(displayplacer list | awk '/Persistent screen id/ {print $4; exit}')
@@ -99,13 +112,37 @@ jobs:
           capture "about" about -demoMode YES
           ls -la shots
 
+      - name: Upload the screenshots
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: capture
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download the screenshots
+        uses: actions/download-artifact@v8
+        with:
+          name: screenshots
+          path: shots
+
       - name: Publish to the screenshots branch
+        env:
+          TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          SRC_SHA=$(git rev-parse --short HEAD)
           cd shots
+          ls -la
           git init -q -b screenshots
           git config user.name "Bus Stop CI"
           git config user.email "busstop-ci@users.noreply.github.com"
           git add -A
-          git commit -q -m "Screenshots for $SRC_SHA"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" screenshots
+          git commit -q -m "Screenshots for ${SOURCE_SHA:0:7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPOSITORY}.git" screenshots
