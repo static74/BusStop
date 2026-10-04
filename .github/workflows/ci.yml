@@ -24,6 +24,9 @@ jobs:
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The build number in Info.plist is the commit count.
+          fetch-depth: 0
       - name: Select Xcode 27
         run: |
           sudo xcode-select -s /Applications/Xcode_27.0.app
@@ -41,27 +44,29 @@ jobs:
       - name: Test
         run: swift test
       - name: Assemble app bundle
-        if: hashFiles('scripts/build-app.sh') != ''
         run: ./scripts/build-app.sh
       - name: Smoke-test the CLI
-        if: hashFiles('scripts/smoke-test.sh') != ''
         run: ./scripts/smoke-test.sh
       - name: Upload app
-        if: hashFiles('build/BusStop.zip') != ''
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: BusStop-macOS27
           path: build/BusStop.zip
+          if-no-files-found: warn
 
   macos-26:
     name: macOS 26 (Xcode 26.6)
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Select Xcode 26.6
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app
           swift --version
+          sw_vers
       - name: Build
         run: |
           set -o pipefail
@@ -72,3 +77,10 @@ jobs:
           grep -E "error:" build.log | sort -u | head -200 || true
       - name: Test
         run: swift test
+      - name: Assemble universal app bundle
+        # Universal here so every push proves the x86_64 build that releases ship.
+        env:
+          ARCHS: universal
+        run: ./scripts/build-app.sh
+      - name: Smoke-test the app on macOS 26 (demo data)
+        run: ./scripts/smoke-test.sh --skip-live
