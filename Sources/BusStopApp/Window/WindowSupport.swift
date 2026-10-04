@@ -322,17 +322,140 @@ private extension String {
     }
 }
 
-// MARK: - Layout scale
+// MARK: - Navigation
 
-extension TextSizeSetting {
-    /// How much larger graph nodes get with the Text Size setting.
-    var graphScale: CGFloat {
-        switch self {
-        case .small: return 0.94
-        case .medium: return 1
-        case .large: return 1.08
-        case .extraLarge: return 1.18
+/// A request to bring a node into view, made when something outside the page
+/// reveals a selection (`PortStore.reveal`). The graph or the list that is on
+/// screen scrolls to the node and clears the request.
+struct TopologyScrollRequest: Equatable {
+    /// `PortStore.revealGeneration` of the reveal, so repeated reveals of the
+    /// same selection still scroll.
+    var generation: Int
+    /// `SelectionTag` of the node to show.
+    var tag: String?
+}
+
+/// Window preferences kept in `UserDefaults` outside `AppSettings`. Settings ›
+/// Advanced › Reset All Settings removes them too.
+enum TopologyWindowDefaults {
+    /// Graph or List on the Overview.
+    static let overviewMode = "topologyOverviewMode"
+    /// Graph zoom from earlier versions, which kept it across launches. The
+    /// graph now fits itself to the window until the user zooms.
+    static let legacyGraphZoom = "topologyGraphZoom"
+
+    static let all = [overviewMode, legacyGraphZoom]
+
+    static func reset(_ defaults: UserDefaults = .standard) {
+        for key in all { defaults.removeObject(forKey: key) }
+    }
+}
+
+// MARK: - Contrast
+
+/// Stronger strokes and text when Increase Contrast is on (SPEC §4.7).
+enum WindowContrast {
+    /// Card borders, separators and guides.
+    static func stroke(_ contrast: ColorSchemeContrast) -> Color {
+        contrast == .increased ? Lagoon.strokeStrong : Lagoon.stroke
+    }
+
+    /// Hints and dimmed labels: tertiary text becomes secondary.
+    static func tertiary(_ contrast: ColorSchemeContrast) -> Color {
+        contrast == .increased ? Lagoon.textSecondary : Lagoon.textTertiary
+    }
+
+    /// Empty ports are dimmed to `base`, but not under Increase Contrast.
+    static func emptyOpacity(_ contrast: ColorSchemeContrast, _ base: Double) -> Double {
+        contrast == .increased ? 1 : base
+    }
+}
+
+// MARK: - Empty port lists
+
+/// Why a list of ports came out empty, so the message names the real cause.
+enum PortListEmptyState: Equatable {
+    /// The search matched nothing.
+    case noMatches(String)
+    /// Nothing is plugged in and Hide empty ports hides every port.
+    case emptyPortsHidden
+    /// macOS reported no physical ports at all.
+    case noPorts
+
+    static func resolve(searchText: String, store: PortStore) -> PortListEmptyState {
+        let query = TopologySearch.normalized(searchText)
+        if !query.isEmpty { return .noMatches(query) }
+        if store.settings.hideEmptyPorts && !store.snapshot.ports.isEmpty { return .emptyPortsHidden }
+        return .noPorts
+    }
+}
+
+/// The message for an empty port list, with a way back when a setting hides
+/// the ports.
+struct PortListEmptyView: View {
+    var state: PortListEmptyState
+    var store: PortStore
+
+    var body: some View {
+        switch state {
+        case .noMatches(let query):
+            WindowEmptyState(
+                systemName: "magnifyingglass",
+                title: "No matches",
+                message: "No port or device matches “\(query)”."
+            )
+        case .emptyPortsHidden:
+            WindowEmptyState(
+                systemName: "cable.connector",
+                title: "Nothing connected",
+                message: "Empty ports are hidden (Settings › General › Hide empty ports)."
+            ) {
+                Button("Show Empty Ports") {
+                    store.settings.hideEmptyPorts = false
+                }
+            }
+        case .noPorts:
+            WindowEmptyState(
+                systemName: "cable.connector.slash",
+                title: "No ports",
+                message: "macOS did not report any physical ports."
+            )
         }
+    }
+}
+
+/// Centered empty-state message with an optional action, in the window's
+/// scalable type.
+struct WindowEmptyState<Action: View>: View {
+    var systemName: String
+    var title: String
+    var message: String
+    @ViewBuilder var action: Action
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: systemName)
+                .lagoonFont(size: 34, weight: .light)
+                .foregroundStyle(Lagoon.accent.opacity(0.7))
+            Text(title)
+                .lagoonFont(.headline, weight: .semibold)
+                .foregroundStyle(Lagoon.textPrimary)
+            Text(message)
+                .lagoonFont(.callout)
+                .foregroundStyle(Lagoon.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 340)
+            action
+                .padding(.top, 4)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+extension WindowEmptyState where Action == EmptyView {
+    init(systemName: String, title: String, message: String) {
+        self.init(systemName: systemName, title: title, message: message) { EmptyView() }
     }
 }
 
@@ -348,12 +471,11 @@ struct WindowDetailHeader<Trailing: View>: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(.title2, design: .default).weight(.bold))
+                    .lagoonFont(.title2, weight: .bold)
                     .foregroundStyle(Lagoon.textPrimary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.callout)
-                        .monospacedDigit()
+                        .lagoonFont(.callout, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                 }
             }
@@ -378,10 +500,10 @@ struct WindowLoadingView: View {
             ProgressView()
                 .controlSize(.large)
             Text("Reading ports…")
-                .font(Lagoon.titleFont)
+                .lagoonFont(.headline, weight: .semibold)
                 .foregroundStyle(Lagoon.textPrimary)
             Text("Bus Stop is asking macOS what is plugged in.")
-                .font(.callout)
+                .lagoonFont(.callout)
                 .foregroundStyle(Lagoon.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -405,7 +527,7 @@ struct WindowCopyButton: View {
             }
         } label: {
             Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 10, weight: .semibold))
+                .lagoonFont(size: 10, weight: .semibold)
                 .foregroundStyle(didCopy ? Lagoon.accent : Lagoon.textTertiary)
                 .frame(width: 18, height: 18)
                 .contentShape(Rectangle())
@@ -423,8 +545,7 @@ struct WindowCountBadge: View {
 
     var body: some View {
         Text("\(count)")
-            .font(Lagoon.chipFont)
-            .monospacedDigit()
+            .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
             .foregroundStyle(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 1.5)

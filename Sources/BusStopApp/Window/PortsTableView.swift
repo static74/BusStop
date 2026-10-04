@@ -44,13 +44,7 @@ struct PortsTableView: View {
             .padding(.top, 20)
 
             if rows.isEmpty {
-                EmptyStateView(
-                    systemName: "cable.connector.slash",
-                    title: searchText.isEmpty ? "No ports" : "No matches",
-                    message: searchText.isEmpty
-                        ? "macOS did not report any physical ports."
-                        : "No port matches your search."
-                )
+                PortListEmptyView(state: PortListEmptyState.resolve(searchText: searchText, store: store), store: store)
             } else {
                 table(rows)
             }
@@ -116,6 +110,7 @@ struct PortsTableView: View {
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
+        .lagoonFont(.body)
     }
 
     private var selection: Binding<String?> {

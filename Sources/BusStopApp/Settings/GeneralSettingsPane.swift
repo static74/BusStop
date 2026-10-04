@@ -38,8 +38,14 @@ struct GeneralSettingsPane: View {
         }
         .settingsPaneStyle()
         .onAppear(perform: syncLaunchState)
+        // Approving Bus Stop in System Settings › Login Items happens outside
+        // the app; read the state again when the user comes back.
+        .background { HostingWindowObserver(onActivate: syncLaunchState) }
         .onChange(of: launchAtLogin) { _, wanted in
             applyLaunchAtLogin(wanted)
+        }
+        .onChange(of: settings.showDockIconWithWindow) {
+            WindowManager.shared.refreshActivationPolicy()
         }
         .alert("Could not change the login item", isPresented: $showLaunchError) {
             Button("Open Login Items…") { LaunchAtLogin.openSystemSettings() }

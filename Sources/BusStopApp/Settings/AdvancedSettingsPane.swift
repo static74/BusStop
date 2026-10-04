@@ -6,6 +6,9 @@ struct AdvancedSettingsPane: View {
     var store: PortStore
 
     @State private var confirmReset = false
+    /// The data-collection settings the store last applied, so one change
+    /// (or a reset that changes several at once) applies exactly once.
+    @State private var appliedCollection: CollectionSettings?
 
     /// The project page. A literal, so it always parses.
     private static let projectURL = URL(string: "https://github.com/static74/BusStop")!
@@ -65,18 +68,46 @@ struct AdvancedSettingsPane: View {
             }
         }
         .settingsPaneStyle()
-        .onChange(of: settings.demoMode) { store.applySettings() }
-        .onChange(of: settings.demoScenario) { store.applySettings() }
-        .onChange(of: settings.powerPollInterval) { store.applySettings() }
-        .onChange(of: settings.readSMC) { store.applySettings() }
+        .onChange(of: CollectionSettings(settings)) { _, collection in
+            apply(collection)
+        }
         .confirmationDialog("Reset all settings?", isPresented: $confirmReset) {
-            Button("Reset All Settings", role: .destructive) {
-                store.settings.resetAll()
-                store.applySettings()
-            }
+            Button("Reset All Settings", role: .destructive, action: resetAll)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every preference returns to its default, including port names.")
+            Text("Every preference returns to its default, including port names and the topology window’s view and zoom.")
         }
+    }
+
+    /// Hands changed data-collection settings to the store, once per change.
+    private func apply(_ collection: CollectionSettings) {
+        guard collection != appliedCollection else { return }
+        appliedCollection = collection
+        store.applySettings()
+    }
+
+    private func resetAll() {
+        store.settings.resetAll()
+        TopologyWindowDefaults.reset()
+        // Port names changed too, so rebuild the snapshot even when nothing
+        // else about data collection did.
+        appliedCollection = CollectionSettings(store.settings)
+        store.applySettings()
+        WindowManager.shared.refreshActivationPolicy()
+    }
+}
+
+/// The settings that change how the store collects data.
+private struct CollectionSettings: Equatable {
+    var demoMode: Bool
+    var demoScenario: DemoScenario
+    var powerPollInterval: Double
+    var readSMC: Bool
+
+    init(_ settings: AppSettings) {
+        demoMode = settings.demoMode
+        demoScenario = settings.demoScenario
+        powerPollInterval = settings.powerPollInterval
+        readSMC = settings.readSMC
     }
 }

@@ -41,7 +41,7 @@ struct DevicesTableView: View {
             .padding(.top, 20)
 
             if rows.isEmpty {
-                EmptyStateView(
+                WindowEmptyState(
                     systemName: searchText.isEmpty ? "cable.connector" : "magnifyingglass",
                     title: searchText.isEmpty ? "Nothing connected" : "No matches",
                     message: searchText.isEmpty
@@ -104,14 +104,14 @@ struct DevicesTableView: View {
 
             TableColumn("VID:PID", value: \DeviceTableRow.vidPid) { row in
                 Text(row.vidPid)
-                    .font(.system(.body, design: .monospaced))
+                    .lagoonFont(.body, design: .monospaced)
                     .foregroundStyle(Lagoon.textSecondary)
             }
             .width(min: 100, ideal: 120)
 
             TableColumn("Serial", value: \DeviceTableRow.serial) { row in
                 Text(row.serial)
-                    .font(.system(.body, design: .monospaced))
+                    .lagoonFont(.body, design: .monospaced)
                     .foregroundStyle(Lagoon.textSecondary)
                     .lineLimit(1)
                     .textSelection(.enabled)
@@ -120,7 +120,7 @@ struct DevicesTableView: View {
 
             TableColumn("Location ID", value: \DeviceTableRow.locationID) { row in
                 Text(row.locationID)
-                    .font(.system(.body, design: .monospaced))
+                    .lagoonFont(.body, design: .monospaced)
                     .foregroundStyle(Lagoon.textSecondary)
             }
             .width(min: 90, ideal: 110)
@@ -128,6 +128,7 @@ struct DevicesTableView: View {
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
+        .lagoonFont(.body)
     }
 
     private var selection: Binding<String?> {

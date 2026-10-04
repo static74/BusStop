@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Root view of the About window: icon, name, version, what Bus Stop
-/// promises, credits and a link to the project.
+/// promises, credits and a link to the project. Text follows the Text Size
+/// setting; the window grows taller to fit it.
 struct AboutView: View {
     /// The project page. A literal, so it always parses.
     private static let repositoryURL = URL(string: "https://github.com/static74/BusStop")!
@@ -18,24 +19,24 @@ struct AboutView: View {
 
             VStack(spacing: 2) {
                 Text("Bus Stop")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .lagoonFont(size: 24, weight: .bold, design: .rounded)
                     .foregroundStyle(Lagoon.textPrimary)
                 Text(Self.versionText)
-                    .font(.callout)
-                    .monospacedDigit()
+                    .lagoonFont(.callout, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
                     .textSelection(.enabled)
             }
 
             Text("A live map of every port on your Mac.")
-                .font(.system(.headline, design: .rounded))
+                .lagoonFont(.headline, weight: .semibold, design: .rounded)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(Lagoon.accent)
 
             VStack(spacing: 3) {
                 Text("Free and open source under the MIT License.")
                 Text("No network access. No telemetry. Everything stays on your Mac.")
             }
-            .font(.callout)
+            .lagoonFont(.callout)
             .foregroundStyle(Lagoon.textSecondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -46,7 +47,7 @@ struct AboutView: View {
                 .padding(.vertical, 2)
 
             Text("Port locations from PortScope by Alex Zenla. IOKit research informed by WhatPort and WhatCable by Darryl Morley.")
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textTertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -63,10 +64,14 @@ struct AboutView: View {
         }
         .padding(.horizontal, 28)
         .padding(.vertical, 22)
-        .frame(width: 380, height: 360)
+        .frame(width: 380)
+        .frame(minHeight: 360)
+        .fixedSize(horizontal: false, vertical: true)
         .background { background }
         .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
+        .lagoonFont(.body)
+        .lagoonTextScale(AppSettings.shared.textSize)
     }
 
     private var background: some View {

@@ -11,7 +11,7 @@ struct InspectorView: View {
         Group {
             switch store.selection {
             case nil:
-                EmptyStateView(
+                WindowEmptyState(
                     systemName: "cursorarrow.click.2",
                     title: "Nothing selected",
                     message: "Select the Mac, a port or a device to see its details."
@@ -54,7 +54,7 @@ struct InspectorView: View {
 
     private func missing(_ title: String, _ message: String) -> some View {
         VStack(spacing: 12) {
-            EmptyStateView(systemName: "questionmark.circle", title: title, message: message)
+            WindowEmptyState(systemName: "questionmark.circle", title: title, message: message)
             Button("Show the Mac") { store.selection = .host }
                 .buttonStyle(.link)
                 .padding(.bottom, 24)
@@ -74,7 +74,7 @@ struct HostInspector: View {
         let power = snapshot.power
         InspectorHeader(title: machine.name, subtitle: machine.chip ?? machine.model) {
             Image(systemName: machine.isLaptop ? "laptopcomputer" : "macmini")
-                .font(.system(size: 20, weight: .medium))
+                .lagoonFont(size: 20, weight: .medium)
                 .foregroundStyle(Lagoon.accent)
                 .frame(width: 42, height: 42)
                 .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Lagoon.accent.opacity(0.12)))
@@ -120,7 +120,7 @@ struct HostInspector: View {
             InspectorSection(title: "Capture notes") {
                 ForEach(Array(snapshot.captureNotes.enumerated()), id: \.offset) { _, note in
                     Text(note)
-                        .font(.callout)
+                        .lagoonFont(.callout)
                         .foregroundStyle(Lagoon.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -148,13 +148,13 @@ struct PortInspector: View {
         InspectorSection(title: "Name") {
             PortNameEditor(store: store, port: port)
             Text("Leave empty to use the default name.")
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textTertiary)
         }
 
         if port.liquidDetected {
             Label("Liquid detected in this port. Unplug it and let it dry.", systemImage: "drop.triangle.fill")
-                .font(.callout.weight(.semibold))
+                .lagoonFont(.callout, weight: .semibold)
                 .foregroundStyle(Lagoon.critical)
                 .padding(.horizontal, 4)
         }
@@ -272,7 +272,7 @@ struct PortInspectorChips: View {
         HStack(spacing: 6) {
             StatusRing(isActive: port.isConnected, size: 11)
             Text(port.isConnected ? "Connected" : "Empty")
-                .font(Lagoon.chipFont)
+                .lagoonFont(.caption, weight: .semibold, design: .rounded)
                 .foregroundStyle(port.isConnected ? Lagoon.accent : Lagoon.textTertiary)
             if let reading = WindowText.portPower(port) {
                 PowerBadge(milliwatts: reading.milliwatts, direction: reading.direction, isMeasured: reading.isMeasured)
