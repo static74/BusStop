@@ -142,6 +142,8 @@ CI runs on every push:
 
 Tags named `v*` run `.github/workflows/release.yml`, which builds a universal bundle stamped with the tag's version, runs the smoke test and publishes the zip with its SHA-256 checksum.
 
+Pushes to the main branches also run `.github/workflows/screenshots.yml`. Its `capture` job builds the app with a read-only token that the checkout does not store, captures every demo setup, the settings panes and the About window, and uploads the images as an artifact. Its `publish` job, the only one with write access, runs no project or third-party code: it downloads the artifact and force-pushes it to the `screenshots` branch, which the README's images come from.
+
 ## Packaging
 
 There is no Xcode project. `scripts/build-app.sh` builds the `BusStopApp` and `busstop` products in release mode and assembles the bundle by hand:

@@ -6,7 +6,7 @@
 
 <p align="center"><strong>A live map of every port on your Mac.</strong></p>
 
-Bus Stop is a free, open-source menu bar app for macOS. It shows every physical port on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
+Bus Stop is a free, open-source menu bar app for macOS. It was designed for macOS 27 and also runs on macOS 26. It shows every physical port on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
 
 ## Features
 
@@ -26,11 +26,19 @@ Bus Stop is a free, open-source menu bar app for macOS. It shows every physical 
 
 ## Screenshots
 
-Screenshots will be added here.
+![The Bus Stop popover open below its menu bar icon, showing the Studio desk demo setup](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-popover.png)
+
+*The popover, here with the Studio desk demo setup: the charger and its USB-PD contract, a diagnostic, and one card per port with the devices behind it, their link speeds and power.*
+
+![The Bus Stop topology window, showing the Mac, its ports and the devices behind them as a graph](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-topology.png)
+
+*The topology window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
+
+CI captures these images from the real app, running in demo mode on macOS 27, on every push to the main branches, so they show the current build. The [`screenshots` branch](https://github.com/static74/BusStop/tree/screenshots) has the other demo setups and every settings pane.
 
 ## Requirements
 
-- macOS 26 Tahoe or later. Designed for macOS 27 Golden Gate.
+- macOS 26 Tahoe or later. Bus Stop was designed for macOS 27 Golden Gate and also runs on macOS 26 Tahoe; CI builds and tests it on both.
 - Apple silicon recommended. Bus Stop runs on Intel Macs with macOS 26, but their port controllers do not publish the per-port detail it reads, so the map is less complete there.
 
 ## Install
@@ -38,7 +46,7 @@ Screenshots will be added here.
 ### From a release
 
 1. Download `BusStop.zip` from the [latest release](https://github.com/static74/BusStop/releases/latest).
-2. Open the zip and move **Bus Stop** to your Applications folder.
+2. Open the zip and move **Bus Stop** to your Applications folder. The zip also holds `LICENSE.txt` and `THIRD_PARTY_NOTICES.md`; the app carries its own copies, so you can leave them behind.
 3. Open Bus Stop. Release builds are signed ad hoc and not notarized, so the first time macOS says it cannot check the app. Click **Done**, open **System Settings › Privacy & Security**, scroll down to the message about Bus Stop and click **Open Anyway**. Confirm with your password or Touch ID. You only need to do this once.
 
 Each release also lists the SHA-256 checksum of the zip. To check it, download `BusStop.zip.sha256` next to the zip and run `shasum -a 256 -c BusStop.zip.sha256`.
@@ -84,13 +92,13 @@ busstop --version
 busstop --help
 ```
 
-Demo setups are `studioDesk`, `travel`, `dockStation` and `unplugged`. `--no-redact` keeps serial numbers in JSON, Markdown and raw output, and `--no-smc` skips the SMC power readings. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
+Demo setups are `studioDesk`, `travel`, `dockStation` and `unplugged`; with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds. Serial numbers are redacted from JSON, Markdown, raw and watch output unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
 
 The default output looks like this:
 
 ```
 MacBook Pro (14-inch, 2026, M5 Pro) · macOS 27.0
-Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%
+Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% · 4.5 W to ports
 ├─ Left Rear · MagSafe   96W USB-C Power Adapter   ↓ 61 W
 ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
 │  └─ Samsung T9 · 10 Gb/s · 4.5 W
@@ -102,7 +110,7 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%
 - No network code, no analytics, no crash reporting, no accounts. The app does not ask for network access.
 - Bus Stop only reads: IORegistry properties, the power-source API and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
 - Settings and port names are stored in the app's preferences. The event log and power history stay in memory. Nothing is written anywhere else unless you export.
-- Exports redact serial numbers and the computer name by default.
+- Exports and `busstop --watch` redact serial numbers and the computer name by default.
 
 ## How it works
 
@@ -118,7 +126,7 @@ Bug reports with a raw capture (`busstop --raw > capture.json`) are the most use
 - **[WhatPort](https://github.com/darrylmorley/whatport)** and **[WhatCable](https://github.com/darrylmorley/whatcable)** by Darryl Morley (MIT): research on Apple's port controllers, SMC power channels and Thunderbolt chain attribution. Files that adapt their code say so at the top.
 - The Linux kernel's Thunderbolt driver ([`drivers/thunderbolt/tb_regs.h`](https://github.com/torvalds/linux/blob/master/drivers/thunderbolt/tb_regs.h)) documents the link speed codes Bus Stop decodes. No kernel code is used.
 
-Full licence texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Full licence texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which every build also carries in `Bus Stop.app/Contents/Resources`.
 
 Bus Stop was inspired by [ViewPorts](https://viewports.app/), a commercial menu bar app that maps a Mac's ports, devices and power. Bus Stop is an independent project written from public information; it shares no code or assets with ViewPorts and is not affiliated with its developer.
 
