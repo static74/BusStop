@@ -146,6 +146,48 @@ show_crash_report() {
     fi
 }
 
+# Runs `busstop --watch ...` for a few seconds, sends SIGINT like Control-C
+# and checks that it stops with status 0.
+# Usage: watch_check NAME SECONDS ARGUMENTS...
+watch_check() {
+    local name="$1" seconds="$2"
+    shift 2
+    local output="$OUT/${name// /-}.txt" status=0 pid
+    section "$name: busstop $* ($seconds s, then Control-C)"
+    "$CLI" "$@" > "$output" 2> "$output.stderr" &
+    pid=$!
+    sleep "$seconds"
+    if ! kill -0 "$pid" 2> /dev/null; then
+        wait "$pid" 2> /dev/null || status=$?
+        show stdout "$output"
+        show stderr "$output.stderr"
+        failed "$name exited on its own with status $status before Control-C"
+        [[ "$status" == 0 ]] || show_crash_report busstop
+        return
+    fi
+    kill -INT "$pid" 2> /dev/null
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2> /dev/null || break
+        sleep 0.5
+    done
+    if kill -0 "$pid" 2> /dev/null; then
+        kill -KILL "$pid" 2> /dev/null
+        wait "$pid" 2> /dev/null
+        status=124
+    else
+        wait "$pid" 2> /dev/null || status=$?
+    fi
+    show stdout "$output"
+    show stderr "$output.stderr"
+    if [[ "$status" == 0 ]]; then
+        pass "$name stops cleanly on SIGINT"
+    elif [[ "$status" == 124 ]]; then
+        failed "$name was still running 5 s after SIGINT"
+    else
+        failed "$name ended with status $status after SIGINT"
+    fi
+}
+
 # MARK: Bundle
 
 section "Bundle layout: $APP"
@@ -273,28 +315,7 @@ for demo in "${DEMOS[@]}"; do
     fi
 done
 
-section "watch: busstop --watch --demo studioDesk (7 s, then Control-C)"
-"$CLI" --watch --demo studioDesk > "$OUT/watch.txt" 2> "$OUT/watch.txt.stderr" &
-WATCH_PID=$!
-sleep 7
-kill -INT "$WATCH_PID" 2> /dev/null
-WATCH_STATUS=0
-for _ in 1 2 3 4 5 6 7 8 9 10; do
-    kill -0 "$WATCH_PID" 2> /dev/null || break
-    sleep 0.5
-done
-if kill -0 "$WATCH_PID" 2> /dev/null; then
-    kill -KILL "$WATCH_PID" 2> /dev/null
-    WATCH_STATUS=124
-fi
-wait "$WATCH_PID" 2> /dev/null || WATCH_STATUS=$?
-show stdout "$OUT/watch.txt"
-show stderr "$OUT/watch.txt.stderr"
-if [[ "$WATCH_STATUS" == 0 ]]; then
-    pass "--watch --demo stops cleanly on SIGINT"
-else
-    failed "--watch --demo ended with status $WATCH_STATUS after SIGINT"
-fi
+watch_check "demo watch" 7 --watch --demo studioDesk
 
 # MARK: Live
 
@@ -315,6 +336,7 @@ else
     if ! cli 0 "live text" "$OUT/live.txt"; then
         show_crash_report busstop
     fi
+    watch_check "live watch" 5 --watch
 fi
 
 # MARK: App launch
