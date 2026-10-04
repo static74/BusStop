@@ -260,6 +260,7 @@ if [[ -f "$ZIP" ]]; then
 else
     printf 'No zip next to the app; skipping the zip checks.\n'
 fi
+
 if [[ ! -x "$CLI" ]]; then
     printf 'FAIL: the bundled CLI is missing, so nothing else can be checked.\n'
     exit 1
@@ -383,10 +384,18 @@ if grep -Eq '^[0-9]{2}:[0-9]{2}:[0-9]{2} - .+ disconnected' "$OUT/demo-watch.txt
 else
     failed "demo watch printed no disconnection line"
 fi
-if LC_ALL=C grep -q '[[:cntrl:]]' "$OUT/demo-watch.txt"; then
-    failed "demo watch output contains control characters"
-else
+# Control characters other than the line ends, decoded as UTF-8 so that bytes
+# of multi-byte characters such as "→" do not count.
+if python3 - "$OUT/demo-watch.txt" << 'PYTHON'
+import sys, unicodedata
+text = open(sys.argv[1], encoding="utf-8").read()
+bad = sorted({hex(ord(c)) for c in text if c != "\n" and unicodedata.category(c) == "Cc"})
+sys.exit(f"control characters: {bad}" if bad else 0)
+PYTHON
+then
     pass "demo watch output has no control characters"
+else
+    failed "demo watch output contains control characters"
 fi
 
 watch_check "demo watch JSON" 7 --watch --json --demo dockStation
