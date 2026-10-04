@@ -91,15 +91,11 @@ public final class LiveMonitor: @unchecked Sendable {
     /// True while `start()` drains the initial matches, so they do not each
     /// schedule a capture.
     private var isArming = false
-    private var notificationPort: IONotificationPortRef?
-    /// Context passed to IOKit callbacks. Lives while they are registered.
-    private var callbackBox: CallbackBox?
+    /// IOKit and `notify` registrations of the current run.
+    private var notifications: NotificationRegistrations?
     /// Context passed to main-thread callbacks (displays, power-source run
     /// loop source). Released on the main thread after removal.
     private var mainThreadBox: CallbackBox?
-    private var matchIterators: [IOObjectHandle] = []
-    private var interestNotifications: [UInt64: IOObjectHandle] = [:]
-    private var powerNotifyToken: Int32?
     private var pollTimer: DispatchSourceTimer?
     private var pollInterval: TimeInterval?
     private var pendingCapture: DispatchWorkItem?
@@ -115,7 +111,13 @@ public final class LiveMonitor: @unchecked Sendable {
     deinit {
         gate.advance()
         if DispatchQueue.getSpecific(key: queueKey) != nil {
+            // The last reference went away inside work running on the queue,
+            // possibly an IOKit callback. Release the notification port only
+            // after that work returns, never from inside its own callback.
+            let detached = notifications
+            notifications = nil
             teardown()
+            queue.async { detached?.release() }
         } else {
             queue.sync { teardown() }
         }
@@ -185,11 +187,11 @@ public final class LiveMonitor: @unchecked Sendable {
         performSync {
             Registrations(
                 isRunning: isRunning,
-                matchIterators: matchIterators.count,
-                interestNotifications: interestNotifications.count,
-                hasNotificationPort: notificationPort != nil,
+                matchIterators: notifications?.matchIterators.count ?? 0,
+                interestNotifications: notifications?.interest.count ?? 0,
+                hasNotificationPort: notifications?.port != nil,
                 hasPollTimer: pollTimer != nil,
-                hasPowerSourceNotification: powerNotifyToken != nil
+                hasPowerSourceNotification: notifications?.powerToken != nil
             )
         }
     }
@@ -209,13 +211,13 @@ public final class LiveMonitor: @unchecked Sendable {
     // MARK: Registration (on queue)
 
     private func register() {
-        let box = CallbackBox(monitor: self)
-        callbackBox = box
+        let registrations = NotificationRegistrations(box: CallbackBox(monitor: self))
+        notifications = registrations
 
         if let port = IONotificationPortCreate(kIOMainPortDefault) {
             IONotificationPortSetDispatchQueue(port, queue)
-            notificationPort = port
-            let refcon = Unmanaged.passUnretained(box).toOpaque()
+            registrations.port = port
+            let refcon = Unmanaged.passUnretained(registrations.box).toOpaque()
             isArming = true
             for className in Self.matchedClasses {
                 addMatchingNotification(port: port, className: className, terminated: false, refcon: refcon)
@@ -250,23 +252,24 @@ public final class LiveMonitor: @unchecked Sendable {
                 refcon, &iterator
             )
         }
-        guard let handle = IOObjectHandle(adopting: iterator), result == KERN_SUCCESS else { return }
-        matchIterators.append(handle)
+        guard let handle = IOObjectHandle(adopting: iterator), result == KERN_SUCCESS,
+              let registrations = notifications else { return }
+        registrations.matchIterators.append(handle)
         // Draining the iterator arms the notification.
         serviceEvent(iterator, terminated: terminated)
     }
 
     private func addInterest(_ entry: RegistryEntry) {
-        guard let port = notificationPort, let box = callbackBox, let id = entry.entryID,
-              interestNotifications[id] == nil else { return }
+        guard let registrations = notifications, let port = registrations.port, let id = entry.entryID,
+              registrations.interest[id] == nil else { return }
         var notification: io_object_t = 0
         let result = IOServiceAddInterestNotification(
             port, entry.raw, kIOGeneralInterest,
             { refcon, _, _, _ in LiveMonitor.interestCallback(refcon) },
-            Unmanaged.passUnretained(box).toOpaque(), &notification
+            Unmanaged.passUnretained(registrations.box).toOpaque(), &notification
         )
         guard let handle = IOObjectHandle(adopting: notification), result == KERN_SUCCESS else { return }
-        interestNotifications[id] = handle
+        registrations.interest[id] = handle
     }
 
     private func wantsInterest(_ entry: RegistryEntry) -> Bool {
@@ -280,7 +283,7 @@ public final class LiveMonitor: @unchecked Sendable {
             self?.externalChangeOnQueue()
         }
         if status == 0 {
-            powerNotifyToken = token
+            notifications?.powerToken = token
         }
         #endif
     }
@@ -317,23 +320,11 @@ public final class LiveMonitor: @unchecked Sendable {
         pollTimer = nil
         pollInterval = nil
 
-        #if canImport(notify)
-        if let token = powerNotifyToken {
-            _ = notify_cancel(token)
-        }
-        #endif
-        powerNotifyToken = nil
-
-        // Releasing the notification objects and iterators disarms them; the
-        // port goes last. All of this runs on `queue`, the queue the port
-        // delivers on, so no IOKit callback can be running or run afterwards.
-        interestNotifications.removeAll()
-        matchIterators.removeAll()
-        if let port = notificationPort {
-            IONotificationPortDestroy(port)
-        }
-        notificationPort = nil
-        callbackBox = nil
+        // This runs on `queue`, the queue the port and the power-source
+        // notification deliver on, so no callback is running and none runs
+        // after the release.
+        notifications?.release()
+        notifications = nil
 
         if let box = mainThreadBox {
             mainThreadBox = nil
@@ -361,7 +352,7 @@ public final class LiveMonitor: @unchecked Sendable {
             guard isRunning else { continue }
             if terminated {
                 if let id = entry.entryID {
-                    interestNotifications.removeValue(forKey: id)
+                    notifications?.interest.removeValue(forKey: id)
                 }
             } else if wantsInterest(entry) {
                 addInterest(entry)
@@ -498,6 +489,39 @@ public final class LiveMonitor: @unchecked Sendable {
         Unmanaged<CallbackBox>.fromOpaque(context).takeUnretainedValue().monitor?.externalChangeFromAnyThread()
     }
     #endif
+}
+
+/// The IOKit notification port and everything registered on it, plus the
+/// power-source `notify` token. Only touched on the monitor's queue.
+private final class NotificationRegistrations: @unchecked Sendable {
+    /// Context passed to the IOKit callbacks; outlives every registration.
+    let box: CallbackBox
+    var port: IONotificationPortRef?
+    var matchIterators: [IOObjectHandle] = []
+    var interest: [UInt64: IOObjectHandle] = [:]
+    var powerToken: Int32?
+
+    init(box: CallbackBox) {
+        self.box = box
+    }
+
+    /// Cancels the power-source notification, releases the notification
+    /// objects and iterators (which disarms them) and destroys the port last.
+    /// Safe to call more than once.
+    func release() {
+        #if canImport(notify)
+        if let powerToken {
+            _ = notify_cancel(powerToken)
+        }
+        #endif
+        powerToken = nil
+        interest.removeAll()
+        matchIterators.removeAll()
+        if let port {
+            IONotificationPortDestroy(port)
+        }
+        port = nil
+    }
 }
 
 /// The context pointer handed to C callbacks. It holds the monitor weakly, so

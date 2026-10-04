@@ -19,6 +19,8 @@ final class SMCReader: @unchecked Sendable {
     private var connection: io_connect_t = 0
     /// Set after a failed open so later captures do not retry on every poll.
     private var openFailure: String?
+    /// The first failed kernel call of the read in progress.
+    private var callFailure: kern_return_t?
 
     init() {}
 
@@ -44,18 +46,34 @@ final class SMCReader: @unchecked Sendable {
         if let failure = openLocked() {
             return ([], failure)
         }
-        return (Self.buildChannels(readKey: { readKeyLocked($0) }), nil)
+        callFailure = nil
+        let channels = Self.buildChannels(readKey: { readKeyLocked($0) })
+        if let failure = callFailure {
+            // Fail closed: a kernel error means none of this read can be
+            // trusted. Drop the connection so the next read reopens it.
+            closeLocked()
+            return ([], "SMC read failed: IOConnectCallStructMethod returned \(Self.hex(failure))")
+        }
+        return (channels, nil)
     }
 
     /// Closes the connection; the next read reopens it.
     func close() {
         lock.lock()
         defer { lock.unlock() }
+        closeLocked()
+        openFailure = nil
+    }
+
+    private func closeLocked() {
         if connection != 0 {
             IOServiceClose(connection)
             connection = 0
         }
-        openFailure = nil
+    }
+
+    private static func hex(_ result: kern_return_t) -> String {
+        "0x" + String(UInt32(bitPattern: result), radix: 16)
     }
 
     // MARK: Channel rules
@@ -159,7 +177,7 @@ final class SMCReader: @unchecked Sendable {
         var newConnection: io_connect_t = 0
         let result = IOServiceOpen(service.raw, mach_task_self_, 0, &newConnection)
         guard result == KERN_SUCCESS, newConnection != 0 else {
-            openFailure = "SMC unavailable: IOServiceOpen failed (0x\(String(UInt32(bitPattern: result), radix: 16)))"
+            openFailure = "SMC unavailable: IOServiceOpen failed (\(Self.hex(result)))"
             return openFailure
         }
         connection = newConnection
@@ -167,9 +185,10 @@ final class SMCReader: @unchecked Sendable {
     }
 
     /// Reads one key: its size and type (command 9), then its value
-    /// (command 5).
+    /// (command 5). A key the SMC does not have reads as nil; a failed kernel
+    /// call also reads as nil and is recorded in `callFailure`.
     private func readKeyLocked(_ key: String) -> KeyValue? {
-        guard let code = Self.fourCC(key) else { return nil }
+        guard callFailure == nil, let code = Self.fourCC(key) else { return nil }
 
         var infoRequest = SMCParamStruct()
         infoRequest.key = code
@@ -201,7 +220,11 @@ final class SMCReader: @unchecked Sendable {
             &output,
             &outputSize
         )
-        return result == KERN_SUCCESS ? output : nil
+        guard result == KERN_SUCCESS else {
+            if callFailure == nil { callFailure = result }
+            return nil
+        }
+        return output
     }
 }
 
