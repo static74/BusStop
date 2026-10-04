@@ -132,14 +132,15 @@ plist_key() {
     fi
 }
 
-# Prints the newest crash report for a process name written in the last
-# ten minutes, if there is one.
+# Prints the newest crash report for a process name, if there is one.
 show_crash_report() {
     local name="$1" report
     # ReportCrash writes the report a moment after the process dies.
     sleep 3
-    report="$(find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports \
-        -maxdepth 1 -name "${name}*" -mmin -10 2> /dev/null | head -n 1)"
+    # Report names are "<process>-<date>-<time>.ips", without spaces.
+    # shellcheck disable=SC2012
+    report="$(ls -t "$HOME/Library/Logs/DiagnosticReports/$name"-*.ips \
+        "/Library/Logs/DiagnosticReports/$name"-*.ips 2> /dev/null | head -n 1)"
     if [[ -n "$report" ]]; then
         printf -- '--- crash report %s (first 120 lines) ---\n' "$report"
         head -n 120 "$report"
