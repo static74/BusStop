@@ -151,7 +151,7 @@ struct DeviceTreeNode: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             DeviceRowView(device: device, depth: depth, port: port, isExpanded: isExpanded,
-                          onToggle: device.children.isEmpty ? nil : toggle)
+                          onToggle: toggleAction)
                 .deviceContextMenu(device: device, port: port)
             if isExpanded {
                 ForEach(device.children) { child in
@@ -160,6 +160,12 @@ struct DeviceTreeNode: View {
                 }
             }
         }
+    }
+
+    /// Nil for leaf devices, so their rows show no chevron.
+    private var toggleAction: (() -> Void)? {
+        guard !device.children.isEmpty else { return nil }
+        return { toggle() }
     }
 
     private func toggle() {

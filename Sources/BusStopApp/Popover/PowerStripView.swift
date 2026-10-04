@@ -97,7 +97,7 @@ struct PowerStripView: View {
         let drain = battery?.powerMilliwatts.flatMap { $0 < 0 ? -$0 : nil } ?? power.systemLoadMilliwatts
 
         return HStack(alignment: .center, spacing: 12) {
-            PowerTile(systemName: battery.map(BatteryStatusLabel.symbolName(for:)) ?? "battery.75percent",
+            PowerTile(systemName: battery.map { BatteryStatusLabel.symbolName(for: $0) } ?? "battery.75percent",
                       color: Lagoon.accent)
             VStack(alignment: .leading, spacing: 3) {
                 Text(battery?.statusText ?? "On battery")

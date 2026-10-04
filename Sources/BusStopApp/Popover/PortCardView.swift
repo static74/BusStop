@@ -89,7 +89,8 @@ struct PortCardView: View {
 
     /// Capability text, or the editing hint while renaming.
     private var headerCaption: String? {
-        if isRenaming { return "Return to save, Esc to cancel. Leave empty for the default name." }
+        // The field's placeholder shows the default name an empty entry restores.
+        if isRenaming { return "Return to save, Esc to cancel" }
         return port.capabilityDescription
     }
 
