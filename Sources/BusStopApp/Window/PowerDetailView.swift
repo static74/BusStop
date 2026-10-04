@@ -26,7 +26,10 @@ struct PowerDetailView: View {
                     }
                 }
 
-                SystemPowerChartCard(history: store.history)
+                SystemPowerChartCard(
+                    history: store.history,
+                    load: SystemLoadRecorder.shared.series(for: store.history, current: snapshot)
+                )
                 PortPowerChartCard(history: store.history) { key in
                     snapshot.port(key)?.label.title ?? "Port \(key)"
                 }
@@ -98,6 +101,7 @@ struct PowerStatTile: View {
     var caption: String
     var systemName: String
     var color: Color
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -106,17 +110,16 @@ struct PowerStatTile: View {
             } icon: {
                 Image(systemName: systemName).foregroundStyle(color)
             }
-            .font(.caption.weight(.semibold))
+            .lagoonFont(.caption, weight: .semibold)
             .foregroundStyle(Lagoon.textSecondary)
             Text(value)
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .monospacedDigit()
+                .lagoonFont(size: 26, weight: .semibold, design: .rounded, monospacedDigits: true)
                 .foregroundStyle(Lagoon.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(caption)
-                .font(.caption)
-                .foregroundStyle(Lagoon.textTertiary)
+                .lagoonFont(.caption)
+                .foregroundStyle(WindowContrast.tertiary(contrast))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -138,17 +141,16 @@ struct PowerChargerCard: View {
             if let charger = power.charger {
                 HStack(spacing: 12) {
                     Image(systemName: charger.isWireless ? "bolt.circle" : "powerplug.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .lagoonFont(size: 18, weight: .semibold)
                         .foregroundStyle(Lagoon.powerIn)
                         .frame(width: 38, height: 38)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Lagoon.powerIn.opacity(0.12)))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(charger.displayName)
-                            .font(Lagoon.titleFont)
+                            .lagoonFont(.headline, weight: .semibold)
                             .foregroundStyle(Lagoon.textPrimary)
                         Text(chargerSubtitle(charger))
-                            .font(.caption)
-                            .monospacedDigit()
+                            .lagoonFont(.caption, monospacedDigits: true)
                             .foregroundStyle(Lagoon.textSecondary)
                     }
                     Spacer(minLength: 0)
@@ -158,7 +160,7 @@ struct PowerChargerCard: View {
                 }
                 if charger.profiles.isEmpty {
                     Text("The charger did not list its power profiles.")
-                        .font(.callout)
+                        .lagoonFont(.callout)
                         .foregroundStyle(Lagoon.textSecondary)
                 } else {
                     Rectangle().fill(Lagoon.stroke).frame(height: 1)
@@ -167,17 +169,17 @@ struct PowerChargerCard: View {
             } else {
                 HStack(spacing: 12) {
                     Image(systemName: power.hasBattery ? "battery.75percent" : "powerplug")
-                        .font(.system(size: 18, weight: .medium))
+                        .lagoonFont(size: 18, weight: .medium)
                         .foregroundStyle(Lagoon.textTertiary)
                         .frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("No charger connected")
-                            .font(Lagoon.titleFont)
+                            .lagoonFont(.headline, weight: .semibold)
                             .foregroundStyle(Lagoon.textPrimary)
                         Text(power.hasBattery
                              ? "The Mac is running on its battery."
                              : "This Mac runs from mains power, so there is no charger to report.")
-                            .font(.callout)
+                            .lagoonFont(.callout)
                             .foregroundStyle(Lagoon.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -212,28 +214,27 @@ struct PowerBatteryCard: View {
             if let battery {
                 HStack(alignment: .firstTextBaseline) {
                     Text(battery.percent.map { "\($0)%" } ?? "—")
-                        .font(.system(size: 30, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
+                        .lagoonFont(size: 30, weight: .semibold, design: .rounded, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textPrimary)
                     Text(battery.statusText)
-                        .font(.callout)
+                        .lagoonFont(.callout)
                         .foregroundStyle(Lagoon.textSecondary)
                     Spacer(minLength: 0)
                 }
                 PowerBatteryBar(fraction: Double(battery.percent ?? 0) / 100, isCharging: battery.isCharging)
                     .frame(height: 8)
                 if let milliwatts = battery.powerMilliwatts, milliwatts != 0 {
-                    KeyValueRow(
+                    InspectorRow(
                         label: milliwatts > 0 ? "Charging at" : "Draining at",
                         value: Format.power(milliwatts: abs(milliwatts))
                     )
                 }
                 if let reason = battery.notChargingReason, reason != 0, battery.externalConnected {
-                    KeyValueRow(label: "Not charging reason", value: "Code \(reason)")
+                    InspectorRow(label: "Not charging reason", value: "Code \(reason)")
                 }
             } else {
                 Text("No battery reading yet.")
-                    .font(.callout)
+                    .lagoonFont(.callout)
                     .foregroundStyle(Lagoon.textSecondary)
             }
         }
@@ -264,19 +265,21 @@ struct PowerBatteryBar: View {
 
 // MARK: - Charts
 
-/// System input and battery power over the last few minutes.
+/// System input, battery and system load over the last few minutes.
 struct SystemPowerChartCard: View {
     var history: PowerHistory
+    /// System load in watts (from `SystemLoadRecorder`).
+    var load: [(date: Date, watts: Double)]
 
     var body: some View {
-        let points = PowerChartData.systemPoints(history)
-        let domain = [PowerChartData.inputName, PowerChartData.batteryName]
+        let points = PowerChartData.systemPoints(history, load: load)
+        let domain = [PowerChartData.inputName, PowerChartData.batteryName, PowerChartData.loadName]
             .filter { name in points.contains { $0.series == name } }
-        let colors = domain.map { $0 == PowerChartData.inputName ? PowerChartPalette.systemInput : PowerChartPalette.battery }
+        let colors = domain.map(PowerChartData.systemColor)
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "System power", trailing: "Last \(Int(history.window / 60)) minutes")
             if points.count < 2 {
-                PowerChartEmpty(message: "System input and battery power appear here once a few readings arrive. Some Macs do not report them.")
+                PowerChartEmpty(message: "System input, battery and system load appear here once a few readings arrive. Some Macs do not report them.")
             } else {
                 PowerLineChart(
                     points: points,
@@ -325,10 +328,10 @@ struct PowerChartEmpty: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "chart.xyaxis.line")
-                .font(.system(size: 26, weight: .light))
+                .lagoonFont(size: 26, weight: .light)
                 .foregroundStyle(Lagoon.accent.opacity(0.6))
             Text(message)
-                .font(.callout)
+                .lagoonFont(.callout)
                 .foregroundStyle(Lagoon.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)

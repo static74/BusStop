@@ -34,6 +34,8 @@ nonisolated struct PowerChartHover: Identifiable, Sendable {
 enum PowerChartPalette {
     static let systemInput = Color(hex: 0x0FA396)
     static let battery = Color(hex: 0x5E7CE2)
+    /// Third in the system chart, after battery, as in the validated port order.
+    static let systemLoad = Color(hex: 0x45A86A)
     static let ports: [Color] = [
         Color(hex: 0x0FA396),
         Color(hex: 0x5E7CE2),
@@ -167,7 +169,7 @@ struct PowerChartTooltip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(hover.date, format: .dateTime.hour().minute().second())
-                .font(.caption2.weight(.semibold))
+                .lagoonFont(.caption2, weight: .semibold)
                 .foregroundStyle(Lagoon.textSecondary)
             ForEach(hover.entries) { entry in
                 HStack(spacing: 6) {
@@ -178,10 +180,9 @@ struct PowerChartTooltip: View {
                         .foregroundStyle(Lagoon.textSecondary)
                     Spacer(minLength: 8)
                     Text(Format.power(milliwatts: Int((entry.watts * 1000).rounded())))
-                        .monospacedDigit()
                         .foregroundStyle(Lagoon.textPrimary)
                 }
-                .font(.caption)
+                .lagoonFont(.caption, monospacedDigits: true)
             }
         }
         .padding(8)
@@ -195,16 +196,29 @@ struct PowerChartTooltip: View {
 enum PowerChartData {
     static let inputName = "System input"
     static let batteryName = "Battery"
+    static let loadName = "System load"
     static let otherPortsName = "Other ports"
 
-    static func systemPoints(_ history: PowerHistory) -> [PowerChartPoint] {
+    /// System input, battery and system load, in legend order.
+    static func systemPoints(_ history: PowerHistory, load: [(date: Date, watts: Double)]) -> [PowerChartPoint] {
         let input = history.systemInputSeries.enumerated().map { index, sample in
             PowerChartPoint(id: "in#\(index)", date: sample.date, watts: sample.watts, series: inputName)
         }
         let battery = history.batterySeries.enumerated().map { index, sample in
             PowerChartPoint(id: "bat#\(index)", date: sample.date, watts: sample.watts, series: batteryName)
         }
-        return input + battery
+        let systemLoad = load.enumerated().map { index, sample in
+            PowerChartPoint(id: "load#\(index)", date: sample.date, watts: sample.watts, series: loadName)
+        }
+        return input + battery + systemLoad
+    }
+
+    static func systemColor(_ series: String) -> Color {
+        switch series {
+        case inputName: return PowerChartPalette.systemInput
+        case loadName: return PowerChartPalette.systemLoad
+        default: return PowerChartPalette.battery
+        }
     }
 
     /// Per-port series: the busiest ports get their own colour, the rest are
@@ -254,5 +268,70 @@ enum PowerChartData {
             }
         }
         return (points, domain, colors)
+    }
+}
+
+// MARK: - System load history
+
+/// The Mac's own power use over time.
+///
+/// `PortStore.history` (`PowerSample`) keeps system input, battery and port
+/// power but not system load, so the Power page records load here, from the
+/// same snapshots and over the same span. Recording starts when the topology
+/// window first opens.
+final class SystemLoadRecorder {
+    static let shared = SystemLoadRecorder()
+
+    struct Sample {
+        var date: Date
+        var milliwatts: Int
+    }
+
+    private(set) var samples: [Sample] = []
+    private var observation: ObservationLoop?
+    /// Matches `PowerHistory`'s defaults.
+    private let window: TimeInterval = 600
+    private let capacity = 600
+
+    /// Starts following the store's snapshots (once).
+    func start(store: PortStore) {
+        guard observation == nil else { return }
+        observation = ObservationLoop { [weak self, weak store] in
+            guard let self, let store else { return }
+            self.record(store.snapshot)
+        }
+    }
+
+    /// Adds the snapshot's load, with the same rules as `PowerHistory.append`:
+    /// samples under 0.5 s apart replace each other and a clock that goes
+    /// backwards starts over.
+    func record(_ snapshot: HostSnapshot) {
+        guard let load = snapshot.power.systemLoadMilliwatts else { return }
+        let date = snapshot.capturedAt
+        if let last = samples.last {
+            if date < last.date {
+                samples.removeAll()
+            } else if date.timeIntervalSince(last.date) < 0.5 {
+                samples.removeLast()
+            }
+        }
+        samples.append(Sample(date: date, milliwatts: load))
+        let cutoff = date.addingTimeInterval(-window)
+        samples.removeAll { $0.date < cutoff }
+        if samples.count > capacity { samples.removeFirst(samples.count - capacity) }
+    }
+
+    /// Load in watts over the span `history` covers, ending with `current`
+    /// even if its sample has not been recorded yet.
+    func series(for history: PowerHistory, current: HostSnapshot) -> [(date: Date, watts: Double)] {
+        guard let start = history.samples.first?.date else { return [] }
+        var result = samples.filter { $0.date >= start }.map { (date: $0.date, watts: Double($0.milliwatts) / 1000) }
+        if let load = current.power.systemLoadMilliwatts, current.capturedAt >= start {
+            if let last = result.last, current.capturedAt.timeIntervalSince(last.date) < 0.5 {
+                result.removeLast()
+            }
+            result.append((date: current.capturedAt, watts: Double(load) / 1000))
+        }
+        return result
     }
 }
