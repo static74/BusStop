@@ -188,10 +188,16 @@ enum PowerParser {
 
     /// Fills charger fields the adapter dictionaries left empty from the
     /// charger port: the Apple charger's own name, the winning power-source
-    /// contract.
+    /// contract. The winning source (`[*]` in its name) is read first, then
+    /// nodes by registry ID, so the result does not depend on capture order.
     static func enrich(_ charger: inout ChargerInfo, port: PortKey, ports: TopologyPortTable,
                        index: TopologyNodeIndex) {
-        for node in index.nodes where ports.owner(of: node, index: index) == port {
+        let nodes = index.nodes.filter { ports.owner(of: $0, index: index) == port }.sorted { lhs, rhs in
+            let l = lhs.name.contains("[*]") ? 0 : 1
+            let r = rhs.name.contains("[*]") ? 0 : 1
+            return l != r ? l < r : lhs.id < rhs.id
+        }
+        for node in nodes {
             let p = node.properties
             if TopologyClass.mentions(node, "AppleUVDM") || p.string("ProtocolName") == "AppleUVDM" {
                 if charger.name == nil { charger.name = TopologyText.clean(p.string("User String")) }

@@ -205,6 +205,20 @@ struct PowerTopologyTests {
         #expect(charger.portKey == PortKey(type: 2, number: 1))
     }
 
+    @Test func winningPowerSourceIsReadFirst() throws {
+        func source(_ id: UInt64, _ name: String, millivolts: Int) -> RawNode {
+            F.node(id: id, parent: 1, className: "IOPortFeaturePowerSource", name: name,
+                   properties: ["WinningPowerSourceOption": ["Voltage (mV)": .int(Int64(millivolts)),
+                                                             "Max Current (mA)": 3000]])
+        }
+        let nodes = [F.port(id: 1, number: 1, connected: true), source(2, "TypeC", millivolts: 5000),
+                     source(9, "USB-PD [*]", millivolts: 15000)]
+        for order in [nodes, nodes.reversed()] {
+            let raw = F.raw(ports: order, battery: ["ExternalConnected": true])
+            #expect(TopologyBuilder.build(raw).power.charger?.millivolts == 15000)
+        }
+    }
+
     @Test func magSafeFamilyFallback() throws {
         let raw = F.raw(ports: [F.port(id: 1, type: 17, number: 1, description: "MagSafe 3", connected: true)],
                         battery: ["ExternalConnected": true], adapter: ["Watts": 70])
