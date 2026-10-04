@@ -299,6 +299,20 @@ else
 fi
 cli 1 "missing input file" "$OUT/missing-input.txt" --input "$OUT/does-not-exist.json"
 
+# Standard output open for reading only, so every write fails with EBADF: the
+# command must report it and exit with status 1, as on a full disk.
+section "write error: busstop --demo studioDesk with standard output not writable"
+WRITE_STATUS=0
+# shellcheck disable=SC2016 # $0 expands in the inner shell.
+run_limited "$CLI_TIME_LIMIT" "$OUT/write-error.txt" "$OUT/write-error.txt.stderr" \
+    /bin/bash -c 'exec "$0" --demo studioDesk 1< /dev/null' "$CLI" || WRITE_STATUS=$?
+show stderr "$OUT/write-error.txt.stderr"
+if [[ "$WRITE_STATUS" == 1 ]] && grep -q "cannot write" "$OUT/write-error.txt.stderr"; then
+    pass "a failed write to standard output ends with status 1 and a message"
+else
+    failed "a failed write to standard output ended with status $WRITE_STATUS, expected 1 and a message"
+fi
+
 # MARK: Demo scenarios
 
 for demo in "${DEMOS[@]}"; do
@@ -317,6 +331,39 @@ for demo in "${DEMOS[@]}"; do
 done
 
 watch_check "demo watch" 7 --watch --demo studioDesk
+# The sample device is unplugged on the third tick, about 4 s in.
+if grep -Eq '^[0-9]{2}:[0-9]{2}:[0-9]{2} - .+ disconnected' "$OUT/demo-watch.txt"; then
+    pass "demo watch prints a disconnection line"
+else
+    failed "demo watch printed no disconnection line"
+fi
+if LC_ALL=C grep -q '[[:cntrl:]]' "$OUT/demo-watch.txt"; then
+    failed "demo watch output contains control characters"
+else
+    pass "demo watch output has no control characters"
+fi
+
+watch_check "demo watch JSON" 7 --watch --json --demo dockStation
+if python3 - "$OUT/demo-watch-JSON.txt" << 'PYTHON'
+import json, sys
+lines = [line for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+events = [json.loads(line) for line in lines]
+assert events, "no events"
+for event in events:
+    assert {"id", "kind", "title", "date"} <= event.keys(), f"missing keys in {event}"
+PYTHON
+then
+    pass "demo watch JSON prints one valid event object per line"
+else
+    failed "demo watch JSON did not print valid event objects, one per line"
+fi
+
+watch_check "demo watch unplugged" 3 --watch --demo unplugged
+if grep -q "nothing plugged in" "$OUT/demo-watch-unplugged.txt.stderr"; then
+    pass "demo watch on the unplugged setup says that no events will appear"
+else
+    failed "demo watch on the unplugged setup does not say that no events will appear"
+fi
 
 # MARK: Live
 
