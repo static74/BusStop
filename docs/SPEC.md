@@ -95,11 +95,11 @@ From top to bottom:
    - Chips: active transports with speed ("USB 3 · 10 Gb/s", "DisplayPort", "Thunderbolt · 40 Gb/s"), power badge ("↓ 61 W" in, "↑ 4.5 W" out).
    - Nested device tree with indentation guides. Each device shows name, kind icon, speed and allocated power. Hubs show "3 devices · 7.5 W" roll-ups and can collapse.
    - Empty ports are shown dimmed, or hidden with the "Hide empty ports" setting.
-5. **Footer.** "Updated just now", Demo badge when in demo mode, button "Open Topology".
+5. **Footer.** "Updated just now" and the button "Open Topology". (In demo mode a DEMO badge sits on the header's summary line.)
 
 ### 3.3 Topology window
 
-`Window` scene, default 1100 × 700, resizable, remembers frame. `NavigationSplitView` with:
+An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never smaller than 900 × 600), resizable, remembers its frame. The graph fits the window width on open and keeps fitting until the user zooms. `NavigationSplitView` with:
 
 - **Sidebar** (system Liquid Glass sidebar): Overview, Ports (one row per port), Devices (flat list), Power, Events, Diagnostics.
 - **Detail**:
