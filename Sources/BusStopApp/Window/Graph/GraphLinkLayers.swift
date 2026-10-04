@@ -156,43 +156,51 @@ struct GraphLinksLayer: View {
 }
 
 /// Small bright dots travelling along active links.
+///
+/// The timeline exists only while there is something to move: with
+/// animation off (setting, Reduce Motion, window hidden or covered) or no
+/// active link, nothing redraws.
 struct GraphPulseLayer: View {
     var tracks: [GraphPulseTrack]
     var animate: Bool
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animate)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, _ in
-                guard animate else { return }
-                for track in tracks {
-                    for index in 0..<max(track.dots, 1) {
-                        let raw = time / track.period + track.phase + Double(index) / Double(max(track.dots, 1))
-                        let progress = raw - raw.rounded(.down)
-                        let point = track.curve.point(at: CGFloat(progress))
-                        // Fade in as a dot leaves its start and out as it arrives.
-                        let fade = sin(progress * .pi)
-                        let halo = track.radius * 3.4
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: point.x - halo, y: point.y - halo, width: halo * 2, height: halo * 2)),
-                            with: .radialGradient(
-                                Gradient(colors: [track.color.opacity(0.5 * fade), track.color.opacity(0)]),
-                                center: point,
-                                startRadius: 0,
-                                endRadius: halo
-                            )
+        if animate && !tracks.isEmpty {
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
+                pulses(at: timeline.date.timeIntervalSinceReferenceDate)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func pulses(at time: TimeInterval) -> some View {
+        Canvas { context, _ in
+            for track in tracks {
+                for index in 0..<max(track.dots, 1) {
+                    let raw = time / track.period + track.phase + Double(index) / Double(max(track.dots, 1))
+                    let progress = raw - raw.rounded(.down)
+                    let point = track.curve.point(at: CGFloat(progress))
+                    // Fade in as a dot leaves its start and out as it arrives.
+                    let fade = sin(progress * .pi)
+                    let halo = track.radius * 3.4
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: point.x - halo, y: point.y - halo, width: halo * 2, height: halo * 2)),
+                        with: .radialGradient(
+                            Gradient(colors: [track.color.opacity(0.5 * fade), track.color.opacity(0)]),
+                            center: point,
+                            startRadius: 0,
+                            endRadius: halo
                         )
-                        let core = track.radius
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: point.x - core, y: point.y - core, width: core * 2, height: core * 2)),
-                            with: .color(track.color.opacity(0.95 * fade))
-                        )
-                    }
+                    )
+                    let core = track.radius
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: point.x - core, y: point.y - core, width: core * 2, height: core * 2)),
+                        with: .color(track.color.opacity(0.95 * fade))
+                    )
                 }
             }
         }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
@@ -221,7 +229,8 @@ struct GraphChipsLayer: View {
     }
 }
 
-/// A faint dot grid and a soft glow behind the host, so the canvas reads as a map.
+/// A faint dot grid and a soft glow behind the host, so the canvas reads as a
+/// map. It fills the whole visible canvas, not only the graph's bounds.
 struct GraphBackdrop: View {
     var hostFrame: CGRect?
 
@@ -244,7 +253,12 @@ struct GraphBackdrop: View {
 
             if let hostFrame {
                 let center = CGPoint(x: hostFrame.midX, y: hostFrame.midY)
-                let radius = max(hostFrame.width, hostFrame.height) * 1.1
+                // The glow fades out before the canvas's trailing and bottom
+                // edges, so a short canvas never cuts it with a hard line. The
+                // leading and top edges are the scroll view's own edges.
+                let radius = min(max(hostFrame.width, hostFrame.height) * 1.1,
+                                 size.width - center.x, size.height - center.y)
+                guard radius > 0 else { return }
                 context.fill(
                     Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
                     with: .radialGradient(

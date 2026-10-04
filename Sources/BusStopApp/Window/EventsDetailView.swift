@@ -15,12 +15,17 @@ struct EventDayGroup: Identifiable {
 }
 
 /// The Events page: a reverse-chronological timeline grouped by day, with a
-/// kind filter and a Clear button.
+/// kind filter and a Clear button. Clicking an event selects its device (or
+/// port) and shows it in the inspector; the page stays on Events.
 struct EventsDetailView: View {
     var store: PortStore
     var searchText: String
+    /// Selects in the store and opens the inspector.
+    var onSelect: (StoreSelection) -> Void
 
     @State private var filter: EventsFilter = .all
+    /// The event last clicked, drawn as selected while it still points at the selection.
+    @State private var selectedEventID: ConnectionEvent.ID?
 
     var body: some View {
         let groups = makeGroups()
@@ -39,7 +44,7 @@ struct EventsDetailView: View {
             .padding(.top, 20)
 
             if groups.isEmpty {
-                EmptyStateView(
+                WindowEmptyState(
                     systemName: "clock.arrow.circlepath",
                     title: store.events.isEmpty ? "No events yet" : "No matching events",
                     message: store.events.isEmpty
@@ -84,6 +89,7 @@ struct EventsDetailView: View {
                                         event: event,
                                         now: context.date,
                                         isLast: index == group.events.count - 1,
+                                        isSelected: isSelected(event),
                                         onSelect: { select(event) }
                                     )
                                 }
@@ -120,14 +126,25 @@ struct EventsDetailView: View {
         return day.formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
-    /// Selects the event's device (or its port) in the inspector.
+    /// Selects the event's device (or its port) and shows it in the inspector.
     private func select(_ event: ConnectionEvent) {
+        guard let target = target(of: event) else { return }
+        selectedEventID = event.id
+        onSelect(target)
+    }
+
+    /// What clicking the event selects: the device while it is still
+    /// connected, otherwise the port.
+    private func target(of event: ConnectionEvent) -> StoreSelection? {
         let snapshot = store.snapshot
-        if let id = event.deviceID, snapshot.device(id: id) != nil {
-            store.selection = .device(id)
-        } else if let key = event.portKey, snapshot.port(key) != nil {
-            store.selection = .port(key)
-        }
+        if let id = event.deviceID, snapshot.device(id: id) != nil { return .device(id) }
+        if let key = event.portKey, snapshot.port(key) != nil { return .port(key) }
+        return nil
+    }
+
+    private func isSelected(_ event: ConnectionEvent) -> Bool {
+        guard event.id == selectedEventID, let selection = store.selection else { return false }
+        return target(of: event) == selection
     }
 }
 
@@ -136,9 +153,11 @@ struct EventTimelineRow: View {
     var event: ConnectionEvent
     var now: Date
     var isLast: Bool
+    var isSelected: Bool = false
     var onSelect: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         Button(action: onSelect) {
@@ -146,11 +165,11 @@ struct EventTimelineRow: View {
                 symbol
                 VStack(alignment: .leading, spacing: 3) {
                     Text(event.title)
-                        .font(.system(.callout).weight(.semibold))
+                        .lagoonFont(.callout, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
                     if !event.detail.isEmpty {
                         Text(event.detail)
-                            .font(.caption)
+                            .lagoonFont(.caption)
                             .foregroundStyle(Lagoon.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -158,21 +177,24 @@ struct EventTimelineRow: View {
                 Spacer(minLength: 12)
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(event.date, format: .dateTime.hour().minute().second())
-                        .font(.callout)
-                        .monospacedDigit()
+                        .lagoonFont(.callout, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textPrimary)
                     Text(Format.relative(event.date, now: now))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(Lagoon.textTertiary)
+                        .lagoonFont(.caption, monospacedDigits: true)
+                        .foregroundStyle(WindowContrast.tertiary(contrast))
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(isHovered ? Lagoon.surfaceRaised : Color.clear)
+            .background(isHovered || isSelected ? Lagoon.surfaceRaised : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Capsule().fill(Lagoon.accent).frame(width: 3).padding(.vertical, 8)
+                }
+            }
             .overlay(alignment: .bottom) {
                 if !isLast {
-                    Rectangle().fill(Lagoon.stroke).frame(height: 1).padding(.leading, 52)
+                    Rectangle().fill(WindowContrast.stroke(contrast)).frame(height: 1).padding(.leading, 52)
                 }
             }
             .contentShape(Rectangle())
@@ -180,13 +202,14 @@ struct EventTimelineRow: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? AccessibilityTraits.isSelected : AccessibilityTraits())
         .accessibilityHint(event.deviceID != nil || event.portKey != nil ? "Shows details in the inspector" : "")
     }
 
     private var symbol: some View {
         let color = tint
         return Image(systemName: event.symbolName)
-            .font(.system(size: 13, weight: .semibold))
+            .lagoonFont(size: 13, weight: .semibold)
             .foregroundStyle(color)
             .frame(width: 26, height: 26)
             .background(Circle().fill(color.opacity(0.14)))

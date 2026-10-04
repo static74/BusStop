@@ -18,7 +18,7 @@ struct DiagnosticsDetailView: View {
                     WindowDetailHeader(title: "Diagnostics", subtitle: "Checks run on every refresh")
                         .padding(.horizontal, 24)
                         .padding(.top, 20)
-                    EmptyStateView(
+                    WindowEmptyState(
                         systemName: "checkmark.circle",
                         title: "No issues found",
                         message: "Every link runs as fast as both ends allow, chargers and hubs are within budget, and no port reports a problem."
@@ -68,12 +68,13 @@ struct DiagnosticCard: View {
     var deviceName: String?
     var onShowPort: (PortKey) -> Void
     var onShowDevice: (String) -> Void
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let color = Lagoon.severityColor(diagnostic.severity)
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: Lagoon.severitySymbol(diagnostic.severity))
-                .font(.system(size: 18, weight: .semibold))
+                .lagoonFont(size: 18, weight: .semibold)
                 .foregroundStyle(color)
                 .frame(width: 34, height: 34)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(color.opacity(0.12)))
@@ -82,10 +83,10 @@ struct DiagnosticCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(diagnostic.title)
-                        .font(Lagoon.titleFont)
+                        .lagoonFont(.headline, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
                     Text(severityName.uppercased())
-                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                        .lagoonFont(size: 9, weight: .heavy, design: .rounded)
                         .tracking(0.8)
                         .foregroundStyle(color)
                         .padding(.horizontal, 6)
@@ -93,7 +94,7 @@ struct DiagnosticCard: View {
                         .background(Capsule().fill(color.opacity(0.14)))
                 }
                 Text(diagnostic.detail)
-                    .font(.callout)
+                    .lagoonFont(.callout)
                     .foregroundStyle(Lagoon.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -101,10 +102,10 @@ struct DiagnosticCard: View {
                 if let suggestion = diagnostic.suggestion, !suggestion.isEmpty {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "lightbulb")
-                            .font(.system(size: 12, weight: .semibold))
+                            .lagoonFont(size: 12, weight: .semibold)
                             .foregroundStyle(Lagoon.accent)
                         Text(suggestion)
-                            .font(.callout)
+                            .lagoonFont(.callout)
                             .foregroundStyle(Lagoon.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -143,7 +144,7 @@ struct DiagnosticCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Lagoon.cardRadius, style: .continuous)
-                .strokeBorder(diagnostic.severity == .info ? Lagoon.stroke : color.opacity(0.4), lineWidth: 1)
+                .strokeBorder(diagnostic.severity == .info ? WindowContrast.stroke(contrast) : color.opacity(0.4), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
     }

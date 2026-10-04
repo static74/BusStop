@@ -15,6 +15,7 @@ struct GraphNodeView: View {
     @State private var isHovered = false
     @State private var hasAppeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         Group {
@@ -97,7 +98,7 @@ struct GraphNodeView: View {
         } else if isHost || isHovered {
             color = Lagoon.strokeStrong
         } else {
-            color = Lagoon.stroke
+            color = WindowContrast.stroke(contrast)
         }
         return shape.strokeBorder(
             color,
@@ -148,13 +149,14 @@ struct GraphNodeButtonStyle: ButtonStyle {
 /// The Mac: glyph, name, chip and power summary.
 struct GraphHostCard: View {
     var snapshot: HostSnapshot
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let machine = snapshot.machine
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: machine.isLaptop ? "laptopcomputer" : "macmini")
-                    .font(.system(size: 22, weight: .medium))
+                    .lagoonFont(size: 22, weight: .medium)
                     .foregroundStyle(Lagoon.accent)
                     .frame(width: 46, height: 46)
                     .background(
@@ -167,18 +169,18 @@ struct GraphHostCard: View {
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(machine.name)
-                        .font(Lagoon.titleFont)
+                        .lagoonFont(.headline, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                     Text(machine.chip ?? machine.model)
-                        .font(.caption)
+                        .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
                 }
             }
             Rectangle()
-                .fill(Lagoon.stroke)
+                .fill(WindowContrast.stroke(contrast))
                 .frame(height: 1)
             HStack(spacing: 6) {
                 if let reading = WindowText.hostPower(snapshot.power) {
@@ -186,14 +188,12 @@ struct GraphHostCard: View {
                 }
                 Spacer(minLength: 0)
                 Text(WindowText.count(snapshot.deviceCount, "device", "devices"))
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
             }
             Text(snapshot.power.battery?.statusText ?? WindowText.count(snapshot.ports.count, "port", "ports"))
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(Lagoon.textTertiary)
+                .lagoonFont(.caption, monospacedDigits: true)
+                .foregroundStyle(WindowContrast.tertiary(contrast))
                 .lineLimit(1)
         }
         .padding(14)
@@ -203,6 +203,7 @@ struct GraphHostCard: View {
 /// A physical port: connector, name, capability, active transports and power.
 struct GraphPortCard: View {
     var port: PhysicalPort
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -210,7 +211,7 @@ struct GraphPortCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(port.label.title)
-                        .font(.system(.callout).weight(.semibold))
+                        .lagoonFont(.callout, weight: .semibold)
                         .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
                         .lineLimit(1)
                     Spacer(minLength: 4)
@@ -220,30 +221,31 @@ struct GraphPortCard: View {
                     }
                 }
                 Text(port.capabilityDescription ?? port.kind.displayName)
-                    .font(.caption)
-                    .foregroundStyle(port.isConnected ? Lagoon.textSecondary : Lagoon.textTertiary)
+                    .lagoonFont(.caption)
+                    .foregroundStyle(port.isConnected ? Lagoon.textSecondary : WindowContrast.tertiary(contrast))
                     .lineLimit(1)
                 GraphTransportChips(port: port)
             }
         }
         .padding(10)
-        .opacity(port.isConnected ? 1 : 0.62)
+        .opacity(port.isConnected ? 1 : WindowContrast.emptyOpacity(contrast, 0.62))
     }
 }
 
 /// Active transport chips, trimmed to what fits.
 struct GraphTransportChips: View {
     var port: PhysicalPort
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let transports = port.activeTransports
         if !port.isConnected {
             Text("Empty")
-                .font(.caption)
-                .foregroundStyle(Lagoon.textTertiary)
+                .lagoonFont(.caption)
+                .foregroundStyle(WindowContrast.tertiary(contrast))
         } else if transports.isEmpty {
             Text(port.charger != nil ? "Charging" : "Connected")
-                .font(Lagoon.chipFont)
+                .lagoonFont(.caption, weight: .semibold, design: .rounded)
                 .foregroundStyle(port.charger != nil ? Lagoon.powerIn : Lagoon.textSecondary)
         } else {
             ViewThatFits(in: .horizontal) {
@@ -268,25 +270,25 @@ struct GraphTransportChips: View {
 struct GraphDeviceCard: View {
     var device: DeviceNode
     var isDeparting: Bool
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 10) {
             DeviceIcon(kind: device.kind, size: 30, dimmed: isDeparting)
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.name)
-                    .font(.system(.callout).weight(.semibold))
-                    .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textPrimary)
+                    .lagoonFont(.callout, weight: .semibold)
+                    .foregroundStyle(isDeparting ? WindowContrast.tertiary(contrast) : Lagoon.textPrimary)
                     .lineLimit(1)
                 Text(isDeparting ? "Disconnected" : WindowText.deviceSubtitle(device))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textSecondary)
+                    .lagoonFont(.caption, monospacedDigits: true)
+                    .foregroundStyle(isDeparting ? WindowContrast.tertiary(contrast) : Lagoon.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
             if device.isTunneled && !isDeparting {
                 Image(systemName: "bolt.horizontal.fill")
-                    .font(.system(size: 9, weight: .semibold))
+                    .lagoonFont(size: 9, weight: .semibold)
                     .foregroundStyle(Lagoon.accent.opacity(0.7))
                     .help("Reached through a Thunderbolt / USB4 tunnel")
             }
@@ -305,12 +307,11 @@ struct GraphDisplayCard: View {
             DeviceIcon(kind: .display, size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(display.name)
-                    .font(.system(.callout).weight(.semibold))
+                    .lagoonFont(.callout, weight: .semibold)
                     .foregroundStyle(Lagoon.textPrimary)
                     .lineLimit(1)
                 Text(display.modeDescription ?? "Display")
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
                     .lineLimit(1)
             }
@@ -323,11 +324,12 @@ struct GraphDisplayCard: View {
 /// Header for devices and displays that could not be tied to a port.
 struct GraphOtherCard: View {
     var count: Int
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "questionmark.square.dashed")
-                .font(.system(size: 14, weight: .semibold))
+                .lagoonFont(size: 14, weight: .semibold)
                 .foregroundStyle(Lagoon.textSecondary)
                 .frame(width: 28, height: 28)
                 .background(
@@ -336,16 +338,15 @@ struct GraphOtherCard: View {
                 )
             VStack(alignment: .leading, spacing: 4) {
                 Text("Other devices")
-                    .font(.system(.callout).weight(.semibold))
+                    .lagoonFont(.callout, weight: .semibold)
                     .foregroundStyle(Lagoon.textPrimary)
                 Text("Not tied to a specific port")
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.textSecondary)
                     .lineLimit(1)
                 Text(WindowText.count(count, "item", "items"))
-                    .font(Lagoon.chipFont)
-                    .monospacedDigit()
-                    .foregroundStyle(Lagoon.textTertiary)
+                    .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
+                    .foregroundStyle(WindowContrast.tertiary(contrast))
             }
         }
         .padding(10)

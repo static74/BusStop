@@ -11,36 +11,73 @@ struct TopologyOutlineView: View {
     var ports: [PhysicalPort]
     var includeOther: Bool
     var searchText: String
+    /// A row to scroll into view; cleared once handled.
+    @Binding var scrollRequest: TopologyScrollRequest?
 
     /// Row IDs of collapsed containers (everything starts expanded).
     @State private var collapsed: Set<String> = []
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let sections = makeSections()
         Group {
             if sections.isEmpty {
-                EmptyStateView(
-                    systemName: "magnifyingglass",
-                    title: "No matches",
-                    message: "No port or device matches “\(TopologySearch.normalized(searchText))”."
-                )
+                PortListEmptyView(state: PortListEmptyState.resolve(searchText: searchText, store: store), store: store)
             } else {
-                List(selection: selection) {
-                    ForEach(sections) { section in
-                        Section {
-                            ForEach(section.rows) { row in
-                                rowView(row)
-                                    .tag(row.id)
-                            }
+                ScrollViewReader { proxy in
+                    list(sections)
+                        .onChange(of: scrollRequest, initial: true) { _, request in
+                            guard let request else { return }
+                            scrollRequest = nil
+                            scroll(to: request, proxy: proxy)
                         }
-                    }
                 }
-                .listStyle(.inset)
-                .scrollContentBackground(.hidden)
-                .alternatingRowBackgrounds(.disabled)
-                .animation(.spring(response: 0.35, dampingFraction: 0.86), value: sections.map(\.signature))
             }
         }
+    }
+
+    private func list(_ sections: [TopologyOutlineSection]) -> some View {
+        List(selection: selection) {
+            ForEach(sections) { section in
+                Section {
+                    ForEach(section.rows) { row in
+                        rowView(row)
+                            .id(row.id)
+                            .tag(row.id)
+                    }
+                }
+            }
+        }
+        .listStyle(.inset)
+        .scrollContentBackground(.hidden)
+        .alternatingRowBackgrounds(.disabled)
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: sections.map(\.signature))
+    }
+
+    /// Expands the hubs above the requested device, then scrolls to its row.
+    private func scroll(to request: TopologyScrollRequest, proxy: ScrollViewProxy) {
+        guard let tag = request.tag else { return }
+        if case .device(let id)? = SelectionTag.selection(for: tag) {
+            let trees = ports.map(\.devices) + [store.snapshot.otherDevices]
+            for devices in trees {
+                guard let path = Self.ancestors(of: id, in: devices) else { continue }
+                collapsed.subtract(path.map(SelectionTag.device))
+                break
+            }
+        }
+        // On the next turn, once expanded rows exist.
+        Task { @MainActor in
+            withAnimation(.snappy) { proxy.scrollTo(tag, anchor: .center) }
+        }
+    }
+
+    /// IDs of the devices above `id`, outermost first, or nil when `id` is not in `devices`.
+    static func ancestors(of id: String, in devices: [DeviceNode]) -> [String]? {
+        for device in devices {
+            if device.id == id { return [] }
+            if let below = ancestors(of: id, in: device.children) { return [device.id] + below }
+        }
+        return nil
     }
 
     // MARK: Selection
@@ -86,8 +123,8 @@ struct TopologyOutlineView: View {
             OutlineOtherRow(count: count)
         case .note(let text):
             Text(text)
-                .font(.caption)
-                .foregroundStyle(Lagoon.textTertiary)
+                .lagoonFont(.caption)
+                .foregroundStyle(WindowContrast.tertiary(contrast))
                 .padding(.leading, 44)
                 .selectionDisabled()
         }
@@ -203,6 +240,7 @@ struct TopologyOutlineBuilder {
 /// A port row: status, connector, name, transports and power.
 struct OutlinePortRow: View {
     var port: PhysicalPort
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 10) {
@@ -210,12 +248,11 @@ struct OutlinePortRow: View {
             PortIcon(kind: port.kind, isActive: port.isConnected, size: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(port.label.title)
-                    .font(Lagoon.titleFont)
+                    .lagoonFont(.headline, weight: .semibold)
                     .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
                     .lineLimit(1)
             }
@@ -230,7 +267,7 @@ struct OutlinePortRow: View {
             }
         }
         .padding(.vertical, 5)
-        .opacity(port.isConnected ? 1 : 0.6)
+        .opacity(port.isConnected ? 1 : WindowContrast.emptyOpacity(contrast, 0.6))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(WindowText.portAccessibility(port))
     }
@@ -250,12 +287,13 @@ struct OutlinePortRow: View {
 struct OutlineIndentGuides: View {
     /// Number of guide columns.
     var levels: Int
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(0..<max(levels, 0), id: \.self) { _ in
                 Rectangle()
-                    .fill(Lagoon.stroke)
+                    .fill(WindowContrast.stroke(contrast))
                     .frame(width: 1)
                     .frame(width: 18)
                     .frame(maxHeight: .infinity)
@@ -273,6 +311,7 @@ struct OutlineDeviceRow: View {
     var isDeparting: Bool
     var isExpanded: Bool
     var onToggle: () -> Void
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 8) {
@@ -281,13 +320,12 @@ struct OutlineDeviceRow: View {
             DeviceIcon(kind: device.kind, size: 24, dimmed: isDeparting)
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
-                    .font(.system(.callout).weight(.semibold))
-                    .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textPrimary)
+                    .lagoonFont(.callout, weight: .semibold)
+                    .foregroundStyle(isDeparting ? WindowContrast.tertiary(contrast) : Lagoon.textPrimary)
                     .lineLimit(1)
                 Text(isDeparting ? "Disconnected" : subtitle)
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textSecondary)
+                    .lagoonFont(.caption, monospacedDigits: true)
+                    .foregroundStyle(isDeparting ? WindowContrast.tertiary(contrast) : Lagoon.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
@@ -297,8 +335,7 @@ struct OutlineDeviceRow: View {
             }
             if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0, !isDeparting {
                 Text(Format.power(milliwatts: milliwatts))
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
                     .frame(minWidth: 44, alignment: .trailing)
             }
@@ -314,7 +351,7 @@ struct OutlineDeviceRow: View {
         if !device.children.isEmpty && !isDeparting {
             Button(action: onToggle) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
+                    .lagoonFont(size: 9, weight: .bold)
                     .foregroundStyle(Lagoon.textSecondary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.snappy(duration: 0.2), value: isExpanded)
@@ -348,12 +385,11 @@ struct OutlineDisplayRow: View {
             DeviceIcon(kind: .display, size: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text(display.name)
-                    .font(.system(.callout).weight(.semibold))
+                    .lagoonFont(.callout, weight: .semibold)
                     .foregroundStyle(Lagoon.textPrimary)
                     .lineLimit(1)
                 Text(display.modeDescription ?? "Display")
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
             }
             Spacer(minLength: 8)
@@ -374,18 +410,17 @@ struct OutlineOtherRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "questionmark.square.dashed")
-                .font(.system(size: 13, weight: .semibold))
+                .lagoonFont(size: 13, weight: .semibold)
                 .foregroundStyle(Lagoon.textSecondary)
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Lagoon.surfaceRaised))
                 .padding(.leading, 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Other devices")
-                    .font(Lagoon.titleFont)
+                    .lagoonFont(.headline, weight: .semibold)
                     .foregroundStyle(Lagoon.textPrimary)
                 Text("Not tied to a specific port · \(WindowText.count(count, "item", "items"))")
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textSecondary)
             }
             Spacer()

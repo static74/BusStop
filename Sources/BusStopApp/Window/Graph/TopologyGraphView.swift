@@ -11,60 +11,117 @@ struct TopologyGraphView: View {
     /// Also draw devices and displays that are not tied to a port.
     var includeOther: Bool
     var searchText: String
+    /// The zoom the user picked; nil fits the graph to the window.
+    @Binding var userZoom: Double?
+    /// False while the window is closed, minimised or covered: pulses pause.
+    var isWindowVisible: Bool
+    /// A node to scroll into view; cleared once handled.
+    @Binding var scrollRequest: TopologyScrollRequest?
 
-    @AppStorage("topologyGraphZoom") private var zoom: Double = 1
     @GestureState private var pinch: CGFloat = 1
+    @State private var position = ScrollPosition()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lagoonTextScale) private var textScale
 
     static let zoomRange: ClosedRange<Double> = 0.5...1.5
 
     var body: some View {
-        let settings = store.settings
-        let layout = GraphLayout.make(graphInput, metrics: GraphMetrics.standard.scaled(by: settings.textSize.graphScale))
+        let input = graphInput
+        // Cards grow with the Text Size setting, like the text inside them.
+        let layout = GraphLayout.make(input, metrics: GraphMetrics.standard.scaled(by: textScale))
+        if Self.isOnlyHost(input) {
+            PortListEmptyView(state: PortListEmptyState.resolve(searchText: "", store: store), store: store)
+        } else {
+            graph(layout)
+        }
+    }
+
+    private func graph(_ layout: GraphLayout) -> some View {
         let dimmed = dimmedNodeIDs(in: layout)
-        let scale = Self.clamp(zoom * Double(pinch))
-        GeometryReader { proxy in
+        let animate = store.settings.animateLinks && !reduceMotion && isWindowVisible
+        return GeometryReader { proxy in
+            let base = userZoom ?? Self.fitZoom(content: layout.size, viewport: proxy.size)
+            let viewport = GraphViewport(layout: layout.size, viewport: proxy.size,
+                                         scale: Self.clamp(base * Double(pinch)))
             ScrollView([.horizontal, .vertical]) {
                 GraphCanvas(
                     layout: layout,
+                    origin: viewport.origin,
                     snapshot: store.snapshot,
                     selectedTag: SelectionTag.string(for: store.selection),
                     dimmed: dimmed,
-                    animate: settings.animateLinks && !reduceMotion,
+                    animate: animate,
                     onSelect: select
                 )
-                .frame(width: layout.size.width, height: layout.size.height)
-                .scaleEffect(scale, anchor: .topLeading)
-                .frame(width: layout.size.width * scale, height: layout.size.height * scale, alignment: .topLeading)
-                .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
+                .frame(width: viewport.canvasSize.width, height: viewport.canvasSize.height, alignment: .topLeading)
+                .scaleEffect(viewport.scale, anchor: .topLeading)
+                .frame(width: viewport.contentSize.width, height: viewport.contentSize.height, alignment: .topLeading)
             }
+            .scrollPosition($position)
             .overlay(alignment: .bottom) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    ViewThatFits(in: .horizontal) {
-                        GraphSpeedLegend()
-                        Color.clear.frame(width: 0, height: 0)
-                    }
-                    Spacer(minLength: 0)
-                    GraphZoomControl(zoom: $zoom, fitZoom: fitZoom(content: layout.size, viewport: proxy.size))
-                }
-                .padding(16)
+                controls(zoom: Double(viewport.scale))
+            }
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .updating($pinch) { value, state, _ in state = value.magnification }
+                    .onEnded { value in userZoom = Self.clamp(base * Double(value.magnification)) }
+            )
+            .onChange(of: scrollRequest, initial: true) { _, request in
+                guard let request else { return }
+                scrollRequest = nil
+                scroll(to: request, layout: layout, viewport: viewport, size: proxy.size)
             }
         }
-        .simultaneousGesture(
-            MagnifyGesture()
-                .updating($pinch) { value, state, _ in state = value.magnification }
-                .onEnded { value in zoom = Self.clamp(zoom * Double(value.magnification)) }
-        )
+    }
+
+    private func controls(zoom: Double) -> some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            ViewThatFits(in: .horizontal) {
+                GraphSpeedLegend()
+                Color.clear.frame(width: 0, height: 0)
+            }
+            Spacer(minLength: 0)
+            GraphZoomControl(
+                zoom: zoom,
+                isFitting: userZoom == nil,
+                onZoom: { userZoom = Self.clamp($0) },
+                onFit: { userZoom = nil }
+            )
+        }
+        .padding(16)
     }
 
     static func clamp(_ value: Double) -> Double {
         min(max(value, zoomRange.lowerBound), zoomRange.upperBound)
     }
 
-    private func fitZoom(content: CGSize, viewport: CGSize) -> Double {
-        guard content.width > 0, content.height > 0 else { return 1 }
-        let fit = min(Double(viewport.width / content.width), Double(viewport.height / content.height))
-        return Self.clamp((fit * 20).rounded(.down) / 20)
+    /// The automatic zoom: the graph fits across the window, never above
+    /// 100 %. Height counts only down to 75 %, so a tall tree scrolls
+    /// vertically instead of shrinking to unreadable text.
+    static func fitZoom(content: CGSize, viewport: CGSize) -> Double {
+        guard content.width > 0, content.height > 0, viewport.width > 0, viewport.height > 0 else { return 1 }
+        let byWidth = Double(viewport.width / content.width)
+        let byHeight = Double(viewport.height / content.height)
+        let fit = min(1, byWidth, max(byHeight, 0.75))
+        return clamp((fit * 20).rounded(.down) / 20)
+    }
+
+    /// True when the graph would show the Mac alone: no ports to draw and
+    /// nothing in the Other group.
+    private static func isOnlyHost(_ input: GraphInput) -> Bool {
+        input.ports.isEmpty && input.otherDevices.isEmpty && input.otherDisplays.isEmpty
+            && input.departingOther.isEmpty
+    }
+
+    /// Scrolls so the requested node sits in the middle of the window.
+    private func scroll(to request: TopologyScrollRequest, layout: GraphLayout, viewport: GraphViewport, size: CGSize) {
+        guard let tag = request.tag, let node = layout.nodes.first(where: { $0.tag == tag }) else { return }
+        let target = viewport.scrollOffset(centering: node.frame, in: size)
+        position.scrollTo(point: target)
+        // Again once the scroll view has laid out content that just appeared.
+        Task { @MainActor in
+            withAnimation(.snappy) { position.scrollTo(point: target) }
+        }
     }
 
     private func select(_ node: GraphNode) {
@@ -137,9 +194,49 @@ struct TopologyGraphView: View {
     }
 }
 
+/// Where the graph sits inside the scroll view at one zoom level.
+///
+/// The canvas is at least as large as the window at that zoom, so the dot
+/// grid and the glow fill the whole viewport, and a graph smaller than the
+/// window sits in its middle.
+nonisolated struct GraphViewport: Equatable {
+    /// Canvas size at 100 % zoom.
+    var canvasSize: CGSize
+    /// Offset of the layout inside the canvas, at 100 % zoom.
+    var origin: CGPoint
+    var scale: CGFloat
+
+    init(layout: CGSize, viewport: CGSize, scale: Double) {
+        let scale = CGFloat(scale)
+        let width = max(layout.width, (viewport.width / scale).rounded(.up))
+        let height = max(layout.height, (viewport.height / scale).rounded(.up))
+        canvasSize = CGSize(width: width, height: height)
+        origin = CGPoint(x: ((width - layout.width) / 2).rounded(.down),
+                         y: ((height - layout.height) / 2).rounded(.down))
+        self.scale = scale
+    }
+
+    /// Size of the scroll view's content.
+    var contentSize: CGSize {
+        CGSize(width: canvasSize.width * scale, height: canvasSize.height * scale)
+    }
+
+    /// The scroll offset that puts `rect` (layout coordinates) in the middle
+    /// of a viewport of `size`, kept within the content.
+    func scrollOffset(centering rect: CGRect, in size: CGSize) -> CGPoint {
+        let x = (origin.x + rect.midX) * scale - size.width / 2
+        let y = (origin.y + rect.midY) * scale - size.height / 2
+        let maxX = max(0, contentSize.width - size.width)
+        let maxY = max(0, contentSize.height - size.height)
+        return CGPoint(x: min(max(0, x), maxX), y: min(max(0, y), maxY))
+    }
+}
+
 /// The graph content at 100 % zoom: backdrop, links, pulses, chips and nodes.
+/// The backdrop fills the canvas; everything else is drawn at `origin`.
 struct GraphCanvas: View {
     var layout: GraphLayout
+    var origin: CGPoint = .zero
     var snapshot: HostSnapshot
     var selectedTag: String?
     var dimmed: Set<String>
@@ -148,7 +245,17 @@ struct GraphCanvas: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            GraphBackdrop(hostFrame: layout.hostNode?.frame)
+            GraphBackdrop(hostFrame: layout.hostNode?.frame.offsetBy(dx: origin.x, dy: origin.y))
+            content
+                .frame(width: layout.size.width, height: layout.size.height, alignment: .topLeading)
+                .offset(x: origin.x, y: origin.y)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Topology map")
+    }
+
+    private var content: some View {
+        ZStack(alignment: .topLeading) {
             GraphLinksLayer(strokes: GraphPaint.strokes(for: layout, dimmed: dimmed))
             GraphPulseLayer(tracks: GraphPaint.pulseTracks(for: layout, dimmed: dimmed), animate: animate)
             GraphChipsLayer(edges: layout.edges, dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6)
@@ -164,29 +271,35 @@ struct GraphCanvas: View {
                 .position(x: node.frame.midX, y: node.frame.midY)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Topology map")
     }
 }
 
-/// Glass zoom cluster in the graph's corner: zoom out, actual size, zoom in, fit.
+/// Glass zoom cluster in the graph's corner: zoom out, actual size, zoom in,
+/// and fit. Until the user zooms, the graph fits itself to the window; Fit
+/// goes back to that.
 struct GraphZoomControl: View {
-    @Binding var zoom: Double
-    var fitZoom: Double
+    /// The zoom on screen, fitted or chosen.
+    var zoom: Double
+    /// True while the graph fits itself to the window.
+    var isFitting: Bool
+    /// The user picked a zoom.
+    var onZoom: (Double) -> Void
+    /// Back to fitting the window.
+    var onFit: () -> Void
 
     var body: some View {
         let tint = AppSettings.shared.glassTint
+        let percent = Int((zoom * 100).rounded())
         GlassEffectContainer {
             HStack(spacing: 2) {
                 iconButton("minus.magnifyingglass", help: "Zoom Out") { step(-0.1) }
                     .keyboardShortcut("-", modifiers: .command)
                     .disabled(zoom <= TopologyGraphView.zoomRange.lowerBound)
                 Button {
-                    zoom = 1
+                    onZoom(1)
                 } label: {
-                    Text("\(Int((zoom * 100).rounded()))%")
-                        .font(.system(.caption, design: .rounded).weight(.semibold))
-                        .monospacedDigit()
+                    Text("\(percent)%")
+                        .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textPrimary)
                         .frame(minWidth: 42, minHeight: 28)
                         .contentShape(Rectangle())
@@ -194,7 +307,7 @@ struct GraphZoomControl: View {
                 .buttonStyle(.plain)
                 .keyboardShortcut("0", modifiers: .command)
                 .help("Actual Size")
-                .accessibilityLabel("Zoom \(Int((zoom * 100).rounded())) percent. Reset to actual size")
+                .accessibilityLabel("Zoom \(percent) percent. Reset to actual size")
                 iconButton("plus.magnifyingglass", help: "Zoom In") { step(0.1) }
                     .keyboardShortcut("=", modifiers: .command)
                     .disabled(zoom >= TopologyGraphView.zoomRange.upperBound)
@@ -202,9 +315,11 @@ struct GraphZoomControl: View {
                     .fill(Lagoon.stroke)
                     .frame(width: 1, height: 16)
                     .padding(.horizontal, 3)
-                iconButton("arrow.up.left.and.down.right.magnifyingglass", help: "Zoom to Fit") {
-                    zoom = fitZoom
-                }
+                iconButton("arrow.up.left.and.down.right.magnifyingglass",
+                           help: isFitting ? "Fitting the graph to the window" : "Zoom to Fit",
+                           isOn: isFitting,
+                           action: onFit)
+                    .keyboardShortcut("9", modifiers: .command)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -213,25 +328,29 @@ struct GraphZoomControl: View {
     }
 
     private func step(_ delta: Double) {
-        zoom = TopologyGraphView.clamp(((zoom + delta) * 10).rounded() / 10)
+        onZoom(TopologyGraphView.clamp(((zoom + delta) * 10).rounded() / 10))
     }
 
-    private func iconButton(_ systemName: String, help: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ systemName: String, help: String, isOn: Bool = false,
+                            action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Lagoon.textPrimary)
+                .lagoonFont(size: 12, weight: .semibold)
+                .foregroundStyle(isOn ? Lagoon.accent : Lagoon.textPrimary)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
+        .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 }
 
 /// Key for the link colours: one swatch per speed tier.
 struct GraphSpeedLegend: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         HStack(spacing: 12) {
             ForEach(SpeedTier.allCases, id: \.self) { tier in
@@ -241,8 +360,7 @@ struct GraphSpeedLegend: View {
                         .frame(width: 16, height: Lagoon.linkWidth(tier))
                         .shadow(color: Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
                     Text(Self.title(tier))
-                        .font(.caption2.weight(.medium))
-                        .monospacedDigit()
+                        .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                         .fixedSize()
                 }
@@ -251,7 +369,7 @@ struct GraphSpeedLegend: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
-        .overlay(Capsule().strokeBorder(Lagoon.stroke, lineWidth: 1))
+        .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Link colours: dim for USB 2, brighter and thicker for faster links, glowing at 40 gigabits per second and above")
     }
