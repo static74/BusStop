@@ -8,26 +8,24 @@ struct OtherDevicesSection: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let devices = store.snapshot.otherDevices
-        let departing = store.departing(on: nil)
-        if !devices.isEmpty || !departing.isEmpty {
+        let live = store.snapshot.otherDevices
+        // Live devices with recently departed ones still in their slots.
+        let devices = store.devicesWithGhosts(on: nil)
+        let departingIDs = store.departingIDs
+        if !devices.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 SectionHeader(title: "Other devices",
-                              trailing: PopoverText.count(devices.reduce(0) { $0 + 1 + $1.descendantCount },
+                              trailing: PopoverText.count(live.reduce(0) { $0 + 1 + $1.descendantCount },
                                                           "device", "devices"))
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(devices) { device in
-                        DeviceTreeNode(device: device, depth: 0, port: nil)
+                        DeviceTreeNode(device: device, depth: 0, port: nil, departingIDs: departingIDs)
                             .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
-                    }
-                    ForEach(departing) { entry in
-                        DeviceRowView(device: entry.device, depth: 0, port: nil, isDeparting: true)
-                            .transition(.opacity)
                     }
                 }
                 .lagoonCard()
                 .animation(reduceMotion ? nil : DeviceRowTransition.spring,
-                           value: devices.map(\.id) + departing.map(\.id))
+                           value: PortCardView.animationKey(devices, departingIDs: departingIDs))
             }
         }
     }
