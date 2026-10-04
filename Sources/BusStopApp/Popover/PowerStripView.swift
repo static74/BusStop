@@ -20,9 +20,9 @@ struct PowerStripView: View {
             if let charger = power.charger {
                 chargerCard(charger, power: power)
             } else if power.hasBattery || snapshot.machine.isLaptop {
-                batteryCard(power)
+                batteryCard(snapshot)
             } else {
-                desktopCard(power)
+                desktopCard(snapshot)
             }
         }
         .lagoonCard()
@@ -38,15 +38,17 @@ struct PowerStripView: View {
         return HStack(alignment: .center, spacing: 12) {
             PowerTile(systemName: "bolt.fill", color: Lagoon.powerIn)
             VStack(alignment: .leading, spacing: 3) {
+                // Names such as "140W USB-C Power Adapter" wrap to a second
+                // line rather than being cut off.
                 Text(charger.displayName)
-                    .font(Lagoon.titleFont)
+                    .lagoonFont(.headline, weight: .semibold)
                     .foregroundStyle(Lagoon.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let ratings = Self.ratingText(charger) {
                     Text(ratings)
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
                 }
@@ -54,6 +56,7 @@ struct PowerStripView: View {
                     BatteryStatusLabel(battery: battery)
                 }
             }
+            .layoutPriority(1)
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 5) {
                 if let inputMilliwatts, inputMilliwatts > 0 {
@@ -91,9 +94,10 @@ struct PowerStripView: View {
 
     // MARK: Battery
 
-    private func batteryCard(_ power: PowerSummary) -> some View {
+    private func batteryCard(_ snapshot: HostSnapshot) -> some View {
+        let power = snapshot.power
         let battery = power.battery
-        let accessories = Self.accessoryDraw(power)
+        let accessories = Self.accessoryDraw(snapshot)
         let drain = battery?.powerMilliwatts.flatMap { $0 < 0 ? -$0 : nil } ?? power.systemLoadMilliwatts
 
         return HStack(alignment: .center, spacing: 12) {
@@ -101,20 +105,17 @@ struct PowerStripView: View {
                       color: Lagoon.accent)
             VStack(alignment: .leading, spacing: 3) {
                 Text(battery?.statusText ?? "On battery")
-                    .font(Lagoon.titleFont)
+                    .lagoonFont(.headline, weight: .semibold, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textPrimary)
-                    .monospacedDigit()
                 if let drain, drain > 0 {
                     Text("Using \(Format.power(milliwatts: drain))")
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                 }
                 Text(accessories.milliwatts > 0
                      ? "Accessories draw \(Format.power(milliwatts: accessories.milliwatts))"
                      : "No charger connected")
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textTertiary)
             }
             Spacer(minLength: 8)
@@ -127,8 +128,8 @@ struct PowerStripView: View {
 
     // MARK: Desktop
 
-    private func desktopCard(_ power: PowerSummary) -> some View {
-        let accessories = Self.accessoryDraw(power)
+    private func desktopCard(_ snapshot: HostSnapshot) -> some View {
+        let accessories = Self.accessoryDraw(snapshot)
         let series = store.history.samples.suffix(Self.sparklinePoints).map { sample in
             Double(sample.portMilliwatts.values.filter { $0 > 0 }.reduce(0, +)) / 1000
         }
@@ -140,12 +141,14 @@ struct PowerStripView: View {
                 Text(accessories.milliwatts > 0
                      ? "Accessories draw \(Format.power(milliwatts: accessories.milliwatts))"
                      : "No accessory power draw")
-                    .font(Lagoon.titleFont)
+                    .lagoonFont(.headline, weight: .semibold, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textPrimary)
-                    .monospacedDigit()
-                Text(accessories.isMeasured ? "Measured at the ports" : "USB power allocated to devices")
-                    .font(.caption)
-                    .foregroundStyle(Lagoon.textSecondary)
+                // Says where the figure comes from, so only when there is one.
+                if accessories.milliwatts > 0 {
+                    Text(accessories.isMeasured ? "Measured at the ports" : "USB power allocated to devices")
+                        .lagoonFont(.caption)
+                        .foregroundStyle(Lagoon.textSecondary)
+                }
             }
             Spacer(minLength: 8)
             if hasSeries {
@@ -162,6 +165,16 @@ struct PowerStripView: View {
         if power.portOutputMilliwatts > 0 { return (power.portOutputMilliwatts, true) }
         return (power.usbAllocatedMilliwatts, false)
     }
+
+    /// Like `accessoryDraw(_:)`, and when the ports report nothing, the USB
+    /// power allocated to devices that could not be tied to a port (listed
+    /// under Other devices). Without that, a Mac whose ports cannot be read
+    /// said "No accessory power draw" above a list of devices drawing power.
+    static func accessoryDraw(_ snapshot: HostSnapshot) -> (milliwatts: Int, isMeasured: Bool) {
+        let draw = accessoryDraw(snapshot.power)
+        if draw.milliwatts > 0 { return draw }
+        return (PopoverText.unattributedUSBMilliwatts(snapshot), false)
+    }
 }
 
 /// Square icon tile used in the power card.
@@ -171,7 +184,7 @@ private struct PowerTile: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: 15, weight: .semibold))
+            .lagoonFont(size: 15, weight: .semibold)
             .foregroundStyle(color)
             .frame(width: 34, height: 34)
             .background(
@@ -196,7 +209,7 @@ struct BatteryStatusLabel: View {
         } icon: {
             Image(systemName: Self.symbolName(for: battery))
         }
-        .font(.caption)
+        .lagoonFont(.caption)
         .foregroundStyle(battery.isCharging ? Lagoon.powerIn : Lagoon.textSecondary)
         .labelStyle(.titleAndIcon)
     }

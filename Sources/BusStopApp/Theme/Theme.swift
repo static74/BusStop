@@ -71,6 +71,20 @@ enum Lagoon {
     /// Fastest links get a soft glow in the graph.
     static func linkGlows(_ tier: SpeedTier) -> Bool { tier >= .gbps40 }
 
+    /// Colour for text labelled with a speed tier, such as speed chips. The
+    /// USB 1/2 ramp colour is meant for link strokes and is too dark for small
+    /// text (about 2.7:1 on a card), so that tier uses secondary text; from
+    /// 5 Gb/s up the ramp colour itself reads at 5:1 or better.
+    static func linkTextColor(_ tier: SpeedTier) -> Color {
+        tier == .legacy ? textSecondary : linkColor(tier)
+    }
+
+    /// Popover width for a text size: wider for Large and Extra Large text so
+    /// labels do not truncate, never narrower than `popoverWidth`.
+    static func popoverWidth(for textSize: TextSizeSetting) -> CGFloat {
+        (popoverWidth * max(1, textSize.scale)).rounded()
+    }
+
     static func severityColor(_ severity: DiagnosticSeverity) -> Color {
         switch severity {
         case .info: return accent
@@ -97,6 +111,8 @@ enum Lagoon {
 
     // MARK: Type
 
+    // Fixed-size fonts kept for views not yet on `lagoonFont`, which follows
+    // the Text Size setting. Prefer `lagoonFont` in new code.
     static let titleFont = Font.system(.headline, design: .default).weight(.semibold)
     static let machineFont = Font.system(.title3, design: .default).weight(.bold)
     static let valueFont = Font.system(.body, design: .default).monospacedDigit()

@@ -1,9 +1,14 @@
 import BusStopCore
 import SwiftUI
 
-/// Top of the popover: machine name, a one-line summary and the glass control
-/// cluster (Refresh, Open Topology, Settings). The only glass in the popover
-/// besides the footer button (docs/SPEC.md §4.1).
+/// Top of the popover: machine name, a one-line summary (with the DEMO badge
+/// in demo mode) and the glass control cluster (Refresh, Open Topology,
+/// Settings). The only glass in the popover besides the footer button
+/// (docs/SPEC.md §4.1).
+///
+/// The name has the full width next to the controls and wraps to a second
+/// line, so long marketing names such as "MacBook Pro (14-inch, 2026, M5 Pro)"
+/// keep their chip instead of being cut off.
 struct PopoverHeader: View {
     var store: PortStore
 
@@ -11,24 +16,25 @@ struct PopoverHeader: View {
         let snapshot = store.snapshot
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
+                Text(snapshot.machine.name)
+                    .lagoonFont(.title3, weight: .bold)
+                    .foregroundStyle(Lagoon.textPrimary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(snapshot.machine.name)
                 HStack(spacing: 6) {
-                    Text(snapshot.machine.name)
-                        .font(Lagoon.machineFont)
-                        .foregroundStyle(Lagoon.textPrimary)
+                    Text(store.hasLoaded ? PopoverText.summary(for: snapshot) : "Reading ports\u{2026}")
+                        .lagoonFont(.caption, monospacedDigits: true)
+                        .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .truncationMode(.tail)
-                        .help(snapshot.machine.name)
                     if store.settings.demoMode {
                         DemoBadge()
+                            .fixedSize()
                     }
                 }
-                Text(store.hasLoaded ? PopoverText.summary(for: snapshot) : "Reading ports\u{2026}")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(Lagoon.textSecondary)
-                    .lineLimit(1)
             }
+            .layoutPriority(1)
             .accessibilityElement(children: .combine)
 
             Spacer(minLength: 8)

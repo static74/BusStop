@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Content of the menu bar popover (docs/SPEC.md §3.2).
 ///
-/// Fixed at `Lagoon.popoverWidth`. The header and footer stay put; the
+/// Fixed at `Lagoon.popoverWidth` (wider for Large and Extra Large text, see
+/// `Lagoon.popoverWidth(for:)`). The header and footer stay put; the
 /// middle scrolls. The view measures its parts and grows with the content up
 /// to `Lagoon.popoverMaxHeight`; the hosting controller passes that size to
 /// the popover as its preferred content size.
@@ -34,11 +35,13 @@ struct PopoverView: View {
             PopoverFooter(store: store)
                 .onHeightChange { footerHeight = $0 }
         }
-        .frame(width: Lagoon.popoverWidth)
+        .frame(width: Lagoon.popoverWidth(for: settings.textSize))
         .background(LagoonBackground(opacity: settings.backgroundOpacity))
         .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
-        .dynamicTypeSize(settings.textSize.dynamicTypeSize)
+        // macOS ignores dynamicTypeSize, so the Text Size setting scales every
+        // lagoonFont below through the environment instead.
+        .lagoonTextScale(settings.textSize)
     }
 
     /// The scroll area shows all content until the popover reaches its
@@ -83,7 +86,7 @@ struct PopoverView: View {
             ProgressView()
                 .controlSize(.small)
             Text("Reading ports\u{2026}")
-                .font(.callout)
+                .lagoonFont(.callout)
                 .foregroundStyle(Lagoon.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -110,7 +113,7 @@ struct PopoverView: View {
                           trailing: "\(snapshot.connectedPorts.count)/\(snapshot.ports.count) in use")
             if ports.isEmpty {
                 Text("Nothing is connected. Empty ports are hidden in Settings.")
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lagoonCard()

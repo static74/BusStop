@@ -32,15 +32,14 @@ struct DeviceRowView: View {
             DeviceIcon(kind: device.kind, size: 22, dimmed: isDeparting)
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)
-                    .font(.callout.weight(.medium))
+                    .lagoonFont(.callout, weight: .medium)
                     .foregroundStyle(isDeparting ? Lagoon.textTertiary : Lagoon.textPrimary)
                     .strikethrough(isDeparting, color: Lagoon.textTertiary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 if let caption {
                     Text(caption)
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -55,8 +54,7 @@ struct DeviceRowView: View {
                 }
                 if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0 {
                     Text(Format.power(milliwatts: milliwatts))
-                        .font(.caption)
-                        .monospacedDigit()
+                        .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
                         .fixedSize()
@@ -106,7 +104,7 @@ struct DeviceRowView: View {
         if let onToggle, !device.children.isEmpty {
             Button(action: onToggle) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+                    .lagoonFont(size: 10, weight: .bold)
                     .foregroundStyle(Lagoon.accent.opacity(0.8))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: DeviceRowMetrics.chevronWidth, height: 22)

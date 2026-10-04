@@ -30,7 +30,7 @@ struct PortCardView: View {
                 chargerLine(charger)
             } else if !port.isConnected {
                 Text("Nothing connected")
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.textTertiary)
                     .padding(.leading, 36)
                     .accessibilityHidden(true)
@@ -53,14 +53,14 @@ struct PortCardView: View {
                     renameField
                 } else {
                     Text(port.label.title)
-                        .font(Lagoon.titleFont)
+                        .lagoonFont(.headline, weight: .semibold)
                         .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 if let caption = headerCaption {
                     Text(caption)
-                        .font(.caption)
+                        .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -100,7 +100,7 @@ struct PortCardView: View {
     private var renameField: some View {
         TextField("Port name", text: $draftName, prompt: Text(port.label.shortTitle))
             .textFieldStyle(.plain)
-            .font(Lagoon.titleFont)
+            .lagoonFont(.headline, weight: .semibold)
             .foregroundStyle(Lagoon.textPrimary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -196,10 +196,10 @@ struct PortCardView: View {
     private func chargerLine(_ charger: ChargerInfo) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "powerplug.fill")
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.powerIn)
             Text(charger.displayName)
-                .font(.caption)
+                .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textSecondary)
                 .lineLimit(1)
         }

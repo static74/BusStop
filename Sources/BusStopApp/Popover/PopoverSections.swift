@@ -61,12 +61,11 @@ private struct DisplayRow: View {
             DeviceIcon(kind: .display, size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(display.name)
-                    .font(.callout.weight(.medium))
+                    .lagoonFont(.callout, weight: .medium)
                     .foregroundStyle(Lagoon.textPrimary)
                     .lineLimit(1)
                 Text(caption)
-                    .font(.caption)
-                    .monospacedDigit()
+                    .lagoonFont(.caption, monospacedDigits: true)
                     .foregroundStyle(Lagoon.textTertiary)
                     .lineLimit(1)
             }
