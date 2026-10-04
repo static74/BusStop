@@ -81,7 +81,16 @@ public enum TopologyBuilder {
         }
 
         // Displays.
-        let displays = raw.displays.map(DisplayParser.info).sorted(by: displayOrder)
+        var displayIDs = Set<String>()
+        let displays = raw.displays.sorted { $0.id < $1.id }.map { display -> DisplayInfo in
+            var info = DisplayParser.info(display)
+            // Two identical panels without serial numbers would share an ID.
+            if !displayIDs.insert(info.id).inserted {
+                info.id += "#cg\(display.id)"
+                displayIDs.insert(info.id)
+            }
+            return info
+        }.sorted(by: displayOrder)
         let dpTransports = transports.filter { record in
             guard record.kind == .displayPort else { return false }
             if record.activeFlag == true { return true }

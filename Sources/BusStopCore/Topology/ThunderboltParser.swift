@@ -104,7 +104,8 @@ enum ThunderboltParser {
         // Switches whose parent was not captured: find their host through
         // the shared `acioN` ancestor, or leave them unattributed.
         for orphan in orphans {
-            guard let chain = build(orphan.id, parent: nil, depthHint: depth(orphan) ?? 1) else { continue }
+            let hint = min(max(depth(orphan) ?? 1, 1), 64)
+            guard let chain = build(orphan.id, parent: nil, depthHint: hint) else { continue }
             let host = acioIndex(orphan.ancestry).flatMap { index in
                 hosts.first { acioIndex($0.ancestry) == index }
             }
@@ -241,7 +242,7 @@ enum ThunderboltParser {
             ?? vendor.map { "\($0) Thunderbolt Device" }
             ?? "Thunderbolt Device"
         var depth = p.int("Depth") ?? depthHint
-        if depth < 1 { depth = depthHint }
+        if depth < 1 || depth > 64 { depth = depthHint }
         return DeviceNode(id: deviceID(for: s), registryID: s.id, bus: .thunderbolt, kind: kind(for: s, name: name),
                           name: name, vendorName: vendor, vendorID: p.int("Vendor ID"), productID: p.int("Device ID"),
                           link: hopLink(child: s, parent: parent), isTunneled: false, chainDepth: depth,
