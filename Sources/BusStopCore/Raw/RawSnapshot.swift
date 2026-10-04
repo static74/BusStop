@@ -187,17 +187,54 @@ public struct RawUSBDevice: Sendable, Hashable, Codable, Identifiable {
     /// Registry ID of the `IOPort`-plane parent (an `IOPortTransportStateUSB2`
     /// or `…USB3` node) when the device is directly attached (macOS 26+).
     public var ioPortParentID: UInt64?
+    /// The device's `IOUSBHostInterface` children. Most devices report
+    /// `bDeviceClass == 0` and declare their class per interface.
+    public var interfaces: [RawUSBInterface]
 
     public var id: UInt64 { node.id }
 
     public init(node: RawNode, parentDeviceID: UInt64? = nil, ancestry: [RawAncestor] = [],
-                usbIOPortPath: String? = nil, drdPortNumber: Int? = nil, ioPortParentID: UInt64? = nil) {
+                usbIOPortPath: String? = nil, drdPortNumber: Int? = nil, ioPortParentID: UInt64? = nil,
+                interfaces: [RawUSBInterface] = []) {
         self.node = node
         self.parentDeviceID = parentDeviceID
         self.ancestry = ancestry
         self.usbIOPortPath = usbIOPortPath
         self.drdPortNumber = drdPortNumber
         self.ioPortParentID = ioPortParentID
+        self.interfaces = interfaces
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case node, parentDeviceID, ancestry, usbIOPortPath, drdPortNumber, ioPortParentID, interfaces
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        node = try c.decode(RawNode.self, forKey: .node)
+        parentDeviceID = try c.decodeIfPresent(UInt64.self, forKey: .parentDeviceID)
+        ancestry = try c.decodeIfPresent([RawAncestor].self, forKey: .ancestry) ?? []
+        usbIOPortPath = try c.decodeIfPresent(String.self, forKey: .usbIOPortPath)
+        drdPortNumber = try c.decodeIfPresent(Int.self, forKey: .drdPortNumber)
+        ioPortParentID = try c.decodeIfPresent(UInt64.self, forKey: .ioPortParentID)
+        interfaces = try c.decodeIfPresent([RawUSBInterface].self, forKey: .interfaces) ?? []
+    }
+}
+
+/// One `IOUSBHostInterface` of a USB device.
+public struct RawUSBInterface: Sendable, Hashable, Codable {
+    /// `bInterfaceClass` (e.g. 3 HID, 8 mass storage, 1 audio, 14 video).
+    public var interfaceClass: Int
+    public var interfaceSubClass: Int?
+    public var interfaceProtocol: Int?
+    /// `kUSBString` / `USB Interface Name`, when present.
+    public var name: String?
+
+    public init(interfaceClass: Int, interfaceSubClass: Int? = nil, interfaceProtocol: Int? = nil, name: String? = nil) {
+        self.interfaceClass = interfaceClass
+        self.interfaceSubClass = interfaceSubClass
+        self.interfaceProtocol = interfaceProtocol
+        self.name = name
     }
 }
 

@@ -11,8 +11,11 @@ public enum PortLabeler {
     ///   - siblings: numbers of all ports of the same kind on this Mac (for rank fallback).
     ///   - model: `hw.model`.
     ///   - userNames: port key string → user name.
+    ///   - supportsThunderbolt: whether the port lists `CIO` in `TransportsSupported`,
+    ///     used to tell rear Thunderbolt ports from front USB-C ports on desktops.
     public static func label(kind: PortKind, number: Int, key: PortKey, siblings: [Int], model: String,
-                             userNames: [String: String]) -> (label: PortLabel, capability: String?) {
+                             userNames: [String: String],
+                             supportsThunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?) {
         if let name = userNames[key.description], !name.isEmpty {
             return (PortLabel(location: name, source: .user, connector: kind.displayName, number: number), nil)
         }
