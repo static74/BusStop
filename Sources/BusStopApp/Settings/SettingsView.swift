@@ -35,7 +35,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 }
 
 /// Root view of the settings window: one tab per `SettingsTab`, each a
-/// grouped form. Changes apply immediately.
+/// grouped form. Changes apply immediately, including Text Size, which
+/// rescales this window too.
 struct SettingsView: View {
     var store: PortStore
     var initialTab: SettingsTab = .general
@@ -55,6 +56,8 @@ struct SettingsView: View {
         .background(Lagoon.background)
         .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
+        .lagoonFont(.body)
+        .lagoonTextScale(store.settings.textSize)
         .onChange(of: initialTab) { chosenTab = nil }
     }
 
@@ -97,7 +100,7 @@ struct SettingsCaption: View {
 
     var body: some View {
         Text(text)
-            .font(.caption)
+            .lagoonFont(.caption)
             .foregroundStyle(Lagoon.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }

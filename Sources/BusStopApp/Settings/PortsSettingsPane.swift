@@ -57,7 +57,7 @@ struct PortsSettingsRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 PortNameEditor(store: store, port: port)
                 Text(detail)
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(Lagoon.textTertiary)
                     .lineLimit(1)
             }

@@ -1,7 +1,9 @@
+import AppKit
 import BusStopCore
 import SwiftUI
 
-/// Menu Bar: icon style with live previews and what text sits next to it.
+/// Menu Bar: icon style with live previews, what text sits next to it and
+/// how precisely power is shown.
 struct MenuBarSettingsPane: View {
     var store: PortStore
 
@@ -26,67 +28,51 @@ struct MenuBarSettingsPane: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
-                LabeledContent("Example") {
-                    MenuBarMockup(icon: settings.menuBarIcon, text: exampleText(settings.menuBarText))
+                Picker("Power precision", selection: $settings.menuBarPowerPrecision) {
+                    ForEach(PowerPrecision.allCases) { precision in
+                        Text(precision.title).tag(precision)
+                    }
                 }
-                SettingsCaption("Numbers use monospaced digits so the menu bar does not shift as they change.")
+                .disabled(!showsPower(settings.menuBarText))
+                LabeledContent("Example") {
+                    MenuBarMockup(icon: settings.menuBarIcon, text: exampleText(settings))
+                }
+                SettingsCaption("Automatic shows one decimal below 10 W (4.5W) and whole watts above (38W). Numbers use monospaced digits so the menu bar does not shift as they change.")
             }
         }
         .settingsPaneStyle()
     }
 
-    /// Example text using live numbers when available.
-    private func exampleText(_ mode: MenuBarTextMode) -> String {
+    private func showsPower(_ mode: MenuBarTextMode) -> Bool {
+        mode == .power || mode == .both
+    }
+
+    /// The text the menu bar item shows, formatted the same way: live numbers
+    /// once the first capture is in, otherwise 5 devices and 38 W.
+    private func exampleText(_ settings: AppSettings) -> String {
         let snapshot = store.snapshot
         let devices = store.hasLoaded ? snapshot.deviceCount : 5
-        let milliwatts = (store.hasLoaded ? snapshot.power.headlineMilliwatts : nil) ?? 38_000
-        let power = Format.power(milliwatts: milliwatts)
-        switch mode {
+        let milliwatts = store.hasLoaded ? snapshot.power.headlineMilliwatts : 38_000
+        let power = milliwatts.map {
+            Format.compactPower(milliwatts: $0, decimals: settings.menuBarPowerPrecision.decimals)
+        }
+        switch settings.menuBarText {
         case .none: return ""
-        case .power: return power
+        case .power: return power ?? ""
         case .devices: return "\(devices)"
-        case .both: return "\(devices) · \(power)"
+        case .both: return power.map { "\(devices) \u{00B7} \($0)" } ?? "\(devices)"
         }
     }
 }
 
-/// The icon for a menu bar style at menu bar size.
+/// The menu bar item's own template image for a style, at its real size.
 struct MenuBarIconPreview: View {
     var style: MenuBarIconStyle
-    var size: CGFloat = 16
 
     var body: some View {
-        if let symbol = style.symbolName {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.85, weight: .medium))
-                .frame(width: size, height: size)
-        } else {
-            SettingsBusStopSign(size: size)
-        }
-    }
-}
-
-/// The default menu bar icon drawn with shapes: a roundel sign on a pole.
-struct SettingsBusStopSign: View {
-    var size: CGFloat = 16
-
-    var body: some View {
-        let ring = size * 0.62
-        VStack(spacing: 0) {
-            ZStack {
-                Circle()
-                    .strokeBorder(lineWidth: max(1.2, size * 0.12))
-                Capsule()
-                    .frame(width: ring * 1.12, height: max(1.6, size * 0.17))
-            }
-            .frame(width: ring, height: ring)
-            Rectangle()
-                .frame(width: max(1.2, size * 0.11), height: size * 0.3)
-            Capsule()
-                .frame(width: size * 0.38, height: max(1, size * 0.07))
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        Image(nsImage: StatusIcon.image(for: style))
+            .renderingMode(.template)
+            .accessibilityHidden(true)
     }
 }
 
@@ -99,7 +85,7 @@ struct MenuBarIconTile: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                MenuBarIconPreview(style: style, size: 18)
+                MenuBarIconPreview(style: style)
                     .foregroundStyle(Lagoon.textPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 34)
@@ -108,7 +94,7 @@ struct MenuBarIconTile: View {
                             .fill(Color.white.opacity(0.06))
                     )
                 Text(style.title)
-                    .font(.caption)
+                    .lagoonFont(.caption)
                     .foregroundStyle(isSelected ? Lagoon.accent : Lagoon.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -132,19 +118,24 @@ struct MenuBarIconTile: View {
 }
 
 /// A strip of menu bar with the Bus Stop item highlighted.
+///
+/// It copies the real menu bar, so it uses the menu bar's font size rather
+/// than the Text Size setting, which the menu bar does not follow either.
 struct MenuBarMockup: View {
     var icon: MenuBarIconStyle
     var text: String
+
+    /// The size `StatusItemController` uses for the item's title.
+    private static let menuBarFontSize = NSFont.menuBarFont(ofSize: 0).pointSize
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "wifi")
                 .foregroundStyle(Lagoon.textTertiary)
-            HStack(spacing: 5) {
-                MenuBarIconPreview(style: icon, size: 15)
+            HStack(spacing: 4) {
+                MenuBarIconPreview(style: icon)
                 if !text.isEmpty {
                     Text(text)
-                        .font(.system(size: 12, weight: .medium))
                         .monospacedDigit()
                 }
             }
@@ -153,10 +144,9 @@ struct MenuBarMockup: View {
             .padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.14)))
             Text("Sun 9:41")
-                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Lagoon.textTertiary)
         }
-        .font(.system(size: 12))
+        .font(.system(size: Self.menuBarFontSize))
         .padding(.horizontal, 10)
         .frame(height: 26)
         .background(

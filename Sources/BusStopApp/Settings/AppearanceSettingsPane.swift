@@ -53,6 +53,7 @@ struct AppearanceSettingsPane: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                SettingsCaption("Applies to the popover, the topology window and this window as soon as you pick a size.")
             }
 
             Section("Motion") {
@@ -85,10 +86,10 @@ struct AppearancePreviewSwatch: View {
                 PortIcon(kind: .usbC, isActive: true, size: 24)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Left Front · USB-C")
-                        .font(.system(.callout).weight(.semibold))
+                        .lagoonFont(.callout, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
                     Text("Samsung T9 · 4.5 W")
-                        .font(.caption)
+                        .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textSecondary)
                 }
                 Spacer(minLength: 8)
