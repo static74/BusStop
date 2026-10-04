@@ -31,10 +31,13 @@ jobs:
           swift --version
           sw_vers
       - name: Build (debug)
-        run: swift build 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
       - name: Show build errors
         if: failure()
-        run: grep -E "error:|warning: .*(will be an error|Sendable)" build.log | sort -u | head -200 || true
+        run: |
+          grep -E "error:|warning: .*(will be an error|Sendable)" build.log | sort -u | head -200 || true
       - name: Test
         run: swift test
       - name: Assemble app bundle
@@ -60,9 +63,12 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.6.app
           swift --version
       - name: Build
-        run: swift build 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
       - name: Show build errors
         if: failure()
-        run: grep -E "error:" build.log | sort -u | head -200 || true
+        run: |
+          grep -E "error:" build.log | sort -u | head -200 || true
       - name: Test
         run: swift test
