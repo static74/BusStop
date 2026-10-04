@@ -34,13 +34,71 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// Root view of the settings window. Placeholder; implemented by the window UI.
+/// Root view of the settings window: one tab per `SettingsTab`, each a
+/// grouped form. Changes apply immediately.
 struct SettingsView: View {
     var store: PortStore
     var initialTab: SettingsTab = .general
 
+    /// The tab the user picked; nil until they pick one, so `initialTab` wins.
+    @State private var chosenTab: SettingsTab? = nil
+
     var body: some View {
-        Text("Settings")
-            .frame(width: 560, height: 420)
+        TabView(selection: selectedTab) {
+            ForEach(SettingsTab.allCases) { tab in
+                pane(for: tab)
+                    .tabItem { Label(tab.title, systemImage: tab.symbolName) }
+                    .tag(tab)
+            }
+        }
+        .frame(width: 620, height: 500)
+        .background(Lagoon.background)
+        .preferredColorScheme(.dark)
+        .tint(Lagoon.accent)
+        .onChange(of: initialTab) { chosenTab = nil }
+    }
+
+    private var selectedTab: Binding<SettingsTab> {
+        Binding(
+            get: { chosenTab ?? initialTab },
+            set: { chosenTab = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private func pane(for tab: SettingsTab) -> some View {
+        switch tab {
+        case .general: GeneralSettingsPane(store: store)
+        case .menuBar: MenuBarSettingsPane(store: store)
+        case .appearance: AppearanceSettingsPane(store: store)
+        case .notifications: NotificationsSettingsPane(store: store)
+        case .ports: PortsSettingsPane(store: store)
+        case .advanced: AdvancedSettingsPane(store: store)
+        }
+    }
+}
+
+extension View {
+    /// Shared look for settings panes: grouped form on true black.
+    func settingsPaneStyle() -> some View {
+        formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Lagoon.background)
+    }
+}
+
+/// Secondary explanatory text under a settings control.
+struct SettingsCaption: View {
+    var text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(Lagoon.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
