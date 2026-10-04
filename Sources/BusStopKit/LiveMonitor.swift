@@ -61,20 +61,6 @@ public final class LiveMonitor: @unchecked Sendable {
     /// (`kIOPSNotifyPowerSource`).
     static let powerSourceNotification = "com.apple.system.powersources.source"
 
-    /// Shortest polling interval accepted, in seconds.
-    static let minimumPollInterval: TimeInterval = 0.5
-    /// Longest polling interval accepted, in seconds.
-    static let maximumPollInterval: TimeInterval = 3_600
-    /// Longest debounce accepted, in seconds.
-    static let maximumDebounce: TimeInterval = 10
-
-    /// `value` limited to `range`; `fallback` when it is not a finite number.
-    static func clamp(_ value: TimeInterval, to range: ClosedRange<TimeInterval>,
-                      fallback: TimeInterval) -> TimeInterval {
-        guard value.isFinite else { return fallback }
-        return min(range.upperBound, max(range.lowerBound, value))
-    }
-
     private let queue = DispatchQueue(label: "app.busstop.live-monitor", qos: .utility)
     private let queueKey = DispatchSpecificKey<UInt8>()
     private let gate = DeliveryGate()
@@ -99,8 +85,8 @@ public final class LiveMonitor: @unchecked Sendable {
     private var pollTimer: DispatchSourceTimer?
     private var pollInterval: TimeInterval?
     private var pendingCapture: DispatchWorkItem?
-    private var pendingIsUrgent = false
-    private var burstStart: DispatchTime?
+    /// Coalescing state of `pendingCapture` (see `CaptureScheduler`).
+    private var scheduler = CaptureScheduler()
     private var captureCount = 0
 
     public init(configuration: Configuration = Configuration()) {
@@ -314,8 +300,7 @@ public final class LiveMonitor: @unchecked Sendable {
         handler = nil
         pendingCapture?.cancel()
         pendingCapture = nil
-        pendingIsUrgent = false
-        burstStart = nil
+        scheduler = CaptureScheduler()
         pollTimer?.cancel()
         pollTimer = nil
         pollInterval = nil
@@ -371,37 +356,22 @@ public final class LiveMonitor: @unchecked Sendable {
         scheduleCapture(urgent: true)
     }
 
-    /// Schedules a capture. Urgent requests run as soon as the queue is free.
-    /// Other requests are debounced: each one pushes the capture back by
-    /// `debounce`, but a burst never delays it by more than four debounce
-    /// intervals (at least one second). A pending capture always runs after
-    /// the request, so it also observes whatever change caused the request.
+    /// Schedules a capture as `CaptureScheduler` decides: urgent requests run
+    /// as soon as the queue is free, other requests are debounced, and a
+    /// request that needs new work replaces the queued capture.
     private func scheduleCapture(urgent: Bool) {
-        guard isRunning else { return }
-        if pendingCapture != nil && pendingIsUrgent {
-            return
-        }
-        let now = DispatchTime.now()
-        let deadline: DispatchTime
-        if urgent {
-            deadline = now
-        } else {
-            let start = burstStart ?? now
-            burstStart = start
-            let debounce = Self.clamp(configuration.debounce, to: 0...Self.maximumDebounce, fallback: 0.25)
-            deadline = min(now + debounce, start + max(1, debounce * 4))
-        }
+        guard isRunning,
+              let deadline = scheduler.request(urgent: urgent, now: .now(), debounce: configuration.debounce)
+        else { return }
         pendingCapture?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.runCapture() }
         pendingCapture = work
-        pendingIsUrgent = urgent
         queue.asyncAfter(deadline: deadline, execute: work)
     }
 
     private func runCapture() {
         pendingCapture = nil
-        pendingIsUrgent = false
-        burstStart = nil
+        scheduler.captureStarted()
         guard isRunning, let handler else { return }
         let raw = RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
         captureCount += 1
@@ -417,8 +387,7 @@ public final class LiveMonitor: @unchecked Sendable {
 
     private func updatePollTimer() {
         guard isRunning else { return }
-        let requested = uiVisible ? configuration.visibleInterval : configuration.backgroundInterval
-        let interval = Self.clamp(requested, to: Self.minimumPollInterval...Self.maximumPollInterval, fallback: 10)
+        let interval = Self.pollInterval(visible: uiVisible, configuration: configuration)
         let leeway = DispatchTimeInterval.milliseconds(max(10, Int(interval * 100)))
         if let timer = pollTimer {
             guard pollInterval != interval else { return }
@@ -450,8 +419,10 @@ public final class LiveMonitor: @unchecked Sendable {
         }
     }
 
-    /// Hands a change seen on another thread to the queue.
-    fileprivate func externalChangeFromAnyThread() {
+    /// Hands a change seen on another thread to the queue, where it is
+    /// debounced like an IOKit notification. Tests call it to simulate a
+    /// burst of notifications.
+    func externalChangeFromAnyThread() {
         queue.async { [weak self] in self?.externalChangeOnQueue() }
     }
 

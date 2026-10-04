@@ -96,6 +96,31 @@ struct LiveMonitorTests {
         monitor.stop()
     }
 
+    @Test func burstOfChangesCoalescesIntoOneCapture() async throws {
+        let monitor = LiveMonitor(configuration: LiveMonitor.Configuration(
+            visibleInterval: 30, backgroundInterval: 30, debounce: 0.1, includeSMC: false
+        ))
+        let recorder = SnapshotRecorder()
+        monitor.start { raw in recorder.snapshots.append(raw) }
+        try await wait(timeout: 10) { !recorder.snapshots.isEmpty }
+        try await Task.sleep(for: .milliseconds(300))
+
+        let before = monitor.completedCaptures
+        for _ in 0..<20 {
+            monitor.externalChangeFromAnyThread()
+        }
+        try await wait(timeout: 5) { monitor.completedCaptures > before }
+        // Time for any extra capture the burst should not cause.
+        try await Task.sleep(for: .milliseconds(1_200))
+        let captures = monitor.completedCaptures - before
+        print("BUSSTOP-MONITOR burst of 20 changes -> \(captures) capture(s)")
+        // One capture for the burst. A second one is tolerated in case the
+        // runner reports a real hardware or power change meanwhile.
+        #expect(captures >= 1)
+        #expect(captures <= 2)
+        monitor.stop()
+    }
+
     @Test func rapidStartStopCyclesDeliverNothingAfterStop() async throws {
         let recorder = SnapshotRecorder()
         for _ in 0..<10 {
