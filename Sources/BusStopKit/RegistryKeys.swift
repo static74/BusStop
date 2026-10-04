@@ -113,7 +113,9 @@ enum RegistryKeys {
 
     // MARK: USB
 
-    /// `IOUSBHostDevice`.
+    /// `IOUSBHostDevice`. `kUSBContainerID` is left out on purpose: it is a
+    /// UUID unique to each device instance, no parser uses it, and captures
+    /// should not carry identifiers that work like serial numbers.
     static let usbDevice: [String] = [
         "USB Product Name", "kUSBProductString", "USB Vendor Name", "kUSBVendorString",
         "USB Serial Number", "kUSBSerialNumberString", "idVendor", "idProduct", "bcdDevice", "bcdUSB",
@@ -122,7 +124,7 @@ enum RegistryKeys {
         "UsbLinkSpeed", "Device Speed", "USBSpeed", "UsbPowerSinkAllocation", "UsbPowerSinkCapability",
         "USBPortType", "UsbTunnel", "Usb3LinkPreferred", "kUSBHubPowerSupply", "kUSBHubPowerSupplyType",
         "Requested Power", "Bus Power Available", "kUSBCurrentConfiguration", "kUSBPreferredConfiguration",
-        "kUSBWakePortCurrentLimit", "kUSBSleepPortCurrentLimit", "kUSBContainerID", "UsbCPortNumber",
+        "kUSBWakePortCurrentLimit", "kUSBSleepPortCurrentLimit", "UsbCPortNumber",
         "Built-In", "non-removable", "UsbEnumerationState", "PortNum", "Low Power Displayed",
     ]
 
@@ -134,7 +136,9 @@ enum RegistryKeys {
 
     // MARK: Thunderbolt
 
-    /// `IOThunderboltSwitch*`.
+    /// `IOThunderboltSwitch*`. `UID` is unique to each router, so it works
+    /// like a serial number; it is read because the parsers build stable
+    /// device ids from it, and redacted exports remove it.
     static let thunderboltSwitch: [String] = [
         "UID", "Route String", "Depth", "Device Vendor Name", "Device Model Name", "Device Vendor ID",
         "Device Model ID", "Vendor ID", "Device ID", "Revision ID", "Router ID", "Upstream Port Number",
