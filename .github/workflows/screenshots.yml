@@ -38,6 +38,21 @@ jobs:
           fi
           system_profiler SPDisplaysDataType | grep -i resolution || true
 
+      - name: Dark mode and wallpaper
+        continue-on-error: true
+        run: |
+          osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || \
+            defaults write -g AppleInterfaceStyle Dark
+          cat > /tmp/wallpaper.swift <<'SWIFT'
+          import AppKit
+          let url = URL(fileURLWithPath: CommandLine.arguments[1])
+          for screen in NSScreen.screens {
+              try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [:])
+          }
+          SWIFT
+          swift /tmp/wallpaper.swift "$PWD/.github/assets/wallpaper.jpg"
+          sleep 2
+
       - name: Build app bundle
         run: |
           if [ -x scripts/build-app.sh ]; then
