@@ -51,9 +51,25 @@ final class WatchSession {
         }
 
         session.start()
-        // Keep the signal sources alive for as long as the main queue runs.
+        // Keep the signal sources alive for as long as the process runs.
         withExtendedLifetime(signalSources) {
-            dispatchMain()
+            runMainRunLoop()
+        }
+    }
+
+    /// Runs the main run loop until the process exits.
+    ///
+    /// This takes the place of `dispatchMain()`: `LiveMonitor` registers its
+    /// power-source and display-change callbacks on the main run loop, which
+    /// `dispatchMain()` never runs. The main run loop also drains the main
+    /// dispatch queue, so main-actor work and the signal handlers still run.
+    /// The timer only keeps the run loop from returning when it has no other
+    /// sources (demo mode).
+    private static func runMainRunLoop() -> Never {
+        let keepAlive = Timer(fire: .distantFuture, interval: 0, repeats: false) { _ in }
+        RunLoop.main.add(keepAlive, forMode: .default)
+        while true {
+            _ = RunLoop.main.run(mode: .default, before: .distantFuture)
         }
     }
 
@@ -113,7 +129,7 @@ final class WatchSession {
             if let data = try? lineEncoder.encode(event), let text = String(data: data, encoding: .utf8) {
                 return text
             }
-            return "{\"id\":\"\(event.id)\",\"error\":\"could not encode event\"}"
+            return #"{"error":"could not encode event"}"#
         }
         var text = "\(timeFormatter.string(from: event.date)) \(Self.marker(for: event)) \(event.title)"
         let detail = event.detail.trimmingCharacters(in: .whitespacesAndNewlines)
