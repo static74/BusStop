@@ -99,11 +99,11 @@ final class PortStore {
     /// at once.
     ///
     /// Switching between live data and demo mode, or between demo scenarios,
-    /// changes the source of the data rather than the hardware: the new source
-    /// starts from scratch with no connect or disconnect events, no
-    /// notifications, no ghosts and a fresh power history. The event log never
-    /// mixes sources: demo events are dropped when the source changes, and the
-    /// live log is set aside while demo mode is on and comes back when it ends.
+    /// is a change of source. The new source starts from scratch, with no
+    /// connect or disconnect events, no notifications, no ghosts and a fresh
+    /// power history. The event log never mixes sources: demo events are
+    /// dropped when the source changes, and the live log is set aside while
+    /// demo mode is on and comes back when it ends.
     func applySettings() {
         let wantsDemo = settings.demoMode
         let isDemoRunning = demoTimer != nil

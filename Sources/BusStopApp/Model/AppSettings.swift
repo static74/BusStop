@@ -123,6 +123,9 @@ enum TextSizeSetting: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The nearest Dynamic Type size. macOS does not resize text for it, so
+    /// views apply `lagoonTextScale(_:)` and `lagoonFont` instead; kept only
+    /// for code that has not moved over yet.
     var dynamicTypeSize: DynamicTypeSize {
         switch self {
         case .small: return .small

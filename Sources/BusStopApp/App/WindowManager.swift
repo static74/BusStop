@@ -35,6 +35,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// True while the app is a regular app only until a pending activation
     /// goes through, because the user turned the Dock icon off.
     private var isBorrowingRegularPolicy = false
+    /// Tells a late fallback timer apart from the activation it was for.
+    private var borrowGeneration = 0
     private var activationObserver: NSObjectProtocol?
     /// The window to keep in front once the borrowed activation ends.
     private weak var windowAwaitingActivation: NSWindow?
@@ -258,6 +260,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// gone through, or after a second if it never does.
     private func returnToAccessoryAfterActivation(keeping window: NSWindow) {
         isBorrowingRegularPolicy = true
+        borrowGeneration += 1
+        let generation = borrowGeneration
         windowAwaitingActivation = window
         if let activationObserver {
             NotificationCenter.default.removeObserver(activationObserver)
@@ -280,7 +284,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             MainActor.assumeIsolated {
-                self?.endBorrowedActivation()
+                guard let self, self.borrowGeneration == generation else { return }
+                self.endBorrowedActivation()
             }
         }
     }
