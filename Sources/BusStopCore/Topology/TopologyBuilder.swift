@@ -123,8 +123,26 @@ public enum TopologyBuilder {
                 || (record.kind == .hdmi && record.connectionActive)
                 || dpTransports.contains { $0.portKey == record.key }
         }.map(\.key)
+        // For the last display rule: ports that carry video themselves
+        // (DisplayPort alt mode, HDMI), and ports whose only video evidence
+        // is a Thunderbolt link to a chain known to carry no display (a dock
+        // whose display adapters are all idle).
+        let nativeVideoPorts = Set(ports.records.filter { record in
+            let kinds = Set((activeTransports[record.key] ?? []).map(\.kind))
+            return kinds.contains(.displayPort) || kinds.contains(.hdmi)
+                || (record.kind == .hdmi && record.connectionActive)
+                || dpTransports.contains { $0.portKey == record.key && !$0.isTunneled }
+        }.map(\.key))
+        let idleThunderboltPorts = Set(videoPorts.filter { key in
+            guard !nativeVideoPorts.contains(key), !(tunneledKinds[key] ?? []).contains(.displayPort),
+                  !dpTransports.contains(where: { $0.portKey == key }), let roots = chains[key] else { return false }
+            let ids = roots.flatMap { $0.flattened().map(\.device) }.filter { $0.bus == .thunderbolt }
+                .compactMap(\.registryID)
+            return !ids.isEmpty && ids.allSatisfy(thunderbolt.noVideoSwitchIDs.contains)
+        })
         let attributions = DisplayParser.attribute(displays, dpTransports: dpTransports, chainsByPort: chains,
-                                                   videoPorts: videoPorts)
+                                                   videoPorts: videoPorts, nativeVideoPorts: nativeVideoPorts,
+                                                   idleThunderboltPorts: idleThunderboltPorts)
         var displayInfos: [DisplayInfo] = []
         for var display in displays {
             if let attribution = attributions[display.id] {

@@ -24,6 +24,10 @@ struct ThunderboltTopology {
     /// Registry IDs of downstream switches with a live USB tunnel (a USB
     /// adapter whose `Hop Table` is not empty).
     var usbTunnelSwitchIDs: Set<UInt64> = []
+    /// Registry IDs of downstream switches known to carry no display: they
+    /// list their adapters, and every DisplayPort / HDMI adapter among them
+    /// reports an empty `Hop Table`.
+    var noVideoSwitchIDs: Set<UInt64> = []
 
     /// The socket a USB device tunnelled through `apciecN` arrived on: the
     /// host root under `acioN` (same N). With several sockets on that host,
@@ -79,6 +83,7 @@ enum ThunderboltParser {
 
         var topology = ThunderboltTopology()
         topology.usbTunnelSwitchIDs = Set(switches.filter { !hostIDs.contains($0.id) && hasLiveUSBAdapter($0) }.map(\.id))
+        topology.noVideoSwitchIDs = Set(switches.filter { !hostIDs.contains($0.id) && carriesNoDisplay($0) }.map(\.id))
         for host in hosts {
             let sockets = Set(lanePorts(host).compactMap(socketID)).sorted()
             topology.allSockets.formUnion(sockets)
@@ -234,6 +239,21 @@ enum ThunderboltParser {
             let description = port.properties.string("Description")?.lowercased() ?? ""
             return description.contains("usb") && TopologyValues.isEmpty(port.properties["Hop Table"]) == false
         }
+    }
+
+    /// True for DisplayPort / HDMI adapters (`"DP or HDMI Adapter"`).
+    static func isDisplayAdapter(_ port: RawNode) -> Bool {
+        let description = port.properties.string("Description")?.lowercased() ?? ""
+        return description.contains("dp") || description.contains("hdmi")
+    }
+
+    /// True when the switch is known to carry no display tunnel: it lists
+    /// its adapters (at least one has a `Description`), and every display
+    /// adapter publishes a `Hop Table` that is empty. A missing `Hop Table`
+    /// leaves the question open, so the answer is false.
+    static func carriesNoDisplay(_ s: RawThunderboltSwitch) -> Bool {
+        guard s.ports.contains(where: { $0.properties.string("Description") != nil }) else { return false }
+        return s.ports.filter(isDisplayAdapter).allSatisfy { TopologyValues.isEmpty($0.properties["Hop Table"]) == true }
     }
 
     /// Display, dock or generic Thunderbolt device, from the name and the

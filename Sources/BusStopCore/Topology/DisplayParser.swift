@@ -33,15 +33,23 @@ enum DisplayParser {
     /// 1. an active DisplayPort transport whose `ProductName` matches;
     /// 2. a Thunderbolt chain device of kind display with a matching name;
     /// 3. when exactly one port still carries video (DisplayPort, CIO or a
-    ///    connected HDMI port) and exactly one external display is left.
+    ///    connected HDMI port) and exactly one external display is left;
+    ///    or, when several do, but all except one native video port
+    ///    (DisplayPort alt mode or HDMI) are Thunderbolt links to chains
+    ///    known to carry no display, that native port.
     ///
     /// - Parameters:
     ///   - displays: built display records, sorted.
     ///   - dpTransports: active DisplayPort transports (tunnelled or not), sorted.
     ///   - chainsByPort: Thunderbolt chains per port.
     ///   - videoPorts: ports that carry DisplayPort, CIO or HDMI, sorted.
+    ///   - nativeVideoPorts: video ports that carry DisplayPort or HDMI themselves.
+    ///   - idleThunderboltPorts: video ports whose only video evidence is a
+    ///     Thunderbolt link to a chain known to carry no display.
     static func attribute(_ displays: [DisplayInfo], dpTransports: [TopologyTransportRecord],
-                          chainsByPort: [PortKey: [DeviceNode]], videoPorts: [PortKey]) -> [String: Attribution] {
+                          chainsByPort: [PortKey: [DeviceNode]], videoPorts: [PortKey],
+                          nativeVideoPorts: Set<PortKey> = [],
+                          idleThunderboltPorts: Set<PortKey> = []) -> [String: Attribution] {
         var result: [String: Attribution] = [:]
         var usedTransports = Set<UInt64>()
         var usedChainDevices = Set<String>()
@@ -85,8 +93,12 @@ enum DisplayParser {
         let taken = Set(result.values.map(\.portKey))
         let freePorts = videoPorts.filter { !taken.contains($0) }
         let left = externals.filter { result[$0.id] == nil }
-        if freePorts.count == 1, left.count == 1 {
-            let key = freePorts[0]
+        // A dock with idle display adapters does not make the HDMI port's
+        // only display ambiguous.
+        let candidates = freePorts.count == 1 ? freePorts : freePorts.filter { !idleThunderboltPorts.contains($0) }
+        let isUsable = candidates.count == 1 && (freePorts.count == 1 || nativeVideoPorts.contains(candidates[0]))
+        if isUsable, left.count == 1 {
+            let key = candidates[0]
             let transport = dpTransports.first { $0.portKey == key && !$0.isTunneled }
                 ?? dpTransports.first { $0.portKey == key }
             result[left[0].id] = Attribution(portKey: key, link: transport?.link,
