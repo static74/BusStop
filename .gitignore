@@ -1,0 +1,13 @@
+.build/
+.swiftpm/
+build/
+DerivedData/
+*.xcodeproj
+!Support/*.xcodeproj
+xcuserdata/
+.DS_Store
+/Packages
+*.zip
+
+# Local agent worktrees and tool state
+.claude/

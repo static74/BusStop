@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-linux:
+    name: Core (Linux, Swift 6.4)
+    runs-on: ubuntu-24.04
+    container: swift:6.4-noble
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and test BusStopCore
+        run: swift test
+
+  macos-27:
+    name: macOS 27 (Xcode 27)
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The build number in Info.plist is the commit count.
+          fetch-depth: 0
+      - name: Select Xcode 27
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          xcodebuild -version
+          swift --version
+          sw_vers
+      - name: Build (debug)
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
+      - name: Show build errors
+        if: failure()
+        run: |
+          grep -E "error:|warning: .*(will be an error|Sendable)" build.log | sort -u | head -200 || true
+      - name: Test
+        run: swift test
+      - name: Assemble app bundle
+        run: ./scripts/build-app.sh
+      - name: Smoke-test the CLI
+        run: ./scripts/smoke-test.sh
+      - name: Upload app
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: BusStop-macOS27
+          path: build/BusStop.zip
+          if-no-files-found: warn
+
+  macos-26:
+    name: macOS 26 (Xcode 26.6)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Select Xcode 26.6
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          swift --version
+          sw_vers
+      - name: Build
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
+      - name: Show build errors
+        if: failure()
+        run: |
+          grep -E "error:" build.log | sort -u | head -200 || true
+      - name: Test
+        run: swift test
+      - name: Assemble universal app bundle
+        # Universal here so every push proves the x86_64 build that releases ship.
+        env:
+          ARCHS: universal
+        run: ./scripts/build-app.sh
+      - name: Smoke-test the app on macOS 26 (demo data)
+        run: ./scripts/smoke-test.sh --skip-live
