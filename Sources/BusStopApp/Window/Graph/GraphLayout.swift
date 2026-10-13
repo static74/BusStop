@@ -11,6 +11,10 @@ import Foundation
 //   1  one node per port, in the order given, then an optional "Other" group
 //   2+ devices by depth below their port
 //
+// A display that reaches a port through a Thunderbolt dock or display is
+// drawn under the head of that chain, not beside it, so the map follows the
+// signal: port, dock, monitor.
+//
 // Each port block is as tall as its device subtree needs: leaves stack
 // vertically, and every parent is centred on its children, so a subtree gets
 // vertical space in proportion to its leaf count.
@@ -51,7 +55,9 @@ nonisolated struct GraphInput: Sendable {
     var otherDevices: [DeviceNode] = []
     /// External displays that could not be tied to a port.
     var otherDisplays: [DisplayInfo] = []
-    /// Displays known to be on a port but missing from that port's device tree.
+    /// Displays known to be on a port but missing from that port's device
+    /// tree. On a port whose tree starts with a single Thunderbolt device
+    /// they are drawn under that device.
     var portDisplays: [PortKey: [DisplayInfo]] = [:]
     /// Devices that just disappeared, drawn as fading ghosts.
     var departingByPort: [PortKey: [DeviceNode]] = [:]
@@ -173,14 +179,17 @@ nonisolated struct GraphLayout: Sendable {
 private nonisolated struct GraphLayoutBuilder {
     /// A child under a port or device, before placement.
     nonisolated enum Item {
-        case device(DeviceNode, isDeparting: Bool)
+        /// `displays` are drawn after the device's own children.
+        case device(DeviceNode, isDeparting: Bool, displays: [DisplayInfo] = [])
         case display(DisplayInfo)
 
         var leafCount: Int {
             switch self {
             case .display: return 1
-            case .device(let device, let isDeparting):
-                return isDeparting ? 1 : GraphLayoutBuilder.leafCount(device)
+            case .device(let device, let isDeparting, let displays):
+                if isDeparting { return 1 }
+                if displays.isEmpty { return GraphLayoutBuilder.leafCount(device) }
+                return device.children.reduce(0) { $0 + GraphLayoutBuilder.leafCount($1) } + displays.count
             }
         }
     }
@@ -268,8 +277,17 @@ private nonisolated struct GraphLayoutBuilder {
         usedIDs.insert(GraphLayout.hostID)
         var groups: [Group] = []
         for port in input.ports {
-            var items: [Item] = port.devices.map { .device($0, isDeparting: false) }
-            items += (input.portDisplays[port.key] ?? []).map { .display($0) }
+            let displays = input.portDisplays[port.key] ?? []
+            let heads = port.devices.indices.filter { port.devices[$0].bus == .thunderbolt }
+            var items: [Item]
+            if !displays.isEmpty, heads.count == 1 {
+                items = port.devices.enumerated().map { index, device in
+                    .device(device, isDeparting: false, displays: index == heads[0] ? displays : [])
+                }
+            } else {
+                items = port.devices.map { .device($0, isDeparting: false) }
+                items += displays.map { .display($0) }
+            }
             items += (input.departingByPort[port.key] ?? []).map { .device($0, isDeparting: true) }
             groups.append(Group(
                 id: uniqueID(GraphLayout.portID(port.key)),
@@ -359,11 +377,13 @@ private nonisolated struct GraphLayoutBuilder {
 
         let leaves = group.items.reduce(0) { $0 + $1.leafCount }
         var childTop = top + (blockHeight - stackHeight(leaves: leaves)) / 2
+        var placedItems: [Placed] = []
         for item in group.items {
             let placed = place(item, depth: 0, top: childTop, parentID: group.id, portKey: group.portKey)
-            addLinkEdge(fromID: group.id, fromFrame: frame, to: placed)
+            placedItems.append(placed)
             childTop += placed.height + metrics.rowGap
         }
+        addLinkEdges(fromID: group.id, fromFrame: frame, to: placedItems)
         return frame
     }
 
@@ -380,17 +400,18 @@ private nonisolated struct GraphLayoutBuilder {
                                    parentID: parentID, portKey: portKey, tag: GraphLayout.displayID(display.id)))
             return Placed(id: id, frame: frame, height: size.height, link: display.link, isDeparting: false)
 
-        case .device(let device, let isDeparting):
+        case .device(let device, let isDeparting, let displays):
             let baseID = isDeparting ? GraphLayout.departingID(device.id) : GraphLayout.deviceID(device.id)
             let id = uniqueID(baseID)
             let tag = isDeparting ? nil : GraphLayout.deviceID(device.id)
-            let children = isDeparting ? [] : device.children
+            let children: [Item] = isDeparting
+                ? []
+                : device.children.map { .device($0, isDeparting: false) } + displays.map { .display($0) }
 
             var placedChildren: [Placed] = []
             var childTop = top
             for child in children {
-                let placed = place(.device(child, isDeparting: false), depth: depth + 1, top: childTop,
-                                   parentID: id, portKey: portKey)
+                let placed = place(child, depth: depth + 1, top: childTop, parentID: id, portKey: portKey)
                 placedChildren.append(placed)
                 childTop += placed.height + metrics.rowGap
             }
@@ -408,15 +429,32 @@ private nonisolated struct GraphLayoutBuilder {
 
             nodes.append(GraphNode(id: id, content: .device(device, isDeparting: isDeparting), column: depth + 2,
                                    frame: frame, parentID: parentID, portKey: portKey, tag: tag))
-            for placed in placedChildren {
-                addLinkEdge(fromID: id, fromFrame: frame, to: placed)
-            }
+            addLinkEdges(fromID: id, fromFrame: frame, to: placedChildren)
             return Placed(id: id, frame: frame, height: height, link: device.link, isDeparting: isDeparting)
         }
     }
 
-    mutating func addLinkEdge(fromID: String, fromFrame: CGRect, to child: Placed) {
-        let start = CGPoint(x: fromFrame.maxX, y: fromFrame.midY)
+    /// Edges from one parent to its children. They leave from points spread
+    /// along the parent's right edge, in the children's top-to-bottom order,
+    /// so links to neighbouring children never run on top of each other.
+    mutating func addLinkEdges(fromID: String, fromFrame: CGRect, to children: [Placed]) {
+        let offsets = Self.fanOffsets(count: children.count, height: fromFrame.height)
+        for (child, offset) in zip(children, offsets) {
+            addLinkEdge(fromID: fromID, fromFrame: fromFrame, to: child, startOffset: offset)
+        }
+    }
+
+    /// Vertical offsets from a node's centre for `count` edges leaving it:
+    /// 8 pt apart, closer when that would leave the middle half of the
+    /// node's height.
+    static func fanOffsets(count: Int, height: CGFloat) -> [CGFloat] {
+        guard count > 1 else { return Array(repeating: 0, count: count) }
+        let spacing = min(8, height / 2 / CGFloat(count - 1))
+        return (0..<count).map { (CGFloat($0) - CGFloat(count - 1) / 2) * spacing }
+    }
+
+    mutating func addLinkEdge(fromID: String, fromFrame: CGRect, to child: Placed, startOffset: CGFloat = 0) {
+        let start = CGPoint(x: fromFrame.maxX, y: fromFrame.midY + startOffset)
         let end = CGPoint(x: child.frame.minX, y: child.frame.midY)
         let curve = GraphCurve(from: start, to: end)
         let showsChip = child.link != nil && !child.isDeparting

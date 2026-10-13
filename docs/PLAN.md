@@ -53,8 +53,4 @@ The `Screenshots` workflow launches the real app on the macOS 27 runner at 1920 
 
 ## Future work
 
-- Widgets and App Intents (needs an Xcode project and a signing team).
-- A Mac silhouette view with ports overlaid.
-- History persisted across launches.
-- Localisation.
-- Notarized releases if a maintainer with a Developer ID adopts the project.
+The roadmap lives in [ROADMAP.md](ROADMAP.md).

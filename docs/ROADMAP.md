@@ -1,0 +1,46 @@
+# Bus Stop roadmap
+
+Planned work after 1.0, roughly in priority order within each group. Items move to the changelog when they ship. Nothing here adds network access or telemetry: anything that sends data off the Mac is opt-in, local-network only, and off by default.
+
+## Correctness on real hardware
+
+1. **Validation on real Macs and capture fixtures.** Collect raw captures (`busstop --raw`) from as many Mac models, docks, displays, hubs and chargers as possible, and turn each into a regression fixture under `Tests/BusStopCoreTests/Fixtures`. Every topology rule that was written from documentation alone gets a real capture behind it. Start with the setups already reported: a Thunderbolt dock feeding monitors and USB hubs.
+2. **"Identify this port" flow.** A guided check in Settings: "plug something into the port you want to name" lights up the port that changed and lets the user confirm or correct its name. It fixes the catalogue for Macs whose port locations are wrong or missing, and can produce a catalogue entry to send upstream.
+
+## Cables and power
+
+3. **Cable report card.** One page per cable seen in a port: what the e-marker says (rated speed, current, voltage, Extended Power Range, active or optical, vendor), what was actually negotiated over it, and a plain verdict ("good for 40 Gb/s and 240 W"). It remembers cables by vendor and product ID so the same cable is recognised next time.
+4. **Charging bottleneck explainer.** When the Mac charges slower than the charger could deliver, say which part is the limit (charger, cable rating, port, battery temperature or charge limit) and what would fix it.
+5. **Charger history.** Remember chargers by their PD identity: profiles offered, highest contract, and when each was last seen.
+
+## History and health
+
+6. **Persisted history.** Keep the event log, power history and per-port statistics across launches in a local file, with a size cap and a "clear history" button.
+7. **Flaky-connection detector.** Spot repeated connect and disconnect cycles, link speed flapping and devices that fall back to USB 2, and name the likely culprit (cable, port, hub or device).
+8. **Port health statistics.** Per-port counters over time: plug events, connection errors, overcurrent events and liquid detection, with a gentle warning when a port's numbers stand out.
+
+## Views
+
+9. **Mac silhouette view.** An outline of the Mac with each port drawn where it physically is, coloured by what is plugged in and how fast it runs.
+10. **Port pinning in the menu bar.** Pin one port (for example the charging port) so its watts or link speed show next to the menu bar icon.
+11. **Compact popover mode.** A denser popover with one line per port for people with many devices.
+12. **Light theme option.** A light Lagoon theme that keeps the turquoise accent, for people who run macOS in light mode. Dark stays the default.
+
+## Automation and integrations
+
+13. **Shortcuts and App Intents.** Actions such as "Get devices on port", "Get charging wattage" and "Is a device connected", so Shortcuts and automations can use Bus Stop's data. Needs an Xcode project and a signing team.
+14. **Widgets.** Desktop and Notification Center widgets for charging state, total watts and a chosen port.
+15. **Rules and actions.** Simple local rules: "when this drive connects at USB 2 speed, notify me", "when the dock disconnects, run this shortcut".
+16. **CLI webhook and MQTT output (opt-in, local).** `busstop --watch` can post events to a local webhook or MQTT broker for home-automation setups. Off by default, local network only, and documented as the one feature that sends data anywhere.
+
+## Distribution and reach
+
+17. **Notarized builds and Sparkle updates.** Notarized releases remove the "Open Anyway" step; Sparkle gives in-app updates with signed appcasts. Both need a maintainer with an Apple Developer ID.
+18. **Homebrew tap.** `brew install --cask busstop` from a project tap, with the CLI linked automatically.
+19. **Localisation.** Move user-facing strings into string catalogues and accept translations, starting with the languages contributors offer.
+
+## Done since 1.0
+
+- The topology map pans by dragging, zooms with the scroll wheel, and shows a cable's details when its link is clicked.
+- Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map.
+- A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
