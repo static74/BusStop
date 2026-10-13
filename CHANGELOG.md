@@ -10,9 +10,17 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - Click a link in the map to inspect it: the negotiated speed, the power across it and, for the cable in one of the Mac's own ports, what its e-marker chip says it is rated for (speed, power, current, voltage, EPR), with a note when the cable or the device is what limits the link. Hovering a link highlights it.
 - Port and device inspectors link to the cable and link page; the port's cable section shows rated power, maximum voltage and EPR support.
 
+- `docs/ROADMAP.md` with the planned features after 1.0.
+
 ### Changed
 
-- Links that run together in the map no longer look brighter where they overlap.
+- Links that run together in the map no longer look brighter where they overlap, and links leaving one card start from separate points instead of a single one.
+- A monitor that reaches a port through a Thunderbolt dock is drawn under the dock in the map.
+
+### Fixed
+
+- Devices behind a Thunderbolt dock are shown under the dock even when no USB device carries the dock's name (docks use generic hub chips such as "USB3.1 Gen2 Hub"). The cable's own USB 2 half of a dock's hub goes under the dock too.
+- A USB 3 hub's USB 2 half no longer appears as a separate "USB2.0 Hub" when the port has several hubs at its root, or when the hub reports no link speed.
 
 ## [1.0.0] - 2026-10-12
 
