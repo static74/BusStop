@@ -2,6 +2,18 @@
 
 All notable changes to Bus Stop are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Topology map: drag to pan like a web map, and zoom around the pointer with a mouse scroll wheel. Trackpads still pan with two fingers and zoom with a pinch. Zoom now runs from 25 % to 200 %.
+- Click a link in the map to inspect it: the negotiated speed, the power across it and, for the cable in one of the Mac's own ports, what its e-marker chip says it is rated for (speed, power, current, voltage, EPR), with a note when the cable or the device is what limits the link. Hovering a link highlights it.
+- Port and device inspectors link to the cable and link page; the port's cable section shows rated power, maximum voltage and EPR support.
+
+### Changed
+
+- Links that run together in the map no longer look brighter where they overlap.
+
 ## [1.0.0] - 2026-10-12
 
 The first release.
@@ -26,4 +38,5 @@ The first release.
 - `scripts/build-app.sh`, `scripts/install.sh` and `scripts/smoke-test.sh` for building, installing and checking the app bundle; CI on Linux, macOS 26 and macOS 27; tagged releases with a universal, ad-hoc-signed zip and its SHA-256 checksum. The app bundle and the zip carry Bus Stop's licence and the MIT notices of PortScope, WhatPort and WhatCable.
 - Screenshots of the app in demo mode, captured by CI on macOS 27 and published to the `screenshots` branch by a separate job that holds the only write token.
 
+[Unreleased]: https://github.com/static74/BusStop/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/static74/BusStop/releases/tag/v1.0.0

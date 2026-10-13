@@ -193,6 +193,7 @@ struct TopologyWindowView: View {
         case .port(let key): return key
         case .device(let id): return snapshot.port(containing: id)?.key
         case .display(let id): return snapshot.displays.first { $0.id == id }?.portKey
+        case .link(let child): return owningPort(of: child, in: snapshot)
         }
     }
 

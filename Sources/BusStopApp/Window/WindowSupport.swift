@@ -295,6 +295,8 @@ enum SelectionTag {
     static func port(_ key: PortKey) -> String { "port:\(key)" }
     static func device(_ id: String) -> String { "device:\(id)" }
     static func display(_ id: String) -> String { "display:\(id)" }
+    /// The link leading to the node tagged `childTag` (a port, device or display).
+    static func link(_ childTag: String) -> String { "link:\(childTag)" }
 
     static func string(for selection: StoreSelection?) -> String? {
         switch selection {
@@ -302,8 +304,14 @@ enum SelectionTag {
         case .port(let key)?: return port(key)
         case .device(let id)?: return device(id)
         case .display(let id)?: return display(id)
+        case .link(let child)?: return string(for: child).map(link)
         case nil: return nil
         }
+    }
+
+    /// The tag of the node a link tag leads to; nil when `tag` is not a link.
+    static func linkTarget(of tag: String?) -> String? {
+        tag?.dropPrefix("link:")
     }
 
     static func selection(for tag: String?) -> StoreSelection? {
@@ -312,6 +320,13 @@ enum SelectionTag {
         if let rest = tag.dropPrefix("port:") { return PortKey(rest).map(StoreSelection.port) }
         if let rest = tag.dropPrefix("device:") { return .device(rest) }
         if let rest = tag.dropPrefix("display:") { return .display(rest) }
+        if let rest = tag.dropPrefix("link:"), let child = selection(for: rest) {
+            // Only ports, devices and displays have a link leading to them.
+            switch child {
+            case .host, .link: return nil
+            case .port, .device, .display: return .link(child)
+            }
+        }
         return nil
     }
 }

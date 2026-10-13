@@ -14,8 +14,9 @@ nonisolated extension GraphCurve {
     }
 }
 
-/// How one edge is painted, resolved from the Lagoon tokens.
-struct GraphEdgeStroke: Identifiable {
+/// How one edge is painted, resolved from the Lagoon tokens. Nonisolated,
+/// because the Canvas renderers that draw it are.
+nonisolated struct GraphEdgeStroke: Identifiable {
     var id: String
     var path: Path
     var end: CGPoint
@@ -26,6 +27,15 @@ struct GraphEdgeStroke: Identifiable {
     var opacity: Double
     /// Trunks get no socket dot at the port end.
     var drawsSocket: Bool
+    /// `color` at `opacity`, pre-blended with the background into a solid
+    /// colour, so two strokes that overlap look like one.
+    var solidColor: Color
+
+    /// The dot where the link meets the child's card.
+    var socketPath: Path {
+        let radius = max(2.2, width * 0.95)
+        return Path(ellipseIn: CGRect(x: end.x - radius, y: end.y - radius, width: radius * 2, height: radius * 2))
+    }
 }
 
 /// One moving pulse track along an edge.
@@ -49,6 +59,7 @@ enum GraphPaint {
             switch edge.kind {
             case .trunk:
                 let color = edge.isActive ? Lagoon.accent : Lagoon.accentMuted
+                let opacity = (edge.isActive ? 0.42 : 0.7) * dimFactor
                 return GraphEdgeStroke(
                     id: edge.id,
                     path: edge.curve.path,
@@ -57,12 +68,14 @@ enum GraphPaint {
                     width: edge.isActive ? 1.4 : 1,
                     dash: edge.isDashed ? [3, 4] : [],
                     glows: false,
-                    opacity: (edge.isActive ? 0.42 : 0.7) * dimFactor,
-                    drawsSocket: false
+                    opacity: opacity,
+                    drawsSocket: false,
+                    solidColor: solid(color, opacity: opacity)
                 )
             case .link:
                 let tier = edge.link?.tier ?? .legacy
                 let color = edge.isDeparting ? Lagoon.textTertiary : Lagoon.linkColor(tier)
+                let opacity = (edge.isDeparting ? 0.45 : 0.95) * dimFactor
                 return GraphEdgeStroke(
                     id: edge.id,
                     path: edge.curve.path,
@@ -71,11 +84,18 @@ enum GraphPaint {
                     width: edge.isDeparting ? 1.25 : Lagoon.linkWidth(tier),
                     dash: edge.isDashed ? [4, 4] : [],
                     glows: !edge.isDeparting && Lagoon.linkGlows(tier),
-                    opacity: (edge.isDeparting ? 0.45 : 0.95) * dimFactor,
-                    drawsSocket: true
+                    opacity: opacity,
+                    drawsSocket: true,
+                    solidColor: solid(color, opacity: opacity)
                 )
             }
         }
+    }
+
+    /// `color` at `opacity` over the map's black background, as one opaque
+    /// colour.
+    static func solid(_ color: Color, opacity: Double) -> Color {
+        opacity >= 1 ? color : color.mix(with: Lagoon.background, by: 1 - opacity, in: .device)
     }
 
     static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>) -> [GraphPulseTrack] {
@@ -121,32 +141,92 @@ enum GraphPaint {
 }
 
 /// The links, drawn once per layout change.
+///
+/// Links that run together (several cables leaving one port or hub) must
+/// look like one link, not a brighter one. So every glow is drawn into one
+/// shared layer that is blurred and faded as a whole, and the strokes are
+/// solid colours pre-blended with the background instead of translucent
+/// ones, so overlapping strokes do not add up.
 struct GraphLinksLayer: View {
     var strokes: [GraphEdgeStroke]
 
     var body: some View {
         Canvas { context, _ in
-            for stroke in strokes {
-                if stroke.glows {
-                    context.drawLayer { layer in
-                        layer.addFilter(.blur(radius: 5))
+            // Glows first, one layer per fade level (normal and dimmed).
+            let glowing = strokes.filter(\.glows)
+            for opacity in Set(glowing.map(\.opacity)).sorted() {
+                var glow = context
+                glow.opacity = 0.55 * opacity
+                glow.addFilter(.blur(radius: 5))
+                glow.drawLayer { layer in
+                    for stroke in glowing where stroke.opacity == opacity {
                         layer.stroke(
                             stroke.path,
-                            with: .color(stroke.color.opacity(0.55 * stroke.opacity)),
+                            with: .color(stroke.color),
                             style: StrokeStyle(lineWidth: stroke.width * 2.8, lineCap: .round)
                         )
                     }
                 }
+            }
+            // Dimmed and slower links underneath, faster ones on top.
+            let ordered = strokes.sorted { ($0.opacity, $0.width) < ($1.opacity, $1.width) }
+            for stroke in ordered {
+                let color = stroke.solidColor
                 context.stroke(
                     stroke.path,
-                    with: .color(stroke.color.opacity(stroke.opacity)),
+                    with: .color(color),
                     style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round, dash: stroke.dash)
                 )
                 if stroke.drawsSocket {
-                    let radius = max(2.2, stroke.width * 0.95)
-                    let rect = CGRect(x: stroke.end.x - radius, y: stroke.end.y - radius,
-                                      width: radius * 2, height: radius * 2)
-                    context.fill(Path(ellipseIn: rect), with: .color(stroke.color.opacity(stroke.opacity)))
+                    context.fill(stroke.socketPath, with: .color(color))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The hovered and the selected links, drawn over the others: a soft accent
+/// halo and a brighter, slightly wider stroke. The selected link also gets
+/// an accent outline, so it stays marked while the pointer is elsewhere.
+struct GraphLinkHighlightLayer: View {
+    /// Only the strokes to highlight.
+    var strokes: [GraphEdgeStroke]
+    var selected: Set<String>
+    var hovered: String?
+
+    var body: some View {
+        let accent = Lagoon.accentGlow
+        let background = Lagoon.background
+        Canvas { context, _ in
+            for stroke in strokes {
+                let isSelected = selected.contains(stroke.id)
+                let isHovered = stroke.id == hovered
+                guard isSelected || isHovered else { continue }
+
+                var halo = context
+                halo.opacity = isSelected ? 0.5 : 0.32
+                halo.addFilter(.blur(radius: 4))
+                halo.stroke(stroke.path, with: .color(accent),
+                            style: StrokeStyle(lineWidth: stroke.width + 8, lineCap: .round))
+
+                if isSelected {
+                    context.stroke(stroke.path, with: .color(accent),
+                                   style: StrokeStyle(lineWidth: stroke.width + 3.5, lineCap: .round, lineJoin: .round))
+                }
+                let core = stroke.color.mix(with: .white, by: isHovered ? 0.4 : 0.2, in: .device)
+                context.stroke(
+                    stroke.path,
+                    with: .color(isSelected ? background : core),
+                    style: StrokeStyle(lineWidth: stroke.width + (isSelected ? 1 : 1.5), lineCap: .round, lineJoin: .round)
+                )
+                if isSelected {
+                    context.stroke(stroke.path, with: .color(core),
+                                   style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round))
+                }
+                if stroke.drawsSocket {
+                    context.fill(stroke.socketPath, with: .color(isSelected ? accent : core))
                 }
             }
         }

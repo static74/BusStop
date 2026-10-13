@@ -9,6 +9,10 @@ enum StoreSelection: Hashable {
     case port(PortKey)
     case device(String)
     case display(String)
+    /// The link that leads to a port, device or display: in the graph, the
+    /// line drawn to it (for a port or a device plugged straight into one,
+    /// the cable in the Mac's port).
+    indirect case link(StoreSelection)
 }
 
 /// A device that just disappeared, kept briefly so the UI can fade it out
@@ -371,8 +375,19 @@ final class PortStore {
             if !built.isDemo { onEvents?(newEvents) }
         }
 
-        if case .port(let key)? = selection, built.port(key) == nil { selection = .host }
-        if case .device(let id)? = selection, built.device(id: id) == nil { selection = .host }
+        if let selection, !Self.exists(selection, in: built) { self.selection = .host }
+    }
+
+    /// False when `selection` names a port or device that `snapshot` no
+    /// longer has (or a link to one). Displays stay selected; the inspector
+    /// says when one is gone.
+    private static func exists(_ selection: StoreSelection, in snapshot: HostSnapshot) -> Bool {
+        switch selection {
+        case .host, .display: return true
+        case .port(let key): return snapshot.port(key) != nil
+        case .device(let id): return snapshot.device(id: id) != nil
+        case .link(let child): return exists(child, in: snapshot)
+        }
     }
 
     /// Records the devices that left between `previous` and `current`, at

@@ -20,10 +20,17 @@ struct TopologyGraphView: View {
 
     @GestureState private var pinch: CGFloat = 1
     @State private var position = ScrollPosition()
+    /// Scroll geometry for panning and pointer-anchored zoom. A plain
+    /// reference, so scrolling does not re-run `body`.
+    @State private var tracker = GraphScrollTracker()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
 
-    static let zoomRange: ClosedRange<Double> = 0.5...1.5
+    /// Zoom chosen with the buttons, the scroll wheel or a pinch.
+    static let zoomRange: ClosedRange<Double> = 0.25...2.0
+    /// Fitting the window never goes below this, so text stays readable; a
+    /// larger graph scrolls instead.
+    static let minimumFitZoom = 0.5
 
     var body: some View {
         let input = graphInput
@@ -55,13 +62,35 @@ struct TopologyGraphView: View {
                     selectedTag: SelectionTag.string(for: store.selection),
                     dimmed: dimmed,
                     animate: animate,
-                    onSelect: select
+                    onSelect: select,
+                    // About 6 points on screen at any zoom.
+                    hitTolerance: 6 / viewport.scale,
+                    onSelectLink: selectLink,
+                    onPan: pan,
+                    onPanEnded: { tracker.panStart = nil }
                 )
                 .frame(width: viewport.canvasSize.width, height: viewport.canvasSize.height, alignment: .topLeading)
                 .scaleEffect(viewport.scale, anchor: .topLeading)
                 .frame(width: viewport.contentSize.width, height: viewport.contentSize.height, alignment: .topLeading)
             }
             .scrollPosition($position)
+            .onScrollGeometryChange(for: GraphScrollMetrics.self) { geometry in
+                GraphScrollMetrics(geometry)
+            } action: { old, new in
+                tracker.metrics = new
+                // A zoom changes the content size; its anchored offset can
+                // only be applied once the content has that size.
+                if old.contentSize != new.contentSize, let pending = tracker.pendingOffset {
+                    tracker.pendingOffset = nil
+                    position.scrollTo(point: tracker.clamped(pending))
+                }
+            }
+            .background {
+                GraphScrollWheelZoom { factor, location in
+                    zoom(by: factor, at: location, layout: layout, size: proxy.size,
+                         fitZoom: Self.fitZoom(content: layout.size, viewport: proxy.size))
+                }
+            }
             .overlay(alignment: .bottom) {
                 controls(zoom: Double(viewport.scale))
             }
@@ -100,14 +129,14 @@ struct TopologyGraphView: View {
     }
 
     /// The automatic zoom: the graph fits across the window, never above
-    /// 100 %. Height counts only down to 75 %, so a tall tree scrolls
-    /// vertically instead of shrinking to unreadable text.
+    /// 100 % or below `minimumFitZoom`. Height counts only down to 75 %, so a
+    /// tall tree scrolls vertically instead of shrinking to unreadable text.
     static func fitZoom(content: CGSize, viewport: CGSize) -> Double {
         guard content.width > 0, content.height > 0, viewport.width > 0, viewport.height > 0 else { return 1 }
         let byWidth = Double(viewport.width / content.width)
         let byHeight = Double(viewport.height / content.height)
         let fit = min(1, byWidth, max(byHeight, 0.75))
-        return clamp((fit * 20).rounded(.down) / 20)
+        return clamp(max(minimumFitZoom, (fit * 20).rounded(.down) / 20))
     }
 
     /// True when the graph would show the Mac alone: no ports to draw and
@@ -117,10 +146,21 @@ struct TopologyGraphView: View {
             && input.departingOther.isEmpty
     }
 
-    /// Scrolls so the requested node sits in the middle of the window.
+    /// Scrolls so the requested node (or the middle of a link) sits in the
+    /// middle of the window.
     private func scroll(to request: TopologyScrollRequest, layout: GraphLayout, viewport: GraphViewport, size: CGSize) {
-        guard let tag = request.tag, let node = layout.nodes.first(where: { $0.tag == tag }) else { return }
-        let target = viewport.scrollOffset(centering: node.frame, in: size)
+        guard let tag = request.tag else { return }
+        let rect: CGRect
+        if let child = SelectionTag.linkTarget(of: tag) {
+            let ids = layout.edgeIDs(leadingTo: child)
+            guard let edge = layout.edges.first(where: { ids.contains($0.id) }) else { return }
+            rect = CGRect(origin: edge.curve.midpoint, size: .zero)
+        } else {
+            guard let node = layout.nodes.first(where: { $0.tag == tag }) else { return }
+            rect = node.frame
+        }
+        let target = viewport.scrollOffset(centering: rect, in: size)
+        tracker.pendingOffset = nil
         position.scrollTo(point: target)
         // Again once the scroll view has laid out content that just appeared.
         Task { @MainActor in
@@ -128,8 +168,49 @@ struct TopologyGraphView: View {
         }
     }
 
+    /// Drag to pan: the content follows the pointer one to one, within the
+    /// content's bounds. `start` (window coordinates) tells one drag from
+    /// the next.
+    private func pan(start: CGPoint, translation: CGSize) {
+        if tracker.panStart?.location != start {
+            tracker.panStart = GraphPanStart(location: start, offset: tracker.metrics.offset)
+        }
+        guard let origin = tracker.panStart?.offset else { return }
+        tracker.pendingOffset = nil
+        position.scrollTo(point: tracker.clamped(CGPoint(x: origin.x - translation.width,
+                                                         y: origin.y - translation.height)))
+    }
+
+    /// Scroll-wheel zoom by `factor`, keeping the point under the pointer
+    /// (`location`, in the scroll view) where it is. Ends Fit mode.
+    private func zoom(by factor: Double, at location: CGPoint, layout: GraphLayout, size: CGSize, fitZoom: Double) {
+        // `userZoom` and `pendingOffset` already hold the previous step when
+        // several wheel events arrive before the graph is redrawn.
+        let current = Self.clamp(userZoom ?? fitZoom)
+        let zoom = Self.clamp(current * factor)
+        guard abs(zoom - current) > 0.0001 else { return }
+        let before = GraphViewport(layout: layout.size, viewport: size, scale: current)
+        let after = GraphViewport(layout: layout.size, viewport: size, scale: zoom)
+        let offset = tracker.pendingOffset ?? tracker.metrics.offset
+        let anchor = before.layoutPoint(atContent: CGPoint(x: offset.x + location.x, y: offset.y + location.y))
+        let target = after.scrollOffset(placing: anchor, at: location)
+        userZoom = zoom
+        if after.contentSize == before.contentSize {
+            tracker.pendingOffset = nil
+            position.scrollTo(point: tracker.clamped(target))
+        } else {
+            tracker.pendingOffset = target
+        }
+    }
+
     private func select(_ node: GraphNode) {
         guard let tag = node.tag, let selection = SelectionTag.selection(for: tag) else { return }
+        store.selection = selection
+    }
+
+    /// Selects the link that leads to the node tagged `childTag`.
+    private func selectLink(_ childTag: String) {
+        guard let selection = SelectionTag.selection(for: SelectionTag.link(childTag)) else { return }
         store.selection = selection
     }
 
@@ -228,16 +309,75 @@ nonisolated struct GraphViewport: Equatable {
     /// The scroll offset that puts `rect` (layout coordinates) in the middle
     /// of a viewport of `size`, kept within the content.
     func scrollOffset(centering rect: CGRect, in size: CGSize) -> CGPoint {
-        let x = (origin.x + rect.midX) * scale - size.width / 2
-        let y = (origin.y + rect.midY) * scale - size.height / 2
+        let target = scrollOffset(placing: CGPoint(x: rect.midX, y: rect.midY),
+                                  at: CGPoint(x: size.width / 2, y: size.height / 2))
         let maxX = max(0, contentSize.width - size.width)
         let maxY = max(0, contentSize.height - size.height)
-        return CGPoint(x: min(max(0, x), maxX), y: min(max(0, y), maxY))
+        return CGPoint(x: min(max(0, target.x), maxX), y: min(max(0, target.y), maxY))
+    }
+
+    /// The scroll offset that puts `point` (layout coordinates) at
+    /// `location` in the viewport. Not kept within the content.
+    func scrollOffset(placing point: CGPoint, at location: CGPoint) -> CGPoint {
+        CGPoint(x: (origin.x + point.x) * scale - location.x, y: (origin.y + point.y) * scale - location.y)
+    }
+
+    /// The layout point at `point` in the scroll view's (zoomed) content.
+    func layoutPoint(atContent point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x / scale - origin.x, y: point.y / scale - origin.y)
+    }
+}
+
+/// The parts of the scroll view's geometry that panning and zooming need.
+nonisolated struct GraphScrollMetrics: Equatable, Sendable {
+    /// The content point at the scroll view's top-left corner.
+    var offset: CGPoint = .zero
+    var contentSize: CGSize = .zero
+    var containerSize: CGSize = .zero
+    var insets = EdgeInsets()
+
+    init() {}
+
+    init(_ geometry: ScrollGeometry) {
+        offset = geometry.contentOffset
+        contentSize = geometry.contentSize
+        containerSize = geometry.containerSize
+        insets = geometry.contentInsets
+    }
+}
+
+/// Where a pan started: the pointer, in window coordinates, and the scroll
+/// offset at that moment.
+nonisolated struct GraphPanStart: Equatable {
+    var location: CGPoint
+    var offset: CGPoint
+}
+
+/// Scroll state the graph reads while panning and zooming. Not observed:
+/// updating it on every scroll step must not redraw the graph.
+final class GraphScrollTracker {
+    var metrics = GraphScrollMetrics()
+    /// The scroll offset a zoom waits to apply until the content has its
+    /// new size.
+    var pendingOffset: CGPoint?
+    var panStart: GraphPanStart?
+
+    /// `point` kept within the offsets the scroll view can show.
+    func clamped(_ point: CGPoint) -> CGPoint {
+        let minX = -metrics.insets.leading
+        let minY = -metrics.insets.top
+        let maxX = max(minX, metrics.contentSize.width + metrics.insets.trailing - metrics.containerSize.width)
+        let maxY = max(minY, metrics.contentSize.height + metrics.insets.bottom - metrics.containerSize.height)
+        return CGPoint(x: min(max(point.x, minX), maxX), y: min(max(point.y, minY), maxY))
     }
 }
 
 /// The graph content at 100 % zoom: backdrop, links, pulses, chips and nodes.
 /// The backdrop fills the canvas; everything else is drawn at `origin`.
+///
+/// Dragging anywhere pans the map. Under the nodes, one hit layer covers the
+/// canvas: it finds the link nearest the pointer, highlights it on hover and
+/// selects it on click. Nodes sit above it and keep their own clicks.
 struct GraphCanvas: View {
     var layout: GraphLayout
     var origin: CGPoint = .zero
@@ -246,21 +386,93 @@ struct GraphCanvas: View {
     var dimmed: Set<String>
     var animate: Bool
     var onSelect: (GraphNode) -> Void
+    /// How close to a link, in canvas points, a click must land to select it.
+    var hitTolerance: CGFloat = 6
+    /// Called with the tag of the node a clicked link leads to.
+    var onSelectLink: (String) -> Void = { _ in }
+    /// Called while the canvas is dragged, with the drag's start and its
+    /// translation, both in window points.
+    var onPan: (CGPoint, CGSize) -> Void = { _, _ in }
+    var onPanEnded: () -> Void = {}
+
+    @State private var hoveredEdgeID: String?
+    /// Set once a drag has moved far enough to count as a pan, so the click
+    /// that ends it does not also select a node or a link.
+    @State private var didPan = false
+    @GestureState private var isPanning = false
 
     var body: some View {
+        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed)
+        let selectedLinks = SelectionTag.linkTarget(of: selectedTag).map { layout.edgeIDs(leadingTo: $0) } ?? []
         ZStack(alignment: .topLeading) {
             GraphBackdrop(hostFrame: layout.hostNode?.frame.offsetBy(dx: origin.x, dy: origin.y))
-            content
+            hitLayer
+            content(strokes: strokes, selectedLinks: selectedLinks)
                 .frame(width: layout.size.width, height: layout.size.height, alignment: .topLeading)
                 .offset(x: origin.x, y: origin.y)
+        }
+        // While panning, the closed hand shows over the nodes too.
+        .pointerStyle(isPanning ? PointerStyle.grabActive : nil)
+        .simultaneousGesture(panGesture)
+        .onChange(of: isPanning) { _, panning in
+            guard !panning else { return }
+            onPanEnded()
+            // Let the click that ended the pan go by first.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                didPan = false
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Topology map")
     }
 
-    private var content: some View {
-        ZStack(alignment: .topLeading) {
-            GraphLinksLayer(strokes: GraphPaint.strokes(for: layout, dimmed: dimmed))
+    private var panGesture: some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+            .updating($isPanning) { _, state, _ in state = true }
+            .onChanged { value in
+                if !didPan, hypot(value.translation.width, value.translation.height) > 4 { didPan = true }
+                onPan(value.startLocation, value.translation)
+            }
+    }
+
+    /// Hover and click targets for the links, over the whole canvas.
+    private var hitLayer: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                var hovered: String?
+                if case .active(let location) = phase {
+                    hovered = edge(at: location)?.id
+                }
+                if hovered != hoveredEdgeID { hoveredEdgeID = hovered }
+            }
+            .onTapGesture { location in
+                guard !didPan, let edge = edge(at: location), let tag = layout.childTag(of: edge) else { return }
+                onSelectLink(tag)
+            }
+            .pointerStyle(hitLayerPointer)
+            .accessibilityHidden(true)
+    }
+
+    /// An open hand over the map, a closed one while panning, a pointing
+    /// hand over a link.
+    private var hitLayerPointer: PointerStyle {
+        if isPanning { return .grabActive }
+        return hoveredEdgeID != nil ? .link : .grabIdle
+    }
+
+    /// The selectable link near `location` (canvas coordinates).
+    private func edge(at location: CGPoint) -> GraphEdge? {
+        layout.edge(near: CGPoint(x: location.x - origin.x, y: location.y - origin.y), tolerance: hitTolerance)
+    }
+
+    private func content(strokes: [GraphEdgeStroke], selectedLinks: Set<String>) -> some View {
+        let highlighted = strokes.filter { selectedLinks.contains($0.id) || $0.id == hoveredEdgeID }
+        return ZStack(alignment: .topLeading) {
+            GraphLinksLayer(strokes: strokes)
+            GraphLinkHighlightLayer(strokes: highlighted, selected: selectedLinks, hovered: hoveredEdgeID)
             GraphPulseLayer(tracks: GraphPaint.pulseTracks(for: layout, dimmed: dimmed), animate: animate)
             GraphChipsLayer(edges: layout.edges, dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6)
             ForEach(layout.nodes) { node in
@@ -269,7 +481,7 @@ struct GraphCanvas: View {
                     snapshot: snapshot,
                     isSelected: node.tag != nil && node.tag == selectedTag,
                     isDimmed: dimmed.contains(node.id),
-                    onSelect: { onSelect(node) }
+                    onSelect: { if !didPan { onSelect(node) } }
                 )
                 .frame(width: node.frame.width, height: node.frame.height)
                 .position(x: node.frame.midX, y: node.frame.midY)

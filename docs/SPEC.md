@@ -103,12 +103,14 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
 
 - **Sidebar** (system Liquid Glass sidebar): Overview, Ports (one row per port), Devices (flat list), Power, Events, Diagnostics.
 - **Detail**:
-  - *Overview*: the topology graph. Host node on the left, port nodes in the middle column, device trees fanning out to the right. Links are drawn as curved turquoise paths whose thickness and brightness scale with link speed. Small light pulses travel along active links (disabled with Reduce Motion). Each link carries a speed chip; each port and hub node carries a power badge. Clicking a node selects it.
+  - *Overview*: the topology graph. Host node on the left, port nodes in the middle column, device trees fanning out to the right. Links are drawn as curved turquoise paths whose thickness and brightness scale with link speed. Small light pulses travel along active links (disabled with Reduce Motion). Each link carries a speed chip; each port and hub node carries a power badge. Clicking a node selects it. Overlapping links never look brighter than one link: glows share one layer and strokes are solid colours.
+    - *Moving around*: drag anywhere on the map to pan it, like a web map (open hand over the map, closed hand while dragging); the content follows the pointer and stops at the edges. A mouse scroll wheel zooms around the pointer, about 10 % per notch; a trackpad's two-finger scroll pans and its pinch zooms. Zoom runs from 25 % to 200 % and any manual zoom ends fitting; Zoom to Fit brings it back.
+    - *Links*: hovering a link highlights it and shows a pointing hand; clicking within about 6 pt of it selects it, and it stays outlined while selected. The inspector then shows the link: "Mac → port" or "parent → child", the negotiated generation, rate and lanes, and the power across it. For the cable in one of the Mac's own ports (the Mac → port line and the line from the port to what is plugged into it), it also shows the cable's e-marker data: rated speed, rated power (240 W for a 5 A, 50 V EPR cable, otherwise 20 V × rated current), current, voltage, EPR support, active or passive, optical, PD revision and IDs, plus one sentence when the cable or the device limits the link. A cable without a readable e-marker gets a plain explanation of what that usually means. For links further along, the inspector says the Mac cannot read that cable's chip.
   - *Ports / Devices*: tables with sortable columns (name, port, speed, power, vendor, IDs).
   - *Power*: charger details with every power profile, system input / load / battery chart, per-port output chart.
   - *Events*: reverse-chronological timeline with filters.
   - *Diagnostics*: list of findings with explanations and suggested fixes.
-- **Inspector** (trailing, toggleable): all known fields of the selected port or device, plus an "IORegistry keys" disclosure with raw values for power users.
+- **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users.
 - **Toolbar**: Refresh, Tree/Graph toggle, Export menu, Inspector toggle, search field.
 
 ### 3.4 Settings window

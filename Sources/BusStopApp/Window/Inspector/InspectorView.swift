@@ -2,7 +2,7 @@ import BusStopCore
 import SwiftUI
 
 /// The trailing inspector: every known field of the selected host, port,
-/// device or display.
+/// device, display or link.
 struct InspectorView: View {
     var store: PortStore
 
@@ -14,7 +14,7 @@ struct InspectorView: View {
                 WindowEmptyState(
                     systemName: "cursorarrow.click.2",
                     title: "Nothing selected",
-                    message: "Select the Mac, a port or a device to see its details."
+                    message: "Select the Mac, a port, a device or a link to see its details."
                 )
             case .host?:
                 scroll { HostInspector(store: store, snapshot: snapshot) }
@@ -35,6 +35,12 @@ struct InspectorView: View {
                     scroll { DisplayInspector(display: display, port: display.portKey.flatMap { snapshot.port($0) }) }
                 } else {
                     missing("Display disconnected", "This display is no longer connected.")
+                }
+            case .link(let child)?:
+                if let ends = LinkEnds.resolve(child, in: snapshot) {
+                    scroll { LinkInspector(store: store, snapshot: snapshot, ends: ends) }
+                } else {
+                    missing("Link not available", "What this link led to is no longer connected.")
                 }
             }
         }
@@ -164,7 +170,7 @@ struct PortInspector: View {
         if let link = port.link { LinkInspectorSection(link: link) }
         powerSection
         if let charger = port.charger { ChargerInspectorSection(charger: charger) }
-        if let cable = port.cable { cableSection(cable) }
+        if port.isConnected || port.cable != nil { cableSection }
         if let statistics = port.statistics { statisticsSection(statistics) }
         devicesSection
         InspectorRawKeysSection(properties: port.properties, showRawKeys: store.settings.showRawKeys)
@@ -226,16 +232,19 @@ struct PortInspector: View {
         }
     }
 
-    private func cableSection(_ cable: CableInfo) -> some View {
+    private var cableSection: some View {
         InspectorSection(title: "Cable") {
-            InspectorRow(label: "Type", value: cable.typeDescription)
-            InspectorRow(label: "Speed", value: cable.speedDescription)
-            InspectorRow(label: "Active", value: cable.isActive.map { $0 ? "Yes" : "No" })
-            InspectorRow(label: "Optical", value: cable.isOptical.map { $0 ? "Yes" : "No" })
-            InspectorRow(label: "Rated current", value: cable.currentRatingMilliamps.map { Format.current(milliamps: $0) })
-            InspectorRow(label: "Power Delivery", value: cable.pdRevision.map(InspectorFormat.pdRevision))
-            InspectorRow(label: "Vendor ID", value: cable.vendorID.map(Format.hex4), monospaced: true)
-            InspectorRow(label: "Product ID", value: cable.productID.map(Format.hex4), monospaced: true)
+            if let cable = port.cable {
+                CableInspectorRows(cable: cable)
+            } else {
+                InspectorRow(label: "E-marker", value: "None read")
+            }
+            if port.isConnected {
+                // The link page, as clicking the port's line in the graph opens.
+                InspectorLinkRow(systemName: "cable.connector", title: "Cable and link", detail: port.link?.rateLabel) {
+                    store.selection = .link(.port(port.key))
+                }
+            }
         }
     }
 
@@ -291,9 +300,10 @@ struct PortInspectorChips: View {
 /// Link generation, rate, lanes and detail.
 struct LinkInspectorSection: View {
     var link: LinkInfo
+    var title = "Link"
 
     var body: some View {
-        InspectorSection(title: "Link") {
+        InspectorSection(title: title) {
             HStack {
                 SpeedChip(link: link, compact: false)
                 Spacer(minLength: 0)
@@ -409,6 +419,9 @@ struct DeviceInspector: View {
                 InspectorLinkRow(systemName: port.kind.symbolName, title: port.label.title, detail: "Port") {
                     store.selection = .port(port.key)
                 }
+            }
+            InspectorLinkRow(systemName: "cable.connector", title: "Link to this device", detail: device.link?.rateLabel) {
+                store.selection = .link(.device(device.id))
             }
             InspectorRow(label: "Tunnelled", value: WindowText.yesNo(device.isTunneled))
             InspectorRow(label: "Chain depth", value: device.chainDepth.map { "\($0)" })
