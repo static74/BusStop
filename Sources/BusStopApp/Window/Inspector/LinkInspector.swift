@@ -46,7 +46,11 @@ struct LinkEnds {
         case .display(let id):
             guard let display = snapshot.displays.first(where: { $0.id == id }) else { return nil }
             if let port = display.portKey.flatMap({ snapshot.port($0) }) {
-                return LinkEnds(parent: .port(port), child: .display(display), port: port)
+                // The graph draws it under the port's Thunderbolt dock or
+                // display when there is exactly one (see `GraphLayout`).
+                let heads = port.devices.filter { $0.bus == .thunderbolt }
+                let parent: Parent = heads.count == 1 ? .device(heads[0]) : .port(port)
+                return LinkEnds(parent: parent, child: .display(display), port: port)
             }
             return LinkEnds(parent: .other, child: .display(display), port: nil)
         }
