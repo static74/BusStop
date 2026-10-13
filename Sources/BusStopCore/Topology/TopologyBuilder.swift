@@ -96,7 +96,8 @@ public enum TopologyBuilder {
 
         var devices: [PortKey: [DeviceNode]] = [:]
         for record in ports.records {
-            let (nested, remaining) = USBTreeBuilder.nest(usb.byPort[record.key] ?? [], into: chains[record.key] ?? [])
+            let (nested, remaining) = USBTreeBuilder.nest(usb.byPort[record.key] ?? [], into: chains[record.key] ?? [],
+                                                          usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
             devices[record.key] = nested + remaining
         }
 

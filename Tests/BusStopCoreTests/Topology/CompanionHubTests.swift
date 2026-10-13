@@ -77,6 +77,54 @@ struct CompanionHubTests {
         #expect(port.devices.count == 3)
     }
 
+    @Test func rootTieIsBrokenByTheController() throws {
+        // Two same-named USB 2 hubs at the port's root: only one sits behind
+        // the same host controller (top byte 0x01) as the USB 3 hub.
+        let raw = F.raw(ports: Self.port, usb: [
+            F.usb(id: 10, name: "USB3.1 Gen2 Hub", vendor: 0x2109, location: 0x0110_0000, speed: 10_000_000_000,
+                  deviceClass: 9, bcdUSB: 0x0320, path: "x/Port-USB-C@1"),
+            F.usb(id: 11, name: "USB2.0 Hub", vendor: 0x2109, location: 0x0520_0000, deviceClass: 9,
+                  bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+            F.usb(id: 12, name: "USB2.0 Hub", vendor: 0x2109, location: 0x0120_0000, deviceClass: 9,
+                  bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+            F.usb(id: 13, parent: 12, name: "Keyboard", location: 0x0121_0000,
+                  interfaces: [RawUSBInterface(interfaceClass: 3, interfaceSubClass: 1, interfaceProtocol: 1)]),
+        ])
+        let port = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.count == 2)
+        let merged = try #require(port.devices.first { $0.name == "USB3.1 Gen2 Hub" })
+        #expect(merged.children.map(\.name) == ["Keyboard"])
+        #expect(port.devices.contains { $0.locationID == 0x0520_0000 })
+    }
+
+    @Test func rootTieIsBrokenByTheProductID() throws {
+        // VIA numbers the halves 0x0822 and 0x2822; the other hub is 0x2817.
+        let raw = F.raw(ports: Self.port, usb: [
+            F.usb(id: 10, name: "USB3.1 Gen2 Hub", vendor: 0x2109, product: 0x0822, location: 0x0110_0000,
+                  speed: 10_000_000_000, deviceClass: 9, bcdUSB: 0x0320, path: "x/Port-USB-C@1"),
+            F.usb(id: 11, name: "USB2.0 Hub", vendor: 0x2109, product: 0x2817, location: 0x0120_0000,
+                  deviceClass: 9, bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+            F.usb(id: 12, name: "USB2.0 Hub", vendor: 0x2109, product: 0x2822, location: 0x0130_0000,
+                  deviceClass: 9, bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+        ])
+        let port = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.count == 2)
+        #expect(port.devices.contains { $0.productID == 0x2817 })
+        #expect(!port.devices.contains { $0.productID == 0x2822 })
+    }
+
+    @Test func declaredVersionStandsInForAMissingLinkSpeed() throws {
+        // Neither half reports a link speed; bcdUSB says which half is which.
+        let raw = F.raw(ports: Self.port, usb: [
+            F.usb(id: 10, name: "USB3.0 Hub", vendor: 0x05E3, product: 0x0620, location: 0x0110_0000, speed: nil,
+                  deviceClass: 9, bcdUSB: 0x0320, path: "x/Port-USB-C@1"),
+            F.usb(id: 11, name: "USB2.1 Hub", vendor: 0x05E3, product: 0x0610, location: 0x0120_0000, speed: nil,
+                  deviceClass: 9, bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+        ])
+        let port = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.map(\.name) == ["USB3.0 Hub"])
+    }
+
     @Test func tierHelpers() {
         #expect(USBTreeBuilder.tierPort(0x0114_0000) == 4)
         #expect(USBTreeBuilder.tierPort(0x0110_0000) == 1)

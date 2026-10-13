@@ -271,7 +271,7 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 4. `usb-drdN` `port-number`.
 5. Otherwise "Unattributed" (shown in an "Other devices" section). Internal devices behind `usb-auss` / `AppleUSBXHCIAUSS` and Apple internal hubs (`USBPortType == 2`) are excluded.
 
-**USB device tree.** Parent = nearest `IOUSBHostDevice` ancestor. Hubs are `bDeviceClass == 9`. A USB 3 hub and its USB 2 companion are shown as one hub when both are present: same vendor and a matching name on the same physical port, and below the first level also the same downstream port and tier depth. When several candidates tie, nothing is merged. Trees are cut at 32 levels and Thunderbolt chains at 64 to stay safe on malformed captures.
+**USB device tree.** Parent = nearest `IOUSBHostDevice` ancestor. Hubs are `bDeviceClass == 9`. A USB 3 hub and its USB 2 companion are shown as one hub when both are present: same vendor and a matching name on the same physical port, and below the first level also the same downstream port and tier depth. Which half is which comes from the negotiated link speed, or from the declared USB version (`bcdUSB`) when there is no speed. At the first level, candidates are ranked by name, then by sharing the USB 3 half's host controller (top byte of `locationID`), then by product ID apart from its top four bits (VIA numbers the halves 0x0822 and 0x2822). When the best candidates still tie, nothing is merged. Trees are cut at 32 levels and Thunderbolt chains at 64 to stay safe on malformed captures.
 
 **Speed.** `UsbLinkSpeed` (bits/s) first; else `Device Speed` (0 Low 1.5 Mb/s, 1 Full 12 Mb/s, 2 High 480 Mb/s, 3 SuperSpeed 5 Gb/s, 4 SuperSpeed+ 10 Gb/s, 5 SuperSpeed+ 20 Gb/s); else `USBSpeed` (`tIOUSBHostConnectionSpeed`: 1 Full, 2 Low, 3 High, 4 Super, 5 Super+, 6 Super+ 2x2). Never mix the two enums.
 
@@ -282,7 +282,7 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 - Lanes from `Current Link Width` bitmask: 0x1 one, 0x2 two, 0x4 / 0x8 asymmetric (three lanes one way, one the other).
 - Label from total rate: 80 Gb/s and up "USB4 v2 / TB5", 40 Gb/s "Thunderbolt / USB4", 20 Gb/s "Thunderbolt / USB4 @ 20 Gb/s", 10 Gb/s "Thunderbolt @ 10 Gb/s". Never infer a protocol name from the speed code alone.
 - Chain: switch `Depth` and parent switch. Host-root lane port `Socket ID` = physical port number. Downstream switches become `DeviceNode`s of bus `.thunderbolt` with `Device Vendor Name` / `Device Model Name`.
-- USB devices behind a Thunderbolt device are nested under it only when their name matches the switch's model name (fail closed); otherwise they stay at port level.
+- A USB-C port takes one plug, so when a Thunderbolt chain is attached, every USB device on that port reaches the Mac through it. A tunnelled USB device goes under the chain device whose model name it matches (exactly one match), else under the only chain device with a live USB tunnel. Anything else, including the USB 2 half of a dock's hub (it arrives on the cable's own USB 2 pair), goes under the head of the chain, the device the cable is plugged into, which is always a true ancestor. When the port has several chain heads and no other evidence, the device stays at port level.
 
 **Power.**
 - Charger: `AdapterDetails` / IOPS adapter: `Name`, `Manufacturer`, `Watts`, `AdapterVoltage` (mV), `Current` (mA), `UsbHvcMenu` (PDOs, keys `MaxVoltage`/`MaxCurrent` or `Voltage`/`Current`), `UsbHvcHvcIndex` (active PDO), `IsWireless`.
