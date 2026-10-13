@@ -184,6 +184,9 @@ enum TransportParser {
             info.productID = decoded.productID
             info.speedDescription = decoded.speedDescription
             info.currentRatingMilliamps = decoded.currentMilliamps
+            info.maxBitsPerSecond = decoded.maxBitsPerSecond
+            info.maxVoltageMillivolts = decoded.maxVoltageMillivolts
+            info.isEPRCapable = decoded.isEPRCapable
             if info.typeDescription == nil { info.typeDescription = decoded.typeDescription }
             if info.isActive == nil, let active = decoded.isActive { info.isActive = active }
         }
@@ -240,6 +243,9 @@ enum TransportParser {
         var typeDescription: String?
         var speedDescription: String?
         var currentMilliamps: Int?
+        var maxBitsPerSecond: Int64?
+        var maxVoltageMillivolts: Int?
+        var isEPRCapable: Bool?
     }
 
     static func decodeCableVDOs(_ vdos: [UInt32?]) -> CableVDOs? {
@@ -256,12 +262,16 @@ enum TransportParser {
             result.productID = pid == 0 ? nil : pid
         }
         if vdos.count > 3, let cable = vdos[3] {
+            // Passive Cable VDO and Active Cable VDO 1 share these fields
+            // (USB Power Delivery 3.1): bits 2…0 the highest USB
+            // speed, 6…5 the VBUS current, 10…9 the highest VBUS voltage and
+            // 17 Extended Power Range support.
             switch cable & 0b111 {
-            case 0: result.speedDescription = "USB 2.0 (480 Mb/s)"
-            case 1: result.speedDescription = "USB 3.2 Gen 1 (5 Gb/s)"
-            case 2: result.speedDescription = "USB 3.2 Gen 2 (10 Gb/s)"
-            case 3: result.speedDescription = "USB4 Gen 3 (40 Gb/s)"
-            case 4: result.speedDescription = "USB4 Gen 4 (80 Gb/s)"
+            case 0: result.speedDescription = "USB 2.0 (480 Mb/s)"; result.maxBitsPerSecond = 480_000_000
+            case 1: result.speedDescription = "USB 3.2 Gen 1 (5 Gb/s)"; result.maxBitsPerSecond = 5_000_000_000
+            case 2: result.speedDescription = "USB 3.2 Gen 2 (10 Gb/s)"; result.maxBitsPerSecond = 10_000_000_000
+            case 3: result.speedDescription = "USB4 Gen 3 (40 Gb/s)"; result.maxBitsPerSecond = 40_000_000_000
+            case 4: result.speedDescription = "USB4 Gen 4 (80 Gb/s)"; result.maxBitsPerSecond = 80_000_000_000
             default: break
             }
             switch (cable >> 5) & 0b11 {
@@ -269,6 +279,13 @@ enum TransportParser {
             case 2: result.currentMilliamps = 5000
             default: break
             }
+            switch (cable >> 9) & 0b11 {
+            case 0: result.maxVoltageMillivolts = 20_000
+            case 1: result.maxVoltageMillivolts = 30_000
+            case 2: result.maxVoltageMillivolts = 40_000
+            default: result.maxVoltageMillivolts = 50_000
+            }
+            result.isEPRCapable = (cable >> 17) & 1 == 1
         }
         return result
     }

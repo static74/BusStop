@@ -283,10 +283,17 @@ public struct CableInfo: Sendable, Hashable, Codable {
     public var currentRatingMilliamps: Int?
     /// USB-PD specification revision (2 = 3.0, 3 = 3.1 …).
     public var pdRevision: Int?
+    /// Highest data rate the e-marker claims, in bits per second.
+    public var maxBitsPerSecond: Int64?
+    /// Highest VBUS voltage the e-marker claims, in mV (20 000 or 50 000).
+    public var maxVoltageMillivolts: Int?
+    /// The e-marker says the cable supports USB PD Extended Power Range.
+    public var isEPRCapable: Bool?
 
     public init(isActive: Bool? = nil, isOptical: Bool? = nil, vendorID: Int? = nil, productID: Int? = nil,
                 typeDescription: String? = nil, speedDescription: String? = nil,
-                currentRatingMilliamps: Int? = nil, pdRevision: Int? = nil) {
+                currentRatingMilliamps: Int? = nil, pdRevision: Int? = nil, maxBitsPerSecond: Int64? = nil,
+                maxVoltageMillivolts: Int? = nil, isEPRCapable: Bool? = nil) {
         self.isActive = isActive
         self.isOptical = isOptical
         self.vendorID = vendorID
@@ -295,6 +302,19 @@ public struct CableInfo: Sendable, Hashable, Codable {
         self.speedDescription = speedDescription
         self.currentRatingMilliamps = currentRatingMilliamps
         self.pdRevision = pdRevision
+        self.maxBitsPerSecond = maxBitsPerSecond
+        self.maxVoltageMillivolts = maxVoltageMillivolts
+        self.isEPRCapable = isEPRCapable
+    }
+
+    /// The most power the cable is rated to carry, in watts: 240 W for a
+    /// 5 A cable rated for 50 V that supports Extended Power Range (48 V ×
+    /// 5 A), otherwise 20 V × its rated current (60 W at 3 A, 100 W at 5 A).
+    /// Nil without a current rating.
+    public var ratedPowerWatts: Int? {
+        guard let milliamps = currentRatingMilliamps, milliamps > 0 else { return nil }
+        if isEPRCapable == true, (maxVoltageMillivolts ?? 0) >= 48_000, milliamps >= 5_000 { return 240 }
+        return 20 * milliamps / 1_000
     }
 }
 
