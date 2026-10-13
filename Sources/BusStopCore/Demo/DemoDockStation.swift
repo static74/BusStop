@@ -54,8 +54,8 @@ enum DemoDockStation {
         let tunnelledUSB3 = r.transport("USB3", on: port3, parent: cio, active: true, tunneled: true,
                                         extra: DemoRegistry.usb3Keys(generation: 2))
         let port3USB2 = r.transport("USB2", on: port3, parent: port3.id, active: true,
-                                    extra: DemoRegistry.usb2Keys(product: "TS5 Plus Hub", manufacturer: "CalDigit, Inc.",
-                                                                 vendorID: 0x2188, productID: 0x5501, deviceClass: 9))
+                                    extra: DemoRegistry.usb2Keys(product: "USB2.0 Hub", manufacturer: "VIA Labs, Inc.",
+                                                                 vendorID: 0x2109, productID: 0x2822, deviceClass: 9))
         r.hpmPort(number: 4, uuid: uuids.port4, state: DemoPortState(supported: thunderboltPort, plugEvents: 3))
         r.hpmPort(number: 5, uuid: uuids.port5, state: DemoPortState(supported: thunderboltPort, plugEvents: 0))
         r.hdmiPort(hotPlug: true)
@@ -69,15 +69,16 @@ enum DemoDockStation {
             on: frontController, transport: front1USB3)
 
         // The dock's USB hub: SuperSpeed half through the USB4 tunnel,
-        // USB 2 half on the cable's own USB 2 pair.
+        // USB 2 half on the cable's own USB 2 pair. Like most docks it uses
+        // an off-the-shelf hub chip whose names say nothing about the dock.
         let drd0 = r.nativeController(drd: 0, soc: soc, port: port3, hpm: 0)
         let dockHub = r.usbRoot(DemoUSBDevice(
-            name: "TS5 Plus Hub", vendorName: "CalDigit, Inc.", vendorID: 0x2188, productID: 0x5500, bcdDevice: 0x0100,
-            bcdUSB: 0x0320, deviceClass: 9, speed: LinkDecoding.superSpeedPlus, hubPowerSupply: 3_000,
+            name: "USB3.2 Gen2 Hub", vendorName: "VIA Labs, Inc.", vendorID: 0x2109, productID: 0x0822,
+            bcdDevice: 0x9223, bcdUSB: 0x0320, deviceClass: 9, speed: LinkDecoding.superSpeedPlus, hubPowerSupply: 3_000,
             isTunneled: true), on: drd0, transport: tunnelledUSB3)
         let dockHub2 = r.usbRoot(DemoUSBDevice(
-            name: "TS5 Plus Hub", vendorName: "CalDigit, Inc.", vendorID: 0x2188, productID: 0x5501, bcdDevice: 0x0100,
-            bcdUSB: 0x0210, deviceClass: 9, speed: LinkDecoding.highSpeed, hubPowerSupply: 3_000),
+            name: "USB2.0 Hub", vendorName: "VIA Labs, Inc.", vendorID: 0x2109, productID: 0x2822,
+            bcdDevice: 0x9223, bcdUSB: 0x0210, deviceClass: 9, speed: LinkDecoding.highSpeed, hubPowerSupply: 3_000),
             on: drd0, transport: port3USB2)
         r.usbChild(DemoUSBDevice(
             name: "USB 10/100/1G/2.5G LAN", vendorName: "Realtek", vendorID: 0x0BDA, productID: 0x8156,

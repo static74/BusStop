@@ -137,15 +137,17 @@ struct ThunderboltTopologyTests {
         let port = try #require(snapshot.port(PortKey(type: 2, number: 2)))
         #expect(port.activeTransports.map(\.kind) == [.cio])
         #expect(port.link?.label == "Thunderbolt / USB4 @ 40 Gb/s")
-        #expect(port.devices.map(\.name) == ["Ugreen USB4 Docking Station", "USB Ethernet"])
+        #expect(port.devices.map(\.name) == ["Ugreen USB4 Docking Station"])
 
         let dock = try #require(port.devices.first)
         #expect(dock.kind == .dock)
         #expect(dock.vendorName == "Ugreen")
-        #expect(dock.children.map(\.name) == ["Ugreen USB4 Docking Station Hub"])
+        // The hub matches by name; the Ethernet adapter has no name match but
+        // the dock is the only switch with a live USB tunnel.
+        #expect(dock.children.map(\.name) == ["Ugreen USB4 Docking Station Hub", "USB Ethernet"])
         #expect(dock.children.first?.children.map(\.name) == ["Keyboard"])
 
-        let ethernet = try #require(port.devices.last)
+        let ethernet = try #require(dock.children.last)
         #expect(ethernet.isTunneled)
         #expect(ethernet.kind == .network)
     }
@@ -230,7 +232,10 @@ struct ThunderboltTopologyTests {
         #expect(!USBTreeBuilder.hasTunnelAncestry([RawAncestor(id: 1, className: "AppleUSBXHCIARM", name: "x")]))
     }
 
-    @Test func ambiguousNamesStayAtPortLevel() throws {
+    @Test func ambiguousNamesNestUnderTheChainHead() throws {
+        // Two chain devices share the USB device's name, so the name cannot
+        // pick one; the device still goes under the head of the chain, which
+        // everything on the port passes through.
         let host = F.tbSwitch(id: 1, depth: 0, ports: [F.lane(id: 2, portNumber: 1, socket: "1", speed: 0x4, width: 0x2)],
                               ancestry: F.hostAncestry(acio: 0))
         let first = F.tbSwitch(id: 3, parent: 1, depth: 1, uid: 3, model: "Pro Dock", ports: [],
@@ -241,9 +246,37 @@ struct ThunderboltTopologyTests {
                                     ancestry: F.tunnelAncestry(pcie: 0))],
                         thunderbolt: [host, first, second])
         let port = try #require(TopologyBuilder.build(raw).ports.first)
-        #expect(port.devices.map(\.bus) == [.thunderbolt, .usb])
-        #expect(port.devices.first?.children.map(\.name) == ["Pro Dock"])
-        #expect(port.devices.first?.children.first?.bus == .thunderbolt)
+        #expect(port.devices.map(\.bus) == [.thunderbolt])
+        let head = try #require(port.devices.first)
+        #expect(head.children.map(\.bus) == [.thunderbolt, .usb])
+        #expect(head.children.first?.children.isEmpty == true)
+    }
+
+    @Test func usbRootsStayAtPortLevelWithSeveralChainHeads() {
+        let heads = [DeviceNode(id: "tb:a", bus: .thunderbolt, kind: .dock, name: "Dock A"),
+                     DeviceNode(id: "tb:b", bus: .thunderbolt, kind: .display, name: "Display B")]
+        let root = DeviceNode(id: "usb:1", bus: .usb, kind: .hub, name: "USB2.0 Hub")
+        let (chains, remaining) = USBTreeBuilder.nest([root], into: heads)
+        #expect(remaining.map(\.id) == ["usb:1"])
+        #expect(chains.allSatisfy { $0.children.isEmpty })
+    }
+
+    @Test func usbTwoHalfGoesUnderTheChainHead() {
+        // A hub's USB 2 half arrives on the cable's USB 2 pair, not through a
+        // tunnel, and still sits behind the dock.
+        let dock = DeviceNode(id: "tb:a", registryID: 7, bus: .thunderbolt, kind: .dock, name: "TS4")
+        let display = DeviceNode(id: "tb:b", registryID: 8, bus: .thunderbolt, kind: .display, name: "Display")
+        var head = dock
+        head.children = [display]
+        let usb2 = DeviceNode(id: "usb:2", bus: .usb, kind: .hub, name: "USB2.0 Hub")
+        var tunnelled = DeviceNode(id: "usb:3", bus: .usb, kind: .hub, name: "USB3.1 Hub")
+        tunnelled.isTunneled = true
+        let (chains, remaining) = USBTreeBuilder.nest([usb2, tunnelled], into: [head], usbTunnelSwitchIDs: [8])
+        #expect(remaining.isEmpty)
+        let top = chains.first
+        #expect(top?.children.map(\.id) == ["tb:b", "usb:2"])
+        // The tunnelled hub follows the only switch with a live USB tunnel.
+        #expect(top?.children.first?.children.map(\.id) == ["usb:3"])
     }
 
     @Test func orphanSwitchFindsItsHostThroughACIO() throws {

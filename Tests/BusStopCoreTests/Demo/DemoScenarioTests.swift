@@ -67,6 +67,11 @@ struct DemoStudioDeskTests {
         #expect(cable.speedDescription == "USB4 Gen 4 (80 Gb/s)")
         #expect(cable.currentRatingMilliamps == 5_000)
         #expect(cable.vendorID == 0x05AC)
+        // 50 V, 5 A and Extended Power Range: a 240 W cable.
+        #expect(cable.maxBitsPerSecond == 80_000_000_000)
+        #expect(cable.maxVoltageMillivolts == 50_000)
+        #expect(cable.isEPRCapable == true)
+        #expect(cable.ratedPowerWatts == 240)
 
         #expect(port.devices.count == 1)
         let display = try #require(port.devices.first)
@@ -279,17 +284,20 @@ struct DemoDockStationTests {
         let port = try #require(S.port(snapshot, 2, 3))
         #expect(port.link?.label == "USB4 v2 / TB5 @ 80 Gb/s")
         #expect(port.activeTransports.map(\.kind) == [.cio, .usb2])
-        #expect(port.devices.map(\.name) == ["Extreme Pro 55AF", "TS5 Plus"])
+        // Everything on the port comes through the dock, although no USB
+        // device is named after it.
+        #expect(port.devices.map(\.name) == ["TS5 Plus"])
 
-        let dock = try #require(port.devices.last)
+        let dock = try #require(port.devices.first)
         #expect(dock.kind == .dock)
         #expect(dock.bus == .thunderbolt)
         #expect(dock.vendorName == "CalDigit, Inc.")
         #expect(dock.link?.label == "USB4 v2 / TB5 @ 80 Gb/s")
-        #expect(dock.descendantCount == 5)
+        #expect(dock.descendantCount == 6)
+        #expect(Set(dock.children.map(\.name)) == ["USB3.2 Gen2 Hub", "Extreme Pro 55AF"])
 
-        let hub = try #require(dock.children.first)
-        #expect(hub.name == "TS5 Plus Hub")
+        // The hub chip's USB 2 half is merged into its SuperSpeed half.
+        let hub = try #require(dock.children.first { $0.name == "USB3.2 Gen2 Hub" })
         #expect(hub.power?.isSelfPowered == true)
         #expect(hub.children.map(\.name) == ["Extreme 55AE", "Scarlett 2i2 4th Gen", "SD Card Reader",
                                              "USB 10/100/1G/2.5G LAN"])
@@ -298,7 +306,7 @@ struct DemoDockStationTests {
             "USB 3.2 Gen 2 @ 10 Gb/s", "USB 2.0 @ 480 Mb/s", "USB 2.0 @ 480 Mb/s", "USB 3.2 Gen 1 @ 5 Gb/s",
         ])
 
-        let fastSSD = try #require(port.devices.first)
+        let fastSSD = try #require(dock.children.first { $0.name == "Extreme Pro 55AF" })
         #expect(fastSSD.link?.label == "USB 3.2 Gen 2x2 @ 20 Gb/s")
         #expect(fastSSD.isTunneled)
         #expect(fastSSD.kind == .storage)

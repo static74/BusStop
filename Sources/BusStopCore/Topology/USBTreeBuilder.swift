@@ -282,16 +282,15 @@ enum USBTreeBuilder {
     /// downstream port number of their parent's halves, so a pair must share
     /// that port (`tierPort`) and tier depth: a USB 2-only hub of the same
     /// vendor on another port is never taken for the companion. At the first
-    /// level the halves sit on different root ports, so names decide, and a
-    /// tie between equally good candidates merges nothing: a wrong parent is
-    /// worse than two rows.
+    /// level the halves sit on different root ports, so `companionRank`
+    /// decides (name, controller, product ID), and a tie between equally
+    /// good candidates merges nothing: a wrong parent is worse than two rows.
     static func mergeCompanionHubs(_ nodes: [DeviceNode], isRoot: Bool = true) -> [DeviceNode] {
         let list = nodes.sorted { $0.id < $1.id }
         func isHub(_ n: DeviceNode) -> Bool { n.deviceClass == DeviceClassifier.USBClass.hub }
-        func rate(_ n: DeviceNode) -> Int64? { n.link?.bitsPerSecond }
 
-        let fast = list.indices.filter { isHub(list[$0]) && (rate(list[$0]) ?? 0) > LinkDecoding.highSpeed }
-        let slow = list.indices.filter { isHub(list[$0]) && (rate(list[$0]).map { $0 <= LinkDecoding.highSpeed } ?? false) }
+        let fast = list.indices.filter { isHub(list[$0]) && isSuperSpeedHalf(list[$0]) == true }
+        let slow = list.indices.filter { isHub(list[$0]) && isSuperSpeedHalf(list[$0]) == false }
 
         var partner: [Int: Int] = [:]
         var used = Set<Int>()
@@ -303,9 +302,9 @@ enum USBTreeBuilder {
                 guard let port = tierPort(list[f].locationID) else { return false }
                 return tierPort(list[s].locationID) == port && tierDepth(list[s].locationID) == tierDepth(list[f].locationID)
             }
-            func nameRank(_ s: Int) -> Int { hubNameKey(list[s].name) == hubNameKey(list[f].name) ? 0 : 1 }
-            guard let bestRank = candidates.map(nameRank).min() else { continue }
-            let top = candidates.filter { nameRank($0) == bestRank }
+            func rank(_ s: Int) -> Int { companionRank(fast: list[f], slow: list[s]) }
+            guard let bestRank = candidates.map(rank).min() else { continue }
+            let top = candidates.filter { rank($0) == bestRank }
             if isRoot && top.count > 1 { continue }
             let best = top.min { lhs, rhs in
                 (list[lhs].locationID ?? .max, list[lhs].id) < (list[rhs].locationID ?? .max, list[rhs].id)
@@ -325,6 +324,31 @@ enum USBTreeBuilder {
             result.append(node)
         }
         return result
+    }
+
+    /// True for the SuperSpeed half of a hub, false for a USB 2 hub (or the
+    /// USB 2 half of a USB 3 hub). The negotiated link decides; without one,
+    /// the USB version the hub declares (`bcdUSB` 3.x against 2.x).
+    static func isSuperSpeedHalf(_ node: DeviceNode) -> Bool? {
+        if let rate = node.link?.bitsPerSecond { return rate > LinkDecoding.highSpeed }
+        guard let version = node.usbVersion, let major = version.split(separator: ".").first.flatMap({ Int($0) })
+        else { return nil }
+        if major >= 3 { return true }
+        return major == 2 ? false : nil
+    }
+
+    /// How well `slow` fits as the USB 2 companion of `fast`; lower is
+    /// better. In order of weight: the same name once version words are
+    /// dropped, the same host controller (the top byte of `locationID`: both
+    /// halves of a hub sit behind one controller), and the same product ID
+    /// apart from its top four bits (hub vendors such as VIA and Realtek
+    /// number the two halves 0x0822 / 0x2822 or 0x0411 / 0x5411).
+    static func companionRank(fast: DeviceNode, slow: DeviceNode) -> Int {
+        var rank = 0
+        if hubNameKey(fast.name) != hubNameKey(slow.name) { rank += 4 }
+        if let a = fast.locationID, let b = slow.locationID, a >> 24 != b >> 24 { rank += 2 }
+        if let a = fast.productID, let b = slow.productID, a & 0x0FFF != b & 0x0FFF { rank += 1 }
+        return rank
     }
 
     /// The downstream port a device hangs off at its own tier: the last
@@ -389,21 +413,42 @@ enum USBTreeBuilder {
 
     // MARK: - Thunderbolt chains
 
-    /// Moves tunnelled USB roots under the Thunderbolt chain device they
-    /// belong to, but only when the device's name matches exactly one chain
-    /// device (exact first, then containment). Everything else stays at port
-    /// level: a wrong parent is worse than a flat list.
-    static func nest(_ usbRoots: [DeviceNode], into chains: [DeviceNode]) -> (chains: [DeviceNode], remaining: [DeviceNode]) {
+    /// Moves the USB roots of a port under the Thunderbolt chain on that
+    /// port. A USB-C port takes one plug, so when a chain is attached every
+    /// USB device on the port reaches the Mac through it.
+    ///
+    /// The parent is picked in this order:
+    /// 1. A tunnelled root whose name matches exactly one chain device
+    ///    (exact first, then containment) goes under that device.
+    /// 2. A tunnelled root goes under the only chain device with a live USB
+    ///    tunnel (`usbTunnelSwitchIDs`).
+    /// 3. Otherwise, with a single device at the head of the chain (the
+    ///    dock or display the cable is plugged into), the root goes under
+    ///    it: everything on the port passes through that device, so it is
+    ///    always a true ancestor even when the exact parent further down the
+    ///    chain is unknown. USB 2 roots arrive on the cable's own USB 2 pair,
+    ///    which ends at that device.
+    /// With several devices at the head and no other evidence, the root
+    /// stays at port level.
+    static func nest(_ usbRoots: [DeviceNode], into chains: [DeviceNode],
+                     usbTunnelSwitchIDs: Set<UInt64> = []) -> (chains: [DeviceNode], remaining: [DeviceNode]) {
         var chains = chains
         var remaining: [DeviceNode] = []
+        let heads = chains.filter { $0.bus == .thunderbolt }
+        let chainDevices = chains.flatMap { $0.flattened().map(\.device) }.filter { $0.bus == .thunderbolt }
+        let tunnelDevices = chainDevices.filter { $0.registryID.map(usbTunnelSwitchIDs.contains) ?? false }
+        let head = heads.count == 1 ? heads[0].id : nil
         for root in usbRoots {
-            guard root.isTunneled else { remaining.append(root); continue }
-            let chainDevices = chains.flatMap { $0.flattened().map(\.device) }.filter { $0.bus == .thunderbolt }
-            let scored = chainDevices.compactMap { device in
-                TopologyText.match(root.name, device.name).map { (device.id, $0) }
+            var target: String?
+            if root.isTunneled {
+                let scored = chainDevices.compactMap { device in
+                    TopologyText.match(root.name, device.name).map { (device.id, $0) }
+                }
+                let exact = scored.filter { $0.1 == .exact }
+                target = exact.count == 1 ? exact[0].0 : (exact.isEmpty && scored.count == 1 ? scored[0].0 : nil)
+                if target == nil, tunnelDevices.count == 1 { target = tunnelDevices[0].id }
             }
-            let exact = scored.filter { $0.1 == .exact }
-            let target = exact.count == 1 ? exact[0].0 : (exact.isEmpty && scored.count == 1 ? scored[0].0 : nil)
+            if target == nil { target = head }
             if let target {
                 let (updated, inserted) = inserting(root, under: target, in: chains)
                 if inserted { chains = updated; continue }
