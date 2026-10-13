@@ -6,9 +6,11 @@ import SwiftUI
 /// notch. Add it as a background of the graph's scroll view; it draws nothing
 /// and never takes clicks.
 ///
-/// Only a classic wheel zooms (no precise deltas, no modifier keys). A
-/// trackpad's two-finger scroll still pans and its pinch still zooms, and
-/// Shift with a wheel still scrolls sideways.
+/// Only a mouse wheel zooms: an event that is not part of a gesture (no
+/// scroll or momentum phase) and has no modifier keys. Wheels that report
+/// smooth, pixel-based deltas count too. A trackpad's or Magic Mouse's
+/// two-finger scroll still pans, a pinch still zooms, and Shift with a wheel
+/// still scrolls sideways.
 struct GraphScrollWheelZoom: NSViewRepresentable {
     /// Called with a zoom factor (above 1 zooms in) and the pointer location
     /// in this view, measured from its top-left corner.
@@ -70,7 +72,7 @@ final class GraphScrollWheelView: NSView {
     /// Zooms for `wheel` when it is a plain mouse-wheel turn over this view.
     /// Returns true when the event was used and must not scroll anything.
     private func handle(_ wheel: GraphWheelEvent) -> Bool {
-        guard let onZoom, !wheel.isPrecise, !wheel.hasModifiers, wheel.lines != 0,
+        guard let onZoom, !wheel.isGesture, !wheel.hasModifiers, wheel.lines != 0,
               let window, window.windowNumber == wheel.windowNumber, window.attachedSheet == nil,
               !isHiddenOrHasHiddenAncestor else { return false }
         let location = convert(wheel.locationInWindow, from: nil)
@@ -85,18 +87,20 @@ final class GraphScrollWheelView: NSView {
 /// `NSEvent` so they can cross into main-actor code.
 nonisolated struct GraphWheelEvent: Sendable {
     /// Lines of vertical travel; positive when the wheel turns away from
-    /// the user, whatever the natural-scrolling setting.
+    /// the user, whatever the natural-scrolling setting. Pixel-based deltas
+    /// count about ten points as a line.
     var lines: CGFloat
-    /// Trackpads and some mice report precise, pixel-based deltas.
-    var isPrecise: Bool
+    /// Part of a trackpad or Magic Mouse gesture (a scroll or momentum
+    /// phase is set); a mouse wheel has neither.
+    var isGesture: Bool
     var hasModifiers: Bool
     var locationInWindow: CGPoint
     var windowNumber: Int
 
     init(_ event: NSEvent) {
-        let delta = event.scrollingDeltaY
+        let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.scrollingDeltaY
         lines = event.isDirectionInvertedFromDevice ? -delta : delta
-        isPrecise = event.hasPreciseScrollingDeltas
+        isGesture = !event.phase.isEmpty || !event.momentumPhase.isEmpty
         hasModifiers = !event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
         locationInWindow = event.locationInWindow
         windowNumber = event.windowNumber
