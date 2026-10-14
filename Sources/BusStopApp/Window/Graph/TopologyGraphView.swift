@@ -74,6 +74,11 @@ struct TopologyGraphView: View {
                 .frame(width: viewport.contentSize.width, height: viewport.contentSize.height, alignment: .topLeading)
             }
             .scrollPosition($position)
+            .scrollIndicators(.never)
+            // While the graph fits itself, keep it in the middle of the
+            // window as the window or the graph changes size.
+            .onChange(of: viewport, initial: true) { goHome(viewport) }
+            .onChange(of: userZoom == nil) { goHome(viewport) }
             .onScrollGeometryChange(for: GraphScrollMetrics.self) { geometry in
                 GraphScrollMetrics(geometry)
             } action: { old, new in
@@ -92,7 +97,16 @@ struct TopologyGraphView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                controls(zoom: Double(viewport.scale))
+                let fitZoom = Self.fitZoom(content: layout.size, viewport: proxy.size)
+                controls(zoom: Double(viewport.scale)) { target in
+                    // Buttons zoom around the middle of the window.
+                    zoom(by: target / Self.clamp(userZoom ?? fitZoom),
+                         at: CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2),
+                         layout: layout, size: proxy.size, fitZoom: fitZoom)
+                } onFit: {
+                    // Already fitting, perhaps dragged away: go back home.
+                    if userZoom == nil { goHome(viewport) } else { userZoom = nil }
+                }
             }
             .simultaneousGesture(
                 MagnifyGesture()
@@ -107,7 +121,8 @@ struct TopologyGraphView: View {
         }
     }
 
-    private func controls(zoom: Double) -> some View {
+    private func controls(zoom: Double, onZoom: @escaping (Double) -> Void,
+                          onFit: @escaping () -> Void) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
             ViewThatFits(in: .horizontal) {
                 GraphSpeedLegend()
@@ -117,8 +132,8 @@ struct TopologyGraphView: View {
             GraphZoomControl(
                 zoom: zoom,
                 isFitting: userZoom == nil,
-                onZoom: { userZoom = Self.clamp($0) },
-                onFit: { userZoom = nil }
+                onZoom: onZoom,
+                onFit: onFit
             )
         }
         .padding(16)
@@ -165,6 +180,21 @@ struct TopologyGraphView: View {
         // Again once the scroll view has laid out content that just appeared.
         Task { @MainActor in
             withAnimation(.snappy) { position.scrollTo(point: target) }
+        }
+    }
+
+    /// Scrolls a fitting graph to its home offset, once the scroll view has
+    /// the content size that offset belongs to.
+    private func goHome(_ viewport: GraphViewport) {
+        guard userZoom == nil, pinch == 1 else { return }
+        let metrics = tracker.metrics
+        let home = viewport.homeOffset
+        if abs(metrics.contentSize.width - viewport.contentSize.width) < 1,
+           abs(metrics.contentSize.height - viewport.contentSize.height) < 1 {
+            tracker.pendingOffset = nil
+            position.scrollTo(point: home)
+        } else {
+            tracker.pendingOffset = home
         }
     }
 
@@ -283,22 +313,33 @@ struct TopologyGraphView: View {
 ///
 /// The canvas is at least as large as the window at that zoom, so the dot
 /// grid and the glow fill the whole viewport, and a graph smaller than the
-/// window sits in its middle.
+/// window sits in its middle. Half a window of margin on every side lets
+/// the map be dragged in any direction, even when it fits.
 nonisolated struct GraphViewport: Equatable {
     /// Canvas size at 100 % zoom.
     var canvasSize: CGSize
     /// Offset of the layout inside the canvas, at 100 % zoom.
     var origin: CGPoint
     var scale: CGFloat
+    /// The margin around the graph's area, at 100 % zoom.
+    var margin: CGSize
 
     init(layout: CGSize, viewport: CGSize, scale: Double) {
         let scale = CGFloat(scale)
-        let width = max(layout.width, (viewport.width / scale).rounded(.up))
-        let height = max(layout.height, (viewport.height / scale).rounded(.up))
-        canvasSize = CGSize(width: width, height: height)
-        origin = CGPoint(x: ((width - layout.width) / 2).rounded(.down),
-                         y: ((height - layout.height) / 2).rounded(.down))
+        let area = CGSize(width: max(layout.width, (viewport.width / scale).rounded(.up)),
+                          height: max(layout.height, (viewport.height / scale).rounded(.up)))
+        margin = CGSize(width: (viewport.width / scale / 2).rounded(.up),
+                        height: (viewport.height / scale / 2).rounded(.up))
+        canvasSize = CGSize(width: area.width + 2 * margin.width, height: area.height + 2 * margin.height)
+        origin = CGPoint(x: margin.width + ((area.width - layout.width) / 2).rounded(.down),
+                         y: margin.height + ((area.height - layout.height) / 2).rounded(.down))
         self.scale = scale
+    }
+
+    /// The scroll offset that shows the graph's area from its top-left
+    /// corner, as an unpadded canvas did at offset zero.
+    var homeOffset: CGPoint {
+        CGPoint(x: margin.width * scale, y: margin.height * scale)
     }
 
     /// Size of the scroll view's content.
