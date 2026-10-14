@@ -265,7 +265,8 @@ struct GraphMap: View {
             // must be pure SwiftUI drawing (text, shapes, SF Symbols): a
             // drawing group shows glass, materials, `ProgressView`, `Menu`,
             // `TextField`, system-styled controls and `NSViewRepresentable`s
-            // as placeholders. See docs/decisions.md.
+            // as placeholders. It also cannot draw the system focus ring, so
+            // `GraphNodeView` draws its own. See docs/decisions.md.
             .drawingGroup()
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
