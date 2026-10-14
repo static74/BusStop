@@ -66,7 +66,11 @@ struct TopologyWindowView: View {
                 onClose: {
                     camera = nil
                     isWindowOpen = false
-                }
+                },
+                // Only the map leaves the toolbar strip with nothing under it.
+                // Pages that scroll keep the opaque title bar, which hides or
+                // dims rows scrolled under it.
+                titlebarAppearsTransparent: showsModePicker && overviewMode == .graph
             )
         }
         .onGeometryChange(for: CGFloat.self) { proxy in

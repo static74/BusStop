@@ -2,16 +2,25 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
-## 2026-10-13: The topology window's title bar is transparent
+## 2026-10-13: The topology window's title bar is transparent on the map page
 
 **Question.** With the inspector open, the toolbar's search field straddled the end of a gray band over the detail column, because the inspector's black runs up under the toolbar. How should the toolbar strip look?
 
-**Decision.** The topology window sets `titlebarAppearsTransparent`, so the toolbar strip shows the window's black over the map and the inspector alike (SPEC §4.1, "true dark"). The Export menu hides its chevron, so its icon sits in the middle of its glass circle.
+**Decision.** The title bar is transparent only while the map is on screen, meaning an overview or port page in Graph mode. `TopologyWindowView` sets it through `HostingWindowObserver`. On the map page, the toolbar strip shows the window's black over the map and the inspector alike (SPEC §4.1, "true dark"). Every other page keeps the system's opaque title bar. The Export menu hides its chevron.
 
-**Why.** The title bar drew a gray band over the detail column only; over the inspector, the inspector's black showed through. The search capsule began just left of that boundary, so it sat on the seam. A transparent title bar shows the window's own black under the whole strip, so no seam is left. The Export button is a `Menu`, whose disclosure chevron pushed the share icon left of centre.
+**Why.** Over the map, which has no scroll view, the title bar drew an opaque gray band (40/255), while the inspector's black ran up under the toolbar. The search capsule began just left of that boundary. The map is clipped to its frame, so a transparent title bar there shows only black.
+
+Pages that scroll need the opaque title bar. A transparent bar on every page was built first. Under it, rows scrolled up showed crisp under the title and the toolbar buttons on the List, Power and Diagnostics pages. With the opaque bar, those rows stay hidden or dimmed as before.
+
+The fix covers the map page only. With the inspector open on any other page, the strip keeps its previous look. In captures of the active window it is near black there (8 to 13/255) against the inspector's 0 to 5, so no seam shows. In an inactive window it is gray (about 30/255), and the seam is visible.
+
+The Export button is a `Menu`, whose disclosure chevron pushed the share icon left of centre.
 
 **Rejected alternatives.** Each was built and captured.
 
+- *A transparent title bar on every page.* Rows scrolled under it showed crisp under the title and buttons. `.scrollEdgeEffectStyle(.hard, for: .top)` hid them only on AppKit lists and tables, not on SwiftUI `ScrollView` pages such as Power.
+- *`.toolbarBackground(.black, for: .windowToolbar)` with the background visible.* The band stayed gray.
+- *`.scrollEdgeEffectHidden(true, for: .top)` on the map.* The band stayed gray.
 - *Stop the inspector's background at the toolbar.* It left a step in the strip's gray from 42 to 35 and a hairline that ended at the column boundary.
 - *`.scrollEdgeEffectStyle(.soft, for: .top)` alone.* The gray band stayed.
 - *Search in the sidebar.* Search disappears from the window when the sidebar is collapsed.
@@ -23,7 +32,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Decision.** The chips layer and the cards share one `drawingGroup()` in `GraphMap`. Each card keeps its `scaleEffect` and `position`, but the group renders them after the zoom, at the screen's resolution, instead of enlarging a bitmap drawn at 100 %. Everything inside the group must be pure SwiftUI drawing (text, shapes, SF Symbols): a drawing group shows glass, materials, `ProgressView`, `Menu`, `TextField`, system-styled controls and `NSViewRepresentable`s as placeholders. The map leaves the view tree while the topology window is closed, so the group's textures are freed; the window itself is kept for reuse.
 
-**Why.** At 200 % a card matched a bilinear 2× enlargement of its 100 % render (mean difference 1.2/255), which looks pixelated on a 1× display and soft on Retina. With the drawing group it differs from that enlargement by 7.9, and its edge sharpness rises from 16.4 to 21.4. At 100 % the two renders match (mean difference 0.14/255). Panning and a 25 %–200 % zoom sweep on a 27-device dock hold the same frame times as before (about 16.7 ms p95 at 60 Hz; not measured at 120 Hz). While the window is open, memory rises by about 50 MB in a 1280 × 820 window (1× and 2×) and 100 to 130 MB in a 1900 × 1000 to 2400 × 1050 window on a 2× display. While it is closed, the footprint is lower than before the change (75–130 MB against 119–250 MB), because the map leaves the tree.
+**Why.** At 200 % a card matched a bilinear 2× enlargement of its 100 % render (mean difference 1.2/255), which looks pixelated on a 1× display and soft on Retina. With the drawing group it differs from that enlargement by 7.9, and its edge sharpness rises from 16.4 to 21.4. At 100 % the two renders match (mean difference 0.14/255). The remaining figures were measured in one session against main, on a 27-device dock. Panning and a 25 %–200 % zoom sweep held 16.7 ms p95 in both builds, on a 60 Hz display and on a 144 Hz display. On the 144 Hz display both builds paced at 60 fps, so the drawing group adds no frame cost there, but it was not measured at a higher frame rate. With the window open, memory matches main before any zoom: 309 against 308 MB in a 1280 × 820 window at 1×, and 422 against 407 MB in a 1900 × 1000 window at 2×. After a zoom sweep it is higher: 393 against 347 MB at 1×, and 682 against 591 MB at 2×. Closing the window gives the group's textures back, because the map leaves the tree: the closed footprint was 142 against 129 MB at 1×, and 180 against 247 MB at 2×.
 
 **Rejected alternatives.**
 
@@ -40,7 +49,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Why.** The graph used to be one canvas the size of the whole layout inside a scroll view, enlarged with `scaleEffect`. On a real dock with 27 devices that caused three problems:
 
-- **Blur.** `scaleEffect` enlarges a `Canvas` as a bitmap, so links went soft above 100 %. SwiftUI text and shapes stay sharp under `scaleEffect`; canvases do not. (Corrected the same day: cards and chips were also enlarged as bitmaps; see "Map cards and chips render after the zoom".)
+- **Blur.** `scaleEffect` enlarges a `Canvas` as a bitmap, so links went soft above 100 %. This entry first claimed that SwiftUI text and shapes stay sharp under `scaleEffect`. The claim was wrong: cards and chips were enlarged as bitmaps too, and "Map cards and chips render after the zoom" corrected them the same day.
 - **Lag.** Every canvas covered the whole layout, the pulse canvas redrew it 30 times a second, and the backdrop rebuilt its whole dot grid at every zoom step.
 - **Panning.** A scroll view only moves within its content, so a graph that fits the window could not be dragged at all. Pan state also came from geometry callbacks that lag behind programmatic scrolls, which is the likeliest cause of a second drag snapping the map back.
 

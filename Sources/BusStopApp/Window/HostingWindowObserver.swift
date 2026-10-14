@@ -3,7 +3,9 @@ import SwiftUI
 
 /// Reports what happens to the window that hosts this view: whether it is on
 /// screen and not covered, when it closes, and when it or the app becomes
-/// active again. Add it as a background; it draws nothing.
+/// active again. Add it as a background; it draws nothing. It can also set
+/// the window's title bar to transparent, which the topology window does only
+/// while the map shows.
 ///
 /// The topology window uses it to pause the graph's pulses while nobody can
 /// see them, and the settings panes use it to re-read system state after the
@@ -15,6 +17,8 @@ struct HostingWindowObserver: NSViewRepresentable {
     var onClose: (() -> Void)? = nil
     /// The window became key or the app became active.
     var onActivate: (() -> Void)? = nil
+    /// When set, the window's title bar is made transparent or opaque to match.
+    var titlebarAppearsTransparent: Bool? = nil
 
     func makeNSView(context: Context) -> HostingWindowObserverView {
         let view = HostingWindowObserverView()
@@ -24,6 +28,7 @@ struct HostingWindowObserver: NSViewRepresentable {
 
     func updateNSView(_ view: HostingWindowObserverView, context: Context) {
         view.handlers = self
+        view.applyTitlebar()
     }
 }
 
@@ -43,9 +48,17 @@ final class HostingWindowObserverView: NSView {
         super.viewDidMoveToWindow()
         guard let window else { return }
         observe(window)
+        applyTitlebar()
         // Report after the current SwiftUI update, never in the middle of it.
         Task { @MainActor [weak self] in
             self?.reportVisibility()
+        }
+    }
+
+    func applyTitlebar() {
+        if let transparent = handlers.titlebarAppearsTransparent, let window,
+           window.titlebarAppearsTransparent != transparent {
+            window.titlebarAppearsTransparent = transparent
         }
     }
 
