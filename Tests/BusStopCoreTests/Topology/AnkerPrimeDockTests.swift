@@ -31,6 +31,18 @@ struct AnkerPrimeDockTests {
         }
     }
 
+    /// Host lane 0 reports two bonded lanes with `Link Bandwidth` 800; lane 1
+    /// and the dock's lane report asymmetric widths with a bandwidth of 0.
+    /// The link is 80 Gb/s, as System Information says, on the port and the
+    /// dock alike.
+    @Test func portAndDockAgreeOnTheLinkSpeed() throws {
+        let snapshot = try Self.snapshot()
+        let port = try #require(snapshot.ports.first { $0.label.location == "Left Center" })
+        #expect(port.link?.bitsPerSecond == 80_000_000_000)
+        #expect(port.link?.isAsymmetric == false)
+        #expect(try Self.dock(in: snapshot).link?.bitsPerSecond == 80_000_000_000)
+    }
+
     @Test func tunneledDisplaysNestUnderTheDock() throws {
         let snapshot = try Self.snapshot()
         let port = try #require(snapshot.ports.first { $0.label.location == "Left Center" })
