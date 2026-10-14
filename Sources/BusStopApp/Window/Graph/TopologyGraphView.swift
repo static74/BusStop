@@ -184,6 +184,9 @@ nonisolated struct GraphPinch: Equatable {
 /// starts from where the last one left the map. Under the cards, one hit
 /// layer finds the link nearest the pointer, highlights it on hover and
 /// selects it on click. Cards sit above it and keep their own clicks.
+///
+/// Chips and badges get the map's own tooltips (`GraphTooltipState`): the
+/// pulses keep the system's from appearing over the map.
 struct GraphMap: View {
     var layout: GraphLayout
     var strokes: [GraphEdgeStroke]
@@ -205,6 +208,8 @@ struct GraphMap: View {
     /// Set once a drag has moved far enough to count as a pan, so the click
     /// that ends it does not also select a card or a link.
     @State private var didPan = false
+    /// Never read in `body`: only the tooltip overlay observes it.
+    @State private var tooltip = GraphTooltipState()
     @GestureState private var drag: CGSize = .zero
     @GestureState private var pinch: GraphPinch?
 
@@ -251,7 +256,8 @@ struct GraphMap: View {
                         snapshot: snapshot,
                         isSelected: node.tag != nil && node.tag == selectedTag,
                         isDimmed: dimmed.contains(node.id),
-                        onSelect: { if !didPan { onSelect(node) } }
+                        onSelect: { if !didPan { onSelect(node) } },
+                        onPointer: { tooltip.cardPointerMoved(node.id, to: $0) }
                     )
                     .frame(width: node.frame.width, height: node.frame.height)
                     .scaleEffect(camera.scale)
@@ -268,6 +274,11 @@ struct GraphMap: View {
             // as placeholders. It also cannot draw the system focus ring, so
             // `GraphNodeView` draws its own. See docs/decisions.md.
             .drawingGroup()
+            // Chips inside publish tooltip regions instead of using `.help`.
+            .environment(\.showsChipHelp, false)
+            .onPreferenceChange(GraphTooltipRegionsKey.self) { tooltip.setRegions($0) }
+            // Outside the drawing group, so it is not zoomed.
+            GraphTooltipOverlay(state: tooltip, camera: camera, size: size)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         // The canvases cannot animate, so neither do the cards when the
@@ -281,9 +292,13 @@ struct GraphMap: View {
         .simultaneousGesture(pinchGesture)
         .background {
             GraphScrollWheelZoom { factor, location in
+                tooltip.dismiss()
                 commit(base.zoomed(to: Self.clamp(base.scale * factor), at: location))
             } onPan: { translation in
+                tooltip.dismiss()
                 commit(base.panned(by: translation))
+            } onMouseDown: {
+                tooltip.dismiss()
             }
         }
         .overlay(alignment: .bottom) { controls(zoom: camera.scale) }
@@ -295,6 +310,9 @@ struct GraphMap: View {
                 didPan = false
             }
         }
+        // A tooltip stays where its chip was, so it goes when the map moves.
+        .onChange(of: camera) { tooltip.cameraMoved() }
+        .onChange(of: linkMode) { tooltip.dismiss() }
         .onChange(of: size) { old, new in
             // A resized window (the inspector opening, say) keeps the middle
             // of the map in the middle.
@@ -346,10 +364,15 @@ struct GraphMap: View {
             .contentShape(Rectangle())
             .onContinuousHover { phase in
                 var hovered: String?
+                var pointer: CGPoint?
                 if case .active(let location) = phase {
                     hovered = edge(at: location, camera)?.id
+                    pointer = camera.layoutPoint(location)
                 }
                 if hovered != hoveredEdgeID { hoveredEdgeID = hovered }
+                // Link chips never take the pointer, so their tooltips
+                // come from here.
+                tooltip.mapPointerMoved(to: pointer)
             }
             .onTapGesture { location in
                 guard !didPan, let edge = edge(at: location, camera), let tag = layout.childTag(of: edge) else { return }

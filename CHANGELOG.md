@@ -34,6 +34,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - Map cards and speed/power chips are now sharp at every zoom. They were drawn at 100 % and enlarged, which looked pixelated at 200 %, most visibly on non-Retina displays.
 - With the inspector open, the toolbar no longer ends in a gray band that the search field overlapped. The Export button's icon is centred.
 - The topology window no longer crashes on the Events page, or on Diagnostics while it lists a finding, when the inspector is open in a window narrower than about 1100 pt. Events' filter and Clear button move under the title when they do not fit beside it, instead of being clipped, and a finding's Show buttons stack the same way.
+- Resting the pointer on a speed chip, transport chip or power badge on the map now shows what it means, such as "USB 3.2 Gen 2 @ 10 Gb/s" or "4.5 W to devices (allocated)". The map draws these tooltips itself, at the same size at every zoom; the chips on the links have them too.
 
 ## [1.0.0] - 2026-10-12
 

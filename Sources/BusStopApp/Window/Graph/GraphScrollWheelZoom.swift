@@ -11,23 +11,30 @@ import SwiftUI
 /// smooth, pixel-based deltas count too. Everything else pans: a trackpad's
 /// or Magic Mouse's two-finger scroll (with its momentum), and a wheel with
 /// a modifier, such as Shift to move sideways.
+///
+/// It also reports mouse buttons pressed over the map, without taking them,
+/// so the map can hide its tooltip as the system does.
 struct GraphScrollWheelZoom: NSViewRepresentable {
     /// Called with a zoom factor (above 1 zooms in) and the pointer location
     /// in this view, measured from its top-left corner.
     var onZoom: (CGFloat, CGPoint) -> Void
     /// Called with how far the map should move, in points.
     var onPan: (CGSize) -> Void
+    /// Called when a mouse button goes down over the map.
+    var onMouseDown: () -> Void = {}
 
     func makeNSView(context: Context) -> GraphScrollWheelView {
         let view = GraphScrollWheelView()
         view.onZoom = onZoom
         view.onPan = onPan
+        view.onMouseDown = onMouseDown
         return view
     }
 
     func updateNSView(_ view: GraphScrollWheelView, context: Context) {
         view.onZoom = onZoom
         view.onPan = onPan
+        view.onMouseDown = onMouseDown
     }
 
     static func dismantleNSView(_ view: GraphScrollWheelView, coordinator: Coordinator) {
@@ -37,9 +44,11 @@ struct GraphScrollWheelZoom: NSViewRepresentable {
 
 /// The AppKit side of `GraphScrollWheelZoom`: watches the app's scroll-wheel
 /// events while it is in a window, and consumes the ones it turns into zoom.
+/// Mouse-downs are watched too, and always passed on.
 final class GraphScrollWheelView: NSView {
     var onZoom: ((CGFloat, CGPoint) -> Void)?
     var onPan: ((CGSize) -> Void)?
+    var onMouseDown: (() -> Void)?
     private var monitor: Any?
 
     /// Zoom per line of wheel travel; one notch is usually one line.
@@ -67,11 +76,25 @@ final class GraphScrollWheelView: NSView {
 
     private func startMonitoring() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+        monitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.scrollWheel, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] event in
+            guard event.type == .scrollWheel else {
+                let location = event.locationInWindow
+                let windowNumber = event.windowNumber
+                MainActor.assumeIsolated { self?.handleMouseDown(at: location, windowNumber: windowNumber) }
+                return event
+            }
             let wheel = GraphWheelEvent(event)
             let handled = MainActor.assumeIsolated { self?.handle(wheel) ?? false }
             return handled ? nil : event
         }
+    }
+
+    private func handleMouseDown(at locationInWindow: CGPoint, windowNumber: Int) {
+        guard let window, window.windowNumber == windowNumber, !isHiddenOrHasHiddenAncestor,
+              bounds.contains(convert(locationInWindow, from: nil)) else { return }
+        onMouseDown?()
     }
 
     /// Zooms or pans for `wheel` when it is over this view. Returns true

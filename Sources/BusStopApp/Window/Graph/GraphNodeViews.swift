@@ -11,6 +11,9 @@ struct GraphNodeView: View {
     var isSelected: Bool
     var isDimmed: Bool
     var onSelect: () -> Void
+    /// The pointer over the card, in layout coordinates; nil when it leaves.
+    /// The map uses it to find the chip under the pointer for its tooltip.
+    var onPointer: (CGPoint?) -> Void = { _ in }
 
     @State private var isHovered = false
     @State private var hasAppeared = false
@@ -46,12 +49,22 @@ struct GraphNodeView: View {
                     .allowsHitTesting(false)
             }
         }
-        .onHover { isHovered = $0 }
         // New nodes fade in and slide 8 pt from their link (SPEC §4.5).
         .opacity(hasAppeared ? 1 : 0)
         .offset(x: hasAppeared || reduceMotion ? 0 : -8)
         .onAppear {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) { hasAppeared = true }
+        }
+        .onDisappear {
+            if isHovered { onPointer(nil) }
+        }
+        // The chips' tooltip regions, moved from the card into the layout
+        // and named after the node, so they are unique on the map.
+        .transformPreference(GraphTooltipRegionsKey.self) { regions in
+            for index in regions.indices {
+                regions[index].id = "\(node.id)/\(regions[index].id)"
+                regions[index].rect = regions[index].rect.offsetBy(dx: node.frame.minX, dy: node.frame.minY)
+            }
         }
     }
 
@@ -62,6 +75,19 @@ struct GraphNodeView: View {
             .overlay(border)
             .shadow(color: isSelected ? Lagoon.accent.opacity(0.45) : .clear, radius: isSelected ? 12 : 0)
             .contentShape(RoundedRectangle(cornerRadius: Lagoon.cardRadius, style: .continuous))
+            // Reported in the space the chips measure themselves in, so a
+            // pointer and a chip always line up, whatever the zoom.
+            .onContinuousHover(coordinateSpace: .named(GraphTooltip.space)) { phase in
+                switch phase {
+                case .active(let location):
+                    if !isHovered { isHovered = true }
+                    onPointer(CGPoint(x: node.frame.minX + location.x, y: node.frame.minY + location.y))
+                case .ended:
+                    isHovered = false
+                    onPointer(nil)
+                }
+            }
+            .coordinateSpace(.named(GraphTooltip.space))
     }
 
     @ViewBuilder
@@ -304,7 +330,7 @@ struct GraphDeviceCard: View {
                 Image(systemName: "bolt.horizontal.fill")
                     .lagoonFont(size: 9, weight: .semibold)
                     .foregroundStyle(Lagoon.accent.opacity(0.7))
-                    .help("Reached through a Thunderbolt / USB4 tunnel")
+                    .graphTooltip("Reached through a Thunderbolt / USB4 tunnel", id: "tunnel")
             }
         }
         .padding(.horizontal, 12)

@@ -419,7 +419,9 @@ struct GraphPulseLayer: View {
     }
 }
 
-/// Speed chips at the middle of each link.
+/// Speed chips at the middle of each link. They never take the pointer, so
+/// the links under them keep their hover and clicks; the map shows their
+/// tooltips from the pointer over its hit layer.
 struct GraphChipsLayer: View {
     /// Edges whose chips are on screen.
     var edges: [GraphEdge]
@@ -439,6 +441,17 @@ struct GraphChipsLayer: View {
                         .background(Capsule().fill(Lagoon.background))
                         .frame(maxWidth: maxChipWidth)
                         .fixedSize(horizontal: false, vertical: true)
+                        // The chip's tooltip region, measured before the
+                        // zoom and centred on the chip's point in the layout.
+                        .coordinateSpace(.named(GraphTooltip.space))
+                        .transformPreference(GraphTooltipRegionsKey.self) { regions in
+                            for index in regions.indices {
+                                let size = regions[index].rect.size
+                                regions[index].id = "edge:\(edge.id)/\(regions[index].id)"
+                                regions[index].rect = CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
+                                                             width: size.width, height: size.height)
+                            }
+                        }
                         .scaleEffect(camera.scale)
                         .position(camera.screenPoint(point))
                         .opacity(dimmed.contains(edge.toID) ? 0.25 : 1)
