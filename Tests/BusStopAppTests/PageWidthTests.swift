@@ -19,6 +19,8 @@ struct PageWidthTests {
         // Only the empty state's text sets a floor; the filter and Clear move
         // under the title instead.
         #expect(host.sizeThatFits(in: CGSize(width: 0, height: 700)).width <= 120)
+        // 338 and 438 pt are the detail column at 900 and 1000 pt with the
+        // default sidebar (232) and inspector (330); 478 is the column at 1040.
         for width in [120.0, 250, 338, 438, 478] {
             #expect(host.sizeThatFits(in: CGSize(width: width, height: 700)).width <= width + 1)
         }
