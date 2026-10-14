@@ -345,9 +345,9 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 - `swift build` builds everything on macOS; `swift test` runs the core tests on macOS and Linux.
 - `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), ad-hoc signs it and zips it.
 - `scripts/install.sh` builds and copies the app to `/Applications`. A locally built app carries no quarantine attribute.
-- GitHub Actions:
+- GitHub Actions, on pull requests:
   - `core-linux`: `swift:6.4-noble` container, build and test the core.
-  - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip.
+  - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip. Runs only when the workflow is started by hand, because the runner is paid.
   - `macos-26`: `macos-26` runner with Xcode 26.6 for backward compatibility.
 - Releases: tagged builds attach the ad-hoc-signed zip. README explains "Open Anyway" in System Settings › Privacy & Security for downloaded builds.
 

@@ -2,6 +2,24 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-14: CI runs once per pull request, and the paid runner only by hand
+
+**Question.** When should GitHub Actions run, given that the CI minutes cost money?
+
+**Decision.** `ci.yml` runs on pull requests (each push to an open pull request runs it again) and when started by hand. Branch pushes and merges to `main` run nothing. The `macOS 27 (Xcode 27)` job, the only CI job on the `xcode-27` runner, runs only when the workflow is started by hand. `screenshots.yml` runs only by hand. `release.yml` still runs on `v*` tags.
+
+**Why.** Each pull request ran CI three times: once for the push to its branch, once for the pull request (the two concurrency groups differ, `refs/heads/…` and `refs/pull/…/merge`, so neither cancelled the other), and once after the merge to `main`, which also ran Screenshots. The repository is public, so the standard `ubuntu-24.04` and `macos-26` runners are free; the run timing API lists no billable minutes for them. The `xcode-27` runner is a custom label that the timing API leaves out, which points to a paid larger runner, and four `xcode-27` jobs ran for every pull request. With this change a pull request runs on the free runners only, and the release workflow still tests on `xcode-27` before it publishes.
+
+**Risks.**
+
+- A pull request is no longer built against Xcode 27 unless someone starts CI by hand. macOS 26 with Xcode 26.6 and Linux still build and test it, and a release runs the full test and smoke test on Xcode 27.
+- README screenshots are only as new as the last manual Screenshots run.
+
+**Rejected alternatives.**
+
+- *Keep `push` and filter it to `main`.* That still repeats the pull request's run after every merge.
+- *Skip CI for documentation-only changes with `paths-ignore`.* The free runners make the saving small, and a skipped run is easy to mistake for a passing one.
+
 ## 2026-10-14: A dock's built-in USB parts leave the device tree
 
 **Question.** On a MacBook Pro with an Anker Prime Thunderbolt 5 dock (`Tests/BusStopCoreTests/Fixtures/AnkerPrimeTB5.json`), the map drew the dock as eight cards: the dock, its USB 3 root hub ("USB3 HUB", joined to the dock by a 10 Gb/s line that looked like a cable), two USB functions named after the dock, two VIA hubs and the Ethernet and card reader on one of them. Which USB devices are part of the dock, and how should they be shown?

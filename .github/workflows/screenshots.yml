@@ -11,9 +11,9 @@ name: Screenshots
 # - `publish` has `contents: write` but runs no project or third-party code:
 #   it downloads that artifact and force-pushes it with plain git.
 
+# Started by hand (Actions › Screenshots › Run workflow), since it runs on
+# the paid `xcode-27` runner.
 on:
-  push:
-    branches: [claude/bus-stop, main]
   workflow_dispatch:
 
 permissions:
