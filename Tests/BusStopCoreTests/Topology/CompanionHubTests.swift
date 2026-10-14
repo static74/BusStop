@@ -135,4 +135,21 @@ struct CompanionHubTests {
         #expect(USBTreeBuilder.tierDepth(0x0114_3200) == 4)
         #expect(USBTreeBuilder.tierDepth(0x0100_0000) == 0)
     }
+
+    @Test func rootHubsFromDifferentVendorsStaySeparateWithoutPairedChildren() throws {
+        // An Intel USB 3 hub and a Fresco Logic USB 2 hub whose child hubs
+        // are on different ports: nothing ties them together.
+        let raw = F.raw(ports: Self.port, usb: [
+            F.usb(id: 10, name: "USB3 HUB", vendor: 0x8087, location: 0x0020_0000, speed: 10_000_000_000,
+                  deviceClass: 9, bcdUSB: 0x0320, path: "x/Port-USB-C@1"),
+            F.usb(id: 11, name: "USB2.0 Hub", vendor: 0x1D5C, location: 0x0010_0000, deviceClass: 9,
+                  bcdUSB: 0x0210, path: "x/Port-USB-C@1"),
+            F.usb(id: 20, parent: 10, name: "USB3.0 Hub", vendor: 0x2109, location: 0x0021_0000,
+                  speed: 5_000_000_000, deviceClass: 9, bcdUSB: 0x0320),
+            F.usb(id: 21, parent: 11, name: "USB2.0 Hub", vendor: 0x2109, location: 0x0013_0000,
+                  deviceClass: 9, bcdUSB: 0x0210),
+        ])
+        let port = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.count == 2)
+    }
 }

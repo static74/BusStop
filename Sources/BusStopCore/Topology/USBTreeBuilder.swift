@@ -285,6 +285,10 @@ enum USBTreeBuilder {
     /// level the halves sit on different root ports, so `companionRank`
     /// decides (name, controller, product ID), and a tie between equally
     /// good candidates merges nothing: a wrong parent is worse than two rows.
+    ///
+    /// A root pair from different vendors (a Thunderbolt 5 dock's Intel USB 3
+    /// hub and its Fresco Logic USB 2 hub) merges when it is the only pair
+    /// whose child hubs are companions themselves (`childHubsPair`).
     static func mergeCompanionHubs(_ nodes: [DeviceNode], isRoot: Bool = true) -> [DeviceNode] {
         let list = nodes.sorted { $0.id < $1.id }
         func isHub(_ n: DeviceNode) -> Bool { n.deviceClass == DeviceClassifier.USBClass.hub }
@@ -296,11 +300,8 @@ enum USBTreeBuilder {
         var used = Set<Int>()
         for f in fast {
             let candidates = slow.filter { s in
-                guard !used.contains(s), list[s].vendorID != nil, list[s].vendorID == list[f].vendorID,
-                      similarHubNames(list[f].name, list[s].name) else { return false }
-                if isRoot { return true }
-                guard let port = tierPort(list[f].locationID) else { return false }
-                return tierPort(list[s].locationID) == port && tierDepth(list[s].locationID) == tierDepth(list[f].locationID)
+                guard !used.contains(s) else { return false }
+                return isRoot ? sameVendorAndName(list[f], list[s]) : isLowerTierPair(fast: list[f], slow: list[s])
             }
             func rank(_ s: Int) -> Int { companionRank(fast: list[f], slow: list[s]) }
             guard let bestRank = candidates.map(rank).min() else { continue }
@@ -314,6 +315,14 @@ enum USBTreeBuilder {
                 used.insert(best)
             }
         }
+        if isRoot {
+            for f in fast where partner[f] == nil {
+                let candidates = slow.filter { !used.contains($0) && childHubsPair(fast: list[f], slow: list[$0]) }
+                guard candidates.count == 1 else { continue }
+                partner[f] = candidates[0]
+                used.insert(candidates[0])
+            }
+        }
 
         var result: [DeviceNode] = []
         for i in list.indices where !used.contains(i) {
@@ -324,6 +333,27 @@ enum USBTreeBuilder {
             result.append(node)
         }
         return result
+    }
+
+    static func sameVendorAndName(_ a: DeviceNode, _ b: DeviceNode) -> Bool {
+        a.vendorID != nil && a.vendorID == b.vendorID && similarHubNames(a.name, b.name)
+    }
+
+    /// Below the root, the two halves of a hub share vendor, name, tier depth
+    /// and the downstream port they hang off.
+    static func isLowerTierPair(fast: DeviceNode, slow: DeviceNode) -> Bool {
+        guard sameVendorAndName(fast, slow), let port = tierPort(fast.locationID) else { return false }
+        return tierPort(slow.locationID) == port && tierDepth(slow.locationID) == tierDepth(fast.locationID)
+    }
+
+    /// True when a SuperSpeed child hub of `fast` and a USB 2 child hub of
+    /// `slow` are the two halves of one hub.
+    static func childHubsPair(fast: DeviceNode, slow: DeviceNode) -> Bool {
+        func hubs(_ n: DeviceNode, superSpeed: Bool) -> [DeviceNode] {
+            n.children.filter { $0.deviceClass == DeviceClassifier.USBClass.hub && isSuperSpeedHalf($0) == superSpeed }
+        }
+        let slowHubs = hubs(slow, superSpeed: false)
+        return hubs(fast, superSpeed: true).contains { f in slowHubs.contains { isLowerTierPair(fast: f, slow: $0) } }
     }
 
     /// True for the SuperSpeed half of a hub, false for a USB 2 hub (or the

@@ -20,7 +20,8 @@ var targets: [Target] = [
     .testTarget(
         name: "BusStopCoreTests",
         dependencies: ["BusStopCore"],
-        path: "Tests/BusStopCoreTests"
+        path: "Tests/BusStopCoreTests",
+        resources: [.copy("Fixtures/AnkerPrimeTB5.json")]
     ),
 ]
 
