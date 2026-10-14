@@ -128,8 +128,6 @@ Bug reports with a raw capture (`busstop --raw > capture.json`) are the most use
 
 Full licence texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which every build also carries in `Bus Stop.app/Contents/Resources`.
 
-Bus Stop was inspired by [ViewPorts](https://viewports.app/), a commercial menu bar app that maps a Mac's ports, devices and power. Bus Stop is an independent project written from public information; it shares no code or assets with ViewPorts and is not affiliated with its developer.
-
 ## Licence
 
 Bus Stop is released under the [MIT License](LICENSE).
