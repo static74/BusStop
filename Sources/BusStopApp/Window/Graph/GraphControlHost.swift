@@ -16,7 +16,9 @@ import SwiftUI
 /// hosting views".
 ///
 /// The hosted content does not inherit the map's environment; the values it
-/// needs are passed on here.
+/// needs (Text Size and the accent tint) are passed on here. It is always
+/// shown at its ideal size, whatever size is proposed, so callers add
+/// `.fixedSize()` and the content never wraps.
 struct GraphControlHost<Content: View>: NSViewRepresentable {
     var content: Content
 
@@ -24,21 +26,27 @@ struct GraphControlHost<Content: View>: NSViewRepresentable {
         self.content = content()
     }
 
-    func makeNSView(context: Context) -> NSHostingView<AnyView> {
-        let view = NSHostingView(rootView: root(context.environment))
+    func makeNSView(context: Context) -> GraphControlHostingView {
+        let view = GraphControlHostingView(rootView: root(context.environment))
         view.sizingOptions = [.intrinsicContentSize]
         return view
     }
 
-    func updateNSView(_ view: NSHostingView<AnyView>, context: Context) {
+    func updateNSView(_ view: GraphControlHostingView, context: Context) {
         view.rootView = root(context.environment)
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSHostingView<AnyView>, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: GraphControlHostingView, context: Context) -> CGSize? {
         nsView.fittingSize
     }
 
     private func root(_ environment: EnvironmentValues) -> AnyView {
-        AnyView(content.environment(\.lagoonTextScale, environment.lagoonTextScale))
+        AnyView(content
+            .environment(\.lagoonTextScale, environment.lagoonTextScale)
+            .tint(Lagoon.accent))
     }
 }
+
+/// The hosting view `GraphControlHost` makes, a type of its own so the map's
+/// control hosts can be told apart from other hosting views.
+final class GraphControlHostingView: NSHostingView<AnyView> {}

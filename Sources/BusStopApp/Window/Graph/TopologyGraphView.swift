@@ -427,7 +427,6 @@ struct GraphMap: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .fixedSize()
                 .help("Show data rates or power on the links")
             }
             .fixedSize()

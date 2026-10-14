@@ -6,7 +6,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Question.** The map's Zoom Out, Actual Size, Zoom In and Fit buttons and its Data/Power picker carry `.help`, but often showed no tooltip. List mode was also reported to lose its chips' tooltips at the 2 s refresh, while a 5 s poll and the menu-bar popover were fine. The suspects were the 30 fps pulse `TimelineView` and `PortStore` replacing the snapshot on every poll, even when nothing changed. What stops the tooltips?
 
-**Decision.** `GraphControlHost` hosts the picker and the zoom cluster each in its own `NSHostingView`, sized to its content, and passes the Text Size setting on. The pulses keep running, and the store still replaces the snapshot on every poll. `GraphControlHostTests` checks that the map has the two hosting views, that ⌘=, ⌘-, ⌘0 and ⌘9 still reach the zoom buttons, and that the hosted content follows Text Size.
+**Decision.** `GraphControlHost` hosts the picker and the zoom cluster each in its own `NSHostingView`, sized to its content, and passes the Text Size setting and the accent tint on. The pulses keep running, and the store still replaces the snapshot on every poll. `GraphControlHostTests` checks that the map has the two hosting views, that ⌘=, ⌘-, ⌘0 and ⌘9 still reach the zoom buttons, and that the hosted content follows Text Size.
 
 **Why.** Measured on macOS 27 with a probe library loaded into a demo build (`DYLD_INSERT_LIBRARIES`, on a copy signed without the hardened runtime). It logs AppKit's tooltip calls and every mouse-moved, entered and exited event the app receives. The pointer was moved either in-process (a faked mouse location) or for real, by the agent's computer-use tool.
 
@@ -21,8 +21,9 @@ With the controls in their own hosting views, the probe finds each control's hel
 **Risks.**
 
 - A manager can still stall inside one hosting view, for example after resting on the few points between two zoom buttons.
-- The hosted controls are separate AppKit views. A drag that starts on one does not pan the map. Scroll-wheel zoom still works over them, because it watches the window's events.
-- Environment values set above the map reach the hosted controls only if `GraphControlHost` passes them on. Today only Text Size matters.
+- Environment values set above the map reach the hosted controls only if `GraphControlHost` passes them on. Today that is Text Size and the accent tint; the window's root font does not reach them, which changes nothing because every text in them sets its own `lagoonFont`.
+- The map's body runs on every frame of a drag or pinch, and each run gives both hosts a new root view. That costs two small re-renders per frame; it was not measured against the 16.7 ms p95 budget.
+- Scroll-wheel zoom still works over the controls, because it watches the window's events. A drag that starts on a control did not pan the map before this change either.
 - The window server's behaviour is observed on macOS 27, not documented, and may change.
 
 **Rejected alternatives.**
@@ -90,13 +91,13 @@ The regions are kept out of observation and the map's body never reads tooltip s
 
 List mode in the topology window also loses native tooltips at the demo's 2 s cadence (it showed them at a 5 s poll; the menu-bar popover shows them at 2 s). That looks like a window-level problem; it is not fixed here and is to be filed as a follow-up.
 
-The pulse conclusion was wrong, and the List-mode failure did not reproduce. The pulses do not affect the system's tooltips; AppKit's tooltip tracking for the map's hosting view can stall whatever the pulses do, which is what the -animateLinks NO runs saw. "The map's controls get their own hosting views", later the same day, has the measurements.
+The pulse conclusion was wrong, and the List-mode failure did not reproduce. The pulses do not affect the system's tooltips; AppKit's tooltip tracking for the map's hosting view can stall whatever the pulses do, which is what the `-animateLinks NO` runs saw. "The map's controls get their own hosting views", later the same day, has the measurements.
 
 **Rejected alternatives.**
 
 - *Pause the pulses while the pointer rests.* The card chips showed no tooltip with the pulses off either.
 - *One `.help` on each card's `Button`, summarising its chips.* Not per chip, it still depends on the system tooltip over the animating map, and the link chips stay uncovered.
-- *One map-wide `.help` whose text follows the pointer.* Whether the system re-arms it when the text changes is undocumented, and the pulses suppress it anyway.
+- *One map-wide `.help` whose text follows the pointer.* Whether the system re-arms it when the text changes is undocumented. (This entry also said the pulses suppress it; they do not, see above.)
 - *Clear views carrying `.help` above the drawing group.* They would take clicks, hover and pointer styles from the cards and links.
 - *Let the link chips take the pointer.* They would take hover and clicks from the links under them.
 

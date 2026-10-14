@@ -24,9 +24,9 @@ struct GraphControlHostTests {
         return (window, host)
     }
 
-    private func hostedControls(in view: NSView) -> [NSHostingView<AnyView>] {
-        view.subviews.flatMap { subview -> [NSHostingView<AnyView>] in
-            if let hosted = subview as? NSHostingView<AnyView> { return [hosted] }
+    private func hostedControls(in view: NSView) -> [GraphControlHostingView] {
+        view.subviews.flatMap { subview -> [GraphControlHostingView] in
+            if let hosted = subview as? GraphControlHostingView { return [hosted] }
             return hostedControls(in: subview)
         }
     }
