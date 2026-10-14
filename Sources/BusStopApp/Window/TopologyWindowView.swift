@@ -20,9 +20,9 @@ struct TopologyWindowView: View {
     @State private var showInspector = false
     @State private var didSizeInspector = false
     @State private var searchText = ""
-    /// The zoom the user picked; nil fits the graph to the window. Cleared
-    /// when the window closes, so it fits again when reopened.
-    @State private var userZoom: Double?
+    /// Where the map looks; nil fits the graph to the window. Cleared when
+    /// the window closes, so it fits again when reopened.
+    @State private var camera: GraphCamera?
     /// On screen, not minimised and not covered: the graph pulses only then.
     @State private var isWindowVisible = true
     /// The last `store.revealGeneration` this window acted on.
@@ -57,7 +57,7 @@ struct TopologyWindowView: View {
         .background {
             HostingWindowObserver(
                 onVisibilityChange: { isWindowVisible = $0 },
-                onClose: { userZoom = nil }
+                onClose: { camera = nil }
             )
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
@@ -69,6 +69,8 @@ struct TopologyWindowView: View {
         }
         .onChange(of: sidebarSelection) { _, item in
             if case .port(let key)? = item { store.selection = .port(key) }
+            // Each page draws a different graph, so it opens fitted.
+            camera = nil
         }
         .onChange(of: store.selection) { _, selection in
             // A clicked link is only described in the inspector, so open it.
@@ -127,7 +129,7 @@ struct TopologyWindowView: View {
                 ports: ports,
                 includeOther: includeOther,
                 searchText: searchText,
-                userZoom: $userZoom,
+                camera: $camera,
                 isWindowVisible: isWindowVisible,
                 scrollRequest: $scrollRequest
             )

@@ -62,6 +62,11 @@ targets += [
         path: "Sources/BusStopCLI"
     ),
     .testTarget(
+        name: "BusStopAppTests",
+        dependencies: ["BusStopApp"],
+        path: "Tests/BusStopAppTests"
+    ),
+    .testTarget(
         name: "BusStopKitTests",
         dependencies: ["BusStopKit", "BusStopCore"],
         path: "Tests/BusStopKitTests"

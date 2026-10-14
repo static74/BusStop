@@ -1,29 +1,33 @@
 import AppKit
 import SwiftUI
 
-/// Turns mouse scroll-wheel turns over the graph into zoom steps, like a
-/// map: wheel away from you zooms in, towards you zooms out, about 10 % a
-/// notch. Add it as a background of the graph's scroll view; it draws nothing
-/// and never takes clicks.
+/// Turns scroll-wheel events over the map into zoom and pan, like a web
+/// map. Add it as a background of the map; it draws nothing and never takes
+/// clicks.
 ///
-/// Only a mouse wheel zooms: an event that is not part of a gesture (no
-/// scroll or momentum phase) and has no modifier keys. Wheels that report
-/// smooth, pixel-based deltas count too. A trackpad's or Magic Mouse's
-/// two-finger scroll still pans, a pinch still zooms, and Shift with a wheel
-/// still scrolls sideways.
+/// A mouse wheel zooms: wheel away from you zooms in, towards you zooms out,
+/// about 10 % a notch. That is an event that is not part of a gesture (no
+/// scroll or momentum phase) and has no modifier keys; wheels that report
+/// smooth, pixel-based deltas count too. Everything else pans: a trackpad's
+/// or Magic Mouse's two-finger scroll (with its momentum), and a wheel with
+/// a modifier, such as Shift to move sideways.
 struct GraphScrollWheelZoom: NSViewRepresentable {
     /// Called with a zoom factor (above 1 zooms in) and the pointer location
     /// in this view, measured from its top-left corner.
-    var onZoom: (Double, CGPoint) -> Void
+    var onZoom: (CGFloat, CGPoint) -> Void
+    /// Called with how far the map should move, in points.
+    var onPan: (CGSize) -> Void
 
     func makeNSView(context: Context) -> GraphScrollWheelView {
         let view = GraphScrollWheelView()
         view.onZoom = onZoom
+        view.onPan = onPan
         return view
     }
 
     func updateNSView(_ view: GraphScrollWheelView, context: Context) {
         view.onZoom = onZoom
+        view.onPan = onPan
     }
 
     static func dismantleNSView(_ view: GraphScrollWheelView, coordinator: Coordinator) {
@@ -34,7 +38,8 @@ struct GraphScrollWheelZoom: NSViewRepresentable {
 /// The AppKit side of `GraphScrollWheelZoom`: watches the app's scroll-wheel
 /// events while it is in a window, and consumes the ones it turns into zoom.
 final class GraphScrollWheelView: NSView {
-    var onZoom: ((Double, CGPoint) -> Void)?
+    var onZoom: ((CGFloat, CGPoint) -> Void)?
+    var onPan: ((CGSize) -> Void)?
     private var monitor: Any?
 
     /// Zoom per line of wheel travel; one notch is usually one line.
@@ -69,16 +74,20 @@ final class GraphScrollWheelView: NSView {
         }
     }
 
-    /// Zooms for `wheel` when it is a plain mouse-wheel turn over this view.
-    /// Returns true when the event was used and must not scroll anything.
+    /// Zooms or pans for `wheel` when it is over this view. Returns true
+    /// when the event was used and must not scroll anything else.
     private func handle(_ wheel: GraphWheelEvent) -> Bool {
-        guard let onZoom, !wheel.isGesture, !wheel.hasModifiers, wheel.lines != 0,
-              let window, window.windowNumber == wheel.windowNumber, window.attachedSheet == nil,
+        guard let window, window.windowNumber == wheel.windowNumber, window.attachedSheet == nil,
               !isHiddenOrHasHiddenAncestor else { return false }
         let location = convert(wheel.locationInWindow, from: nil)
         guard bounds.contains(location) else { return false }
-        let lines = min(max(wheel.lines, -Self.maxLinesPerEvent), Self.maxLinesPerEvent)
-        onZoom(pow(Self.stepFactor, Double(lines)), location)
+        if !wheel.isGesture, !wheel.hasModifiers {
+            guard wheel.lines != 0 else { return true }
+            let lines = min(max(wheel.lines, -Self.maxLinesPerEvent), Self.maxLinesPerEvent)
+            onZoom?(pow(Self.stepFactor, lines), location)
+        } else if wheel.pan != .zero {
+            onPan?(wheel.pan)
+        }
         return true
     }
 }
@@ -94,6 +103,10 @@ nonisolated struct GraphWheelEvent: Sendable {
     /// phase is set); a mouse wheel has neither.
     var isGesture: Bool
     var hasModifiers: Bool
+    /// How far the content should move, in points: the scroll deltas, which
+    /// already follow the natural-scrolling setting. A line counts as ten
+    /// points.
+    var pan: CGSize
     var locationInWindow: CGPoint
     var windowNumber: Int
 
@@ -102,6 +115,8 @@ nonisolated struct GraphWheelEvent: Sendable {
         lines = event.isDirectionInvertedFromDevice ? -delta : delta
         isGesture = !event.phase.isEmpty || !event.momentumPhase.isEmpty
         hasModifiers = !event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+        let points: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 10
+        pan = CGSize(width: event.scrollingDeltaX * points, height: event.scrollingDeltaY * points)
         locationInWindow = event.locationInWindow
         windowNumber = event.windowNumber
     }

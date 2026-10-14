@@ -26,7 +26,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A USB4 v2 / Thunderbolt 5 port no longer shows 120 Gb/s while its dock shows 80 Gb/s. The idle second lane of a bonded link reports an asymmetric width with no bandwidth; the link now comes from the lane that carries traffic, as System Information reports it.
 - The link page for the cable in a Mac port shows the power across it (a dock's charging, say), and the port inspector's "Cable and link" opens that page when one device is plugged in.
 - The zoom buttons zoom around the middle of the map instead of its top-left corner.
-- The map can be dragged in any direction even when it fits the window, and it no longer shows scroll bars.
+- The map is drawn at screen resolution at every zoom, so links are no longer blurry at 200 %, and it draws only what is on screen, so panning and zooming a large map no longer lag. It can be dragged in any direction, a second drag no longer snaps it back to where it started, and it shows no scroll bars.
 - Clicking a link in the map opens the inspector when it is closed, since the link is described only there.
 
 ## [1.0.0] - 2026-10-12

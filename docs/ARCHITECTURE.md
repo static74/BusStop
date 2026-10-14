@@ -21,6 +21,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `BusStopCLI` | `busstop` executable | macOS | The command-line tool. |
 | `BusStopCoreTests` | | macOS, Linux | Unit tests for the core, with fixtures. |
 | `BusStopKitTests` | | macOS | Tests for the CF-to-`PlistValue` bridge, capture and monitor lifecycles. |
+| `BusStopAppTests` | | macOS | Tests for app-side logic with no UI to drive, such as the map's camera math. |
 
 ### Inside BusStopCore
 
@@ -131,6 +132,7 @@ A Mac missing from the catalogue still works; it just shows generic names until 
 |---|---|
 | `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`, on Linux and macOS. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures), from redacted `busstop --raw` captures kept as JSON resources, and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, determinism and robustness against missing or wrongly typed keys. |
 | `BusStopKit` | `Tests/BusStopKitTests` on macOS: the CF bridge, a live capture on the CI machine, rapid `LiveMonitor` start and stop cycles. |
+| `BusStopApp` | `Tests/BusStopAppTests` on macOS: the map camera (screen and layout points round-trip, the point under the pointer stays put through a zoom, centring, clamping, fitting). Interaction itself is checked by hand. |
 | Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle and the zip, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
 | App UI | Built on both supported Xcode versions in CI; checked by hand with demo mode. |
 
