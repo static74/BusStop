@@ -33,6 +33,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - Clicking a link in the map opens the inspector when it is closed, since the link is described only there.
 - Map cards and speed/power chips are now sharp at every zoom. They were drawn at 100 % and enlarged, which looked pixelated at 200 %, most visibly on non-Retina displays.
 - With the inspector open, the toolbar no longer ends in a gray band that the search field overlapped. The Export button's icon is centred.
+- The topology window no longer crashes on the Events page, or on Diagnostics while it lists a finding, when the inspector is open in a window narrower than about 1100 pt. Events' filter and Clear button move under the title when they do not fit beside it, instead of being clipped, and a finding's Show buttons stack the same way.
 
 ## [1.0.0] - 2026-10-12
 

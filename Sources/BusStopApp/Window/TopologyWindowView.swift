@@ -16,8 +16,8 @@ import SwiftUI
 struct TopologyWindowView: View {
     var store: PortStore
 
-    @State private var sidebarSelection: TopologySidebarItem? = .overview
-    @State private var showInspector = false
+    @State private var sidebarSelection: TopologySidebarItem?
+    @State private var showInspector: Bool
     @State private var didSizeInspector = false
     @State private var searchText = ""
     /// Where the map looks; nil fits the graph to the window. Cleared when
@@ -34,6 +34,14 @@ struct TopologyWindowView: View {
     @State private var scrollRequest: TopologyScrollRequest?
     @AppStorage(TopologyWindowDefaults.overviewMode) private var overviewMode: TopologyOverviewMode = .graph
 
+    /// The window opens on the overview with the inspector closed; tests
+    /// start on another page or with the inspector open.
+    init(store: PortStore, page: TopologySidebarItem = .overview, showsInspector: Bool = false) {
+        self.store = store
+        _sidebarSelection = State(initialValue: page)
+        _showInspector = State(initialValue: showsInspector)
+    }
+
     var body: some View {
         let settings = store.settings
         NavigationSplitView {
@@ -41,7 +49,11 @@ struct TopologyWindowView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 232, max: 320)
         } detail: {
             detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // A page never sets the detail column's minimum width. With the
+                // inspector open, one made the column's width and its safe-area
+                // insets invalidate each other until AppKit raised (issue #5,
+                // docs/decisions.md). A page that is too wide spills right.
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 .background { LagoonBackground(opacity: settings.backgroundOpacity) }
                 .inspector(isPresented: $showInspector) {
                     InspectorView(store: store)
