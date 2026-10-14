@@ -240,9 +240,11 @@ struct PortInspector: View {
                 InspectorRow(label: "E-marker", value: "None read")
             }
             if port.isConnected {
-                // The link page, as clicking the port's line in the graph opens.
+                // The link page for the cable: to the one device plugged in
+                // when there is one, else the port's line in the graph.
+                let target: StoreSelection = port.devices.count == 1 ? .device(port.devices[0].id) : .port(port.key)
                 InspectorLinkRow(systemName: "cable.connector", title: "Cable and link", detail: port.link?.rateLabel) {
-                    store.selection = .link(.port(port.key))
+                    store.selection = .link(target)
                 }
             }
         }

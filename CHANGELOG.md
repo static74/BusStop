@@ -24,6 +24,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A Thunderbolt 5 dock whose USB 3 and USB 2 root hubs come from different vendors (Intel and Fresco Logic on the Anker Prime) shows one hub tree instead of two. The roots merge when the hubs below them are companions, and those merge too. A real capture of this dock is now a test fixture.
 - Monitors driven from a Thunderbolt dock's DisplayPort outputs hang off the dock in the map, the list and the command-line tree, not off the Mac's port beside it.
 - A USB4 v2 / Thunderbolt 5 port no longer shows 120 Gb/s while its dock shows 80 Gb/s. The idle second lane of a bonded link reports an asymmetric width with no bandwidth; the link now comes from the lane that carries traffic, as System Information reports it.
+- The link page for the cable in a Mac port shows the power across it (a dock's charging, say), and the port inspector's "Cable and link" opens that page when one device is plugged in.
 
 ## [1.0.0] - 2026-10-12
 

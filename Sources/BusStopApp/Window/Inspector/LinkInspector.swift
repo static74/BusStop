@@ -192,15 +192,13 @@ struct LinkInspector: View {
     private var powerSection: some View {
         switch ends.child {
         case .port(let port):
-            if let reading = WindowText.portPower(port) {
-                InspectorSection(title: "Power across this link") {
-                    InspectorRow(label: "Power", value: Format.power(milliwatts: reading.milliwatts))
-                    InspectorRow(label: "Direction", value: WindowText.powerDirection(reading.direction))
-                    InspectorRow(label: "Measured", value: WindowText.yesNo(reading.isMeasured))
-                }
-            }
+            portPowerSection(port)
         case .device(let device):
-            if let power = device.power {
+            // The cable in a Mac port carries the port's power (a dock's
+            // charging, say), not just the device's USB allocation.
+            if case .port(let port) = ends.parent, WindowText.portPower(port) != nil {
+                portPowerSection(port)
+            } else if let power = device.power {
                 InspectorSection(title: "Power across this link") {
                     InspectorRow(label: "Allocated", value: power.allocatedMilliwatts.map { Format.power(milliwatts: $0) })
                     InspectorRow(label: "Source", value: WindowText.powerSource(power.source))
@@ -212,6 +210,17 @@ struct LinkInspector: View {
             }
         case .display:
             EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func portPowerSection(_ port: PhysicalPort) -> some View {
+        if let reading = WindowText.portPower(port) {
+            InspectorSection(title: "Power across this link") {
+                InspectorRow(label: "Power", value: Format.power(milliwatts: reading.milliwatts))
+                InspectorRow(label: "Direction", value: WindowText.powerDirection(reading.direction))
+                InspectorRow(label: "Measured", value: WindowText.yesNo(reading.isMeasured))
+            }
         }
     }
 
