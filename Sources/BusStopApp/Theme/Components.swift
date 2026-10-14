@@ -98,8 +98,13 @@ struct SpeedChip: View {
             .background(Capsule().fill(color.opacity(0.12)))
             .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35),
                                             lineWidth: isIncreased ? 1 : 0.75))
-            .help(link.label)
+            .chipHelp(Self.helpText(link), id: "speed")
             .accessibilityLabel(Text(link.label))
+    }
+
+    /// "USB 3.2 Gen 2 @ 10 Gb/s".
+    static func helpText(_ link: LinkInfo) -> String {
+        link.label
     }
 }
 
@@ -114,7 +119,7 @@ struct PowerChip: View {
         let tier = power.tier
         let color = Lagoon.powerColor(tier)
         let isIncreased = contrast == .increased
-        let help = power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
+        let help = Self.helpText(power)
         Text(power.label)
             .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
             .lineLimit(1)
@@ -123,8 +128,13 @@ struct PowerChip: View {
             .padding(.vertical, 2.5)
             .background(Capsule().fill(color.opacity(0.12)))
             .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35), lineWidth: isIncreased ? 1 : 0.75))
-            .help(help)
+            .chipHelp(help, id: "power")
             .accessibilityLabel(Text(help))
+    }
+
+    /// "47 W measured", or "Up to 4.5 W budgeted for USB devices".
+    static func helpText(_ power: GraphEdgePower) -> String {
+        power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
     }
 }
 
@@ -156,7 +166,13 @@ struct TransportChip: View {
         .padding(.vertical, 2.5)
         .background(Capsule().fill(color.opacity(0.10)))
         .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.30), lineWidth: isIncreased ? 1 : 0.75))
-        .help(transport.link?.label ?? transport.kind.displayName)
+        .chipHelp(Self.helpText(transport), id: "transport:\(transport.kind.rawValue)")
+    }
+
+    /// The transport's link ("USB 3.2 Gen 2 @ 10 Gb/s"), or its name when
+    /// the link is unknown.
+    static func helpText(_ transport: TransportInfo) -> String {
+        transport.link?.label ?? transport.kind.displayName
     }
 }
 
@@ -179,7 +195,7 @@ struct PowerBadge: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
         .background(Capsule().fill(color.opacity(0.10)))
-        .help(helpText)
+        .chipHelp(helpText, id: "power")
         .accessibilityLabel(Text(helpText))
     }
 
@@ -192,12 +208,46 @@ struct PowerBadge: View {
     }
 
     private var helpText: String {
+        Self.helpText(milliwatts: milliwatts, direction: direction, isMeasured: isMeasured)
+    }
+
+    /// "61 W into the Mac", "4.5 W to devices (allocated)".
+    static func helpText(milliwatts: Int, direction: PowerDirection, isMeasured: Bool) -> String {
         let watts = Format.power(milliwatts: milliwatts)
         switch direction {
         case .input: return "\(watts) into the Mac" + (isMeasured ? "" : " (contract)")
         case .output: return "\(watts) to devices" + (isMeasured ? "" : " (allocated)")
         case .none: return watts
         }
+    }
+}
+
+extension EnvironmentValues {
+    /// False on the map, where chips publish a `GraphTooltipRegion` for the
+    /// map's own tooltip instead of using the system's (see `GraphTooltips.swift`).
+    @Entry var showsChipHelp = true
+}
+
+/// A chip's explanation on hover: the system tooltip, or on the map (where
+/// `showsChipHelp` is false) a region for the map's own tooltip.
+struct ChipHelpModifier: ViewModifier {
+    var text: String
+    /// Names the chip within its card or link.
+    var id: String
+    @Environment(\.showsChipHelp) private var showsChipHelp
+
+    func body(content: Content) -> some View {
+        if showsChipHelp {
+            content.help(text)
+        } else {
+            content.graphTooltip(text, id: id)
+        }
+    }
+}
+
+extension View {
+    func chipHelp(_ text: String, id: String) -> some View {
+        modifier(ChipHelpModifier(text: text, id: id))
     }
 }
 

@@ -2,6 +2,26 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-14: The map draws its own tooltips for chips and badges
+
+**Question.** Hovering a speed chip, transport chip or power badge on a map card showed no tooltip, although each carries `.help`. How should the map explain its chips?
+
+**Decision.** On the map, chips and badges publish their rectangles in layout coordinates through a preference (`GraphTooltipRegionsKey`), measured in one named coordinate space per card before the zoom. A card reports the pointer in that same space, and the map's hit layer reports it for the link chips, which never take the pointer. `GraphTooltipState` finds the smallest chip under the pointer and shows its text in `GraphTooltipOverlay`, drawn above the drawing group so it keeps its size and stays sharp at every zoom. It never takes the pointer. It appears after the system's `NSInitialToolTipDelay` (one second unless set), or after 0.1 s when moving on from another tooltip. It hides on a mouse-down, a pan or zoom, a Data/Power switch, when the window stops appearing active, and when its chip goes away; after a click it stays hidden until the pointer leaves the chip. It fades only without Reduce Motion, and its border is the accent under Increase Contrast. The chips' `.help` stays everywhere else (popover, List mode, tables, inspector): an environment value, `showsChipHelp`, is false only inside the map. Accessibility labels are unchanged; the tooltip is hidden from VoiceOver.
+
+The regions are kept out of observation and the map's body never reads tooltip state. Only the overlay observes the tooltip on screen, which changes only when a tooltip appears, disappears or its text changes, so pointer moves and snapshots do not redraw the map (see the 16.7 ms p95 budget under "Map cards and chips render after the zoom").
+
+**Why.** Checked by hand on main in the topology window. With link animation on (the default), the map's own Zoom In button showed no tooltip, while the toolbar's buttons did. With `-animateLinks NO` in the demo, Zoom In showed its tooltip. The 30 fps pulse `TimelineView` keeps the system's tooltips from appearing anywhere over the map. Card chips showed no tooltip even with animation off, in the demo and on real hardware at a 5 s poll, so the cards add a cause of their own; the chips sit inside each card's `Button` label and the snapshot is replaced every poll. A map-drawn tooltip sidesteps both without pausing the pulses. A headless hosting-view test confirms that the regions pass through the drawing group and that a `ViewThatFits` publishes only the chips it shows.
+
+List mode in the topology window also loses native tooltips at the demo's 2 s cadence (it showed them at a 5 s poll; the menu-bar popover shows them at 2 s). That is a window-level problem, tracked separately, and is not changed here.
+
+**Rejected alternatives.**
+
+- *Pause the pulses while the pointer rests.* The card chips showed no tooltip with the pulses off either.
+- *One `.help` on each card's `Button`, summarising its chips.* Not per chip, it still depends on the system tooltip over the animating map, and the link chips stay uncovered.
+- *One map-wide `.help` whose text follows the pointer.* Whether the system re-arms it when the text changes is undocumented, and the pulses suppress it anyway.
+- *Clear views carrying `.help` above the drawing group.* They would take clicks, hover and pointer styles from the cards and links.
+- *Let the link chips take the pointer.* They would take hover and clicks from the links under them.
+
 ## 2026-10-14: No page sets the minimum width of the topology window's detail column
 
 **Question.** With the inspector open, the topology window crashed on the Events page at 1000 pt wide and narrower (issue #5). AppKit raised an exception because the window needed more update-constraints passes than it has views. How should the pages and the detail column share the width?
