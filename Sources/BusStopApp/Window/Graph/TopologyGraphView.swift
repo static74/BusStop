@@ -20,6 +20,8 @@ struct TopologyGraphView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
+    /// Links show data rates or power.
+    @AppStorage("graphLinkMode") private var linkMode: GraphLinkMode = .data
 
     /// Zoom chosen with the buttons, the scroll wheel or a pinch.
     static let zoomRange: ClosedRange<Double> = 0.25...2.0
@@ -46,13 +48,16 @@ struct TopologyGraphView: View {
     /// not the layout or the strokes computed here.
     private func graph(_ layout: GraphLayout) -> some View {
         let dimmed = dimmedNodeIDs(in: layout)
-        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed)
-        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed)
+        let powers = linkMode == .power ? GraphPaint.powers(for: layout) : [:]
+        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
+        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
         return GeometryReader { proxy in
             GraphMap(
                 layout: layout,
                 strokes: strokes,
                 pulseTracks: tracks,
+                linkMode: $linkMode,
+                powers: powers,
                 snapshot: store.snapshot,
                 selectedTag: SelectionTag.string(for: store.selection),
                 dimmed: dimmed,
@@ -183,6 +188,8 @@ struct GraphMap: View {
     var layout: GraphLayout
     var strokes: [GraphEdgeStroke]
     var pulseTracks: [GraphPulseTrack]
+    @Binding var linkMode: GraphLinkMode
+    var powers: [String: GraphEdgePower]
     var snapshot: HostSnapshot
     var selectedTag: String?
     var dimmed: Set<String>
@@ -235,7 +242,8 @@ struct GraphMap: View {
             GraphPulseLayer(tracks: pulseTracks.filter { $0.curve.path.boundingRect.intersects(visible) },
                             camera: camera, animate: animate && drag == .zero && pinch == nil)
             GraphChipsLayer(edges: layout.edges.filter { $0.chipPoint.map(visible.contains) ?? false },
-                            dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6, camera: camera)
+                            dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6, camera: camera,
+                            mode: linkMode, powers: powers)
             ForEach(layout.nodes.filter { $0.frame.intersects(visible) }) { node in
                 GraphNodeView(
                     node: node,
@@ -373,8 +381,20 @@ struct GraphMap: View {
 
     private func controls(zoom: CGFloat) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
+            Picker("Links show", selection: $linkMode) {
+                ForEach(GraphLinkMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help("Show data rates or power on the links")
             ViewThatFits(in: .horizontal) {
-                GraphSpeedLegend()
+                switch linkMode {
+                case .data: GraphSpeedLegend()
+                case .power: GraphPowerLegend()
+                }
                 Color.clear.frame(width: 0, height: 0)
             }
             Spacer(minLength: 0)
@@ -463,6 +483,48 @@ struct GraphZoomControl: View {
         .help(help)
         .accessibilityLabel(help)
         .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
+    }
+}
+
+/// Key for the power colours: one swatch per power tier, and what "≤" means.
+struct GraphPowerLegend: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(PowerTier.allCases, id: \.self) { tier in
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(Lagoon.powerColor(tier))
+                        .frame(width: 16, height: Lagoon.powerWidth(tier))
+                        .shadow(color: Lagoon.powerGlows(tier) ? Lagoon.powerColor(tier).opacity(0.7) : .clear, radius: 3)
+                    Text(Self.title(tier))
+                        .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
+                        .foregroundStyle(Lagoon.textSecondary)
+                        .fixedSize()
+                }
+            }
+            Text("≤ USB budget")
+                .lagoonFont(.caption2, weight: .medium)
+                .foregroundStyle(Lagoon.textTertiary)
+                .fixedSize()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
+        .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Power colours: grey for no power, then deep red, orange, amber and gold as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements.")
+    }
+
+    static func title(_ tier: PowerTier) -> String {
+        switch tier {
+        case .none: return "None"
+        case .under5: return "< 5 W"
+        case .under15: return "5–15 W"
+        case .under45: return "15–45 W"
+        case .high: return "45 W+"
+        }
     }
 }
 

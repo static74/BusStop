@@ -79,6 +79,40 @@ enum Lagoon {
         tier == .legacy ? textSecondary : linkColor(tier)
     }
 
+    /// Power-mode link colour: a heat ramp that gets brighter as watts rise,
+    /// from grey (no power) through deep red, orange and amber to gold. Each
+    /// step is at least 3.4:1 on the map's black and rises in OKLCH
+    /// lightness (0.52, 0.64, 0.76, 0.88), so more power always reads as
+    /// brighter.
+    static func powerColor(_ tier: PowerTier) -> Color {
+        switch tier {
+        case .none: return Color(hex: 0x636363)
+        case .under5: return Color(hex: 0xB6322D)
+        case .under15: return Color(hex: 0xDE6129)
+        case .under45: return Color(hex: 0xEF9D32)
+        case .high: return Color(hex: 0xF6D653)
+        }
+    }
+
+    static func powerWidth(_ tier: PowerTier) -> CGFloat {
+        switch tier {
+        case .none: return 1.25
+        case .under5: return 1.75
+        case .under15: return 2.5
+        case .under45: return 3.25
+        case .high: return 4
+        }
+    }
+
+    /// The two strongest power tiers glow, like the fastest links.
+    static func powerGlows(_ tier: PowerTier) -> Bool { tier >= .under45 }
+
+    /// Text in a power tier's colour. Grey and deep red are too dark for
+    /// small text, so those use secondary text.
+    static func powerTextColor(_ tier: PowerTier) -> Color {
+        tier <= .under5 ? textSecondary : powerColor(tier)
+    }
+
     /// Popover width for a text size: wider for Large and Extra Large text so
     /// labels do not truncate, never narrower than `popoverWidth`.
     static func popoverWidth(for textSize: TextSizeSetting) -> CGFloat {
@@ -226,4 +260,21 @@ extension NSColor {
             alpha: alpha
         )
     }
+}
+
+/// How much power crosses a link, in the steps the map colours by.
+nonisolated enum PowerTier: Int, CaseIterable, Comparable, Sendable {
+    case none, under5, under15, under45, high
+
+    init(milliwatts: Int) {
+        switch milliwatts {
+        case ..<1: self = .none
+        case ..<5_000: self = .under5
+        case ..<15_000: self = .under15
+        case ..<45_000: self = .under45
+        default: self = .high
+        }
+    }
+
+    static func < (lhs: PowerTier, rhs: PowerTier) -> Bool { lhs.rawValue < rhs.rawValue }
 }

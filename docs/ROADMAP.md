@@ -45,3 +45,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map, in the list and in the command-line tree.
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
 - A Cables section in the sidebar lists every link below each port.
+- A Power mode colours the map's links by watts, with pulses that follow the power.
