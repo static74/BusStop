@@ -4,8 +4,8 @@ import SwiftUI
 /// Reports what happens to the window that hosts this view: whether it is on
 /// screen and not covered, when it closes, and when it or the app becomes
 /// active again. Add it as a background; it draws nothing. It can also set
-/// the window's title bar to transparent, which the topology window does only
-/// while the map shows.
+/// the window's title bar to transparent, which the topology window does on
+/// pages where nothing scrolls under the toolbar.
 ///
 /// The topology window uses it to pause the graph's pulses while nobody can
 /// see them, and the settings panes use it to re-read system state after the

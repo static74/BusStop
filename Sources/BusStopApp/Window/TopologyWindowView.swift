@@ -67,10 +67,8 @@ struct TopologyWindowView: View {
                     camera = nil
                     isWindowOpen = false
                 },
-                // Only the map leaves the toolbar strip with nothing under it.
-                // Pages that scroll keep the opaque title bar, which hides or
-                // dims rows scrolled under it.
-                titlebarAppearsTransparent: showsModePicker && overviewMode == .graph
+                // Clear only where nothing scrolls under the toolbar strip.
+                titlebarAppearsTransparent: titlebarIsClear
             )
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
@@ -162,6 +160,18 @@ struct TopologyWindowView: View {
     private var showsModePicker: Bool {
         switch sidebarSelection ?? .overview {
         case .overview, .port: return true
+        default: return false
+        }
+    }
+
+    /// Pages with nothing that scrolls under the toolbar strip: the map, and
+    /// the two tables, whose rows scroll only under their own column headers.
+    /// Every other page keeps the opaque title bar, which hides or dims rows
+    /// scrolled under it.
+    private var titlebarIsClear: Bool {
+        switch sidebarSelection ?? .overview {
+        case .overview, .port: return overviewMode == .graph
+        case .allPorts, .devices: return true
         default: return false
         }
     }
