@@ -1,7 +1,10 @@
 name: CI
 
+# Runs once per pull request (and again on each push to it), never on plain
+# branch pushes or merges to main: the pull request already tested the merged
+# result. The paid `xcode-27` runner job runs only when started by hand;
+# releases test on it anyway. See docs/decisions.md.
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
@@ -21,6 +24,7 @@ jobs:
 
   macos-27:
     name: macOS 27 (Xcode 27)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7

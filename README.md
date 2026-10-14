@@ -34,7 +34,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 
 *The topology window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
 
-CI captures these images from the real app, running in demo mode on macOS 27, on every push to the main branches, so they show the current build. The [`screenshots` branch](https://github.com/static74/BusStop/tree/screenshots) has the other demo setups and every settings pane.
+A CI workflow captures these images from the real app, running in demo mode on macOS 27. A maintainer runs it by hand, so the images can trail the newest commits. The [`screenshots` branch](https://github.com/static74/BusStop/tree/screenshots) has the other demo setups and every settings pane.
 
 ## Requirements
 
