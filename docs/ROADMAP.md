@@ -42,5 +42,5 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 ## Done since 1.0
 
 - The topology map pans by dragging, zooms with the scroll wheel, and shows a cable's details when its link is clicked.
-- Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map.
+- Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map, in the list and in the command-line tree.
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.

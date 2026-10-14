@@ -31,6 +31,14 @@ struct AnkerPrimeDockTests {
         }
     }
 
+    @Test func tunneledDisplaysNestUnderTheDock() throws {
+        let snapshot = try Self.snapshot()
+        let port = try #require(snapshot.ports.first { $0.label.location == "Left Center" })
+        #expect(port.devices.map(\.name) == ["Prime Docking Station (14-in-1, 8K, Thunderbolt 5)"])
+        let displays = try Self.dock(in: snapshot).children.filter { $0.kind == .display }.map(\.name)
+        #expect(displays.sorted() == ["Dell U4924DW", "Gigabyte M32U"])
+    }
+
     @Test func rootHubsFromDifferentVendorsMerge() throws {
         let dock = try Self.dock(in: Self.snapshot())
         let hubs = dock.children.filter { $0.deviceClass == DeviceClassifier.USBClass.hub }

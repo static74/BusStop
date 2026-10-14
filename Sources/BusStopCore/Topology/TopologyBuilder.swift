@@ -160,7 +160,17 @@ public enum TopologyBuilder {
                 if attribution.representedByThunderbolt {
                     display.representingDeviceID = attribution.representingDeviceID
                 } else {
-                    devices[attribution.portKey, default: []].append(DisplayParser.deviceNode(display, attribution: attribution))
+                    // A display tunnelled through a single Thunderbolt head
+                    // (a dock's DisplayPort output) goes under that head, as
+                    // USB devices on the port do.
+                    let node = DisplayParser.deviceNode(display, attribution: attribution)
+                    let portDevices = devices[attribution.portKey] ?? []
+                    let heads = portDevices.filter { $0.bus == .thunderbolt }
+                    if attribution.isTunneled, heads.count == 1 {
+                        devices[attribution.portKey] = USBTreeBuilder.inserting(node, under: heads[0].id, in: portDevices).0
+                    } else {
+                        devices[attribution.portKey, default: []].append(node)
+                    }
                 }
             }
             displayInfos.append(display)
