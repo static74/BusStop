@@ -145,7 +145,9 @@ struct DisplayTopologyTests {
                                                displays: [Self.dell, Self.lg]))
         #expect(both.displays.allSatisfy { $0.portKey == PortKey(type: 2, number: 1) })
         #expect(both.displays.allSatisfy { $0.link == nil })
-        let rows = both.port(PortKey(type: 2, number: 1))?.devices.filter { $0.bus == .displayPort } ?? []
+        // Both hang off the dock, the port's only Thunderbolt head.
+        let dockNode = both.port(PortKey(type: 2, number: 1))?.devices.first { $0.bus == .thunderbolt }
+        let rows = dockNode?.children.filter { $0.bus == .displayPort } ?? []
         #expect(rows.count == 2)
         #expect(rows.allSatisfy { $0.isTunneled })
         #expect(both.port(PortKey(type: 2, number: 1))?.devices.first { $0.bus == .thunderbolt }?.kind == .dock)

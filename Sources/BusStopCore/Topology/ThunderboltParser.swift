@@ -147,10 +147,16 @@ enum ThunderboltParser {
         // Host link per socket. Idle lanes on older controllers still report
         // a 10 Gb/s × 1 link, so a lane counts as live only with a peer: a
         // switch below it, a chain on its socket, a non-empty `Hop Table`, or
-        // `Link Bandwidth` above the idle default of 100.
+        // `Link Bandwidth` above the idle default of 100. When a socket has
+        // lanes that report bandwidth, only those count: on a bonded USB4 v2
+        // link the idle lane 1 can report an asymmetric width (120 Gb/s)
+        // with a bandwidth of 0 while lane 0 carries the 80 Gb/s link.
         for host in hosts {
-            for lane in lanePorts(host) {
+            let lanes = lanePorts(host)
+            let carrying = Set(lanes.filter { ($0.properties.int("Link Bandwidth") ?? 0) > 0 }.compactMap(socketID))
+            for lane in lanes {
                 guard let socket = socketID(lane),
+                      !carrying.contains(socket) || (lane.properties.int("Link Bandwidth") ?? 0) > 0,
                       let link = LinkDecoding.thunderboltLink(lanePort: lane.properties) else { continue }
                 topology.decodedLinks[socket] = LinkDecoding.faster(topology.decodedLinks[socket], link)
                 let hasPeer = peerPortIDs.contains(lane.id)

@@ -103,6 +103,31 @@ struct SpeedChip: View {
     }
 }
 
+/// The power across a link in the map's Power mode, in the link's colour:
+/// "47 W" for a port's reading, "≤4.5 W" for a USB power budget.
+struct PowerChip: View {
+    var power: GraphEdgePower
+
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        let tier = power.tier
+        let color = Lagoon.powerColor(tier)
+        let isIncreased = contrast == .increased
+        let help = power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
+        Text(power.label)
+            .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
+            .lineLimit(1)
+            .foregroundStyle(isIncreased ? Lagoon.textPrimary : Lagoon.powerTextColor(tier))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2.5)
+            .background(Capsule().fill(color.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35), lineWidth: isIncreased ? 1 : 0.75))
+            .help(help)
+            .accessibilityLabel(Text(help))
+    }
+}
+
 /// Capsule naming an active transport, with its speed when known. Colours
 /// follow the same rules as `SpeedChip`.
 struct TransportChip: View {

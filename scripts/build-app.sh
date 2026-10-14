@@ -22,14 +22,15 @@
 #   Contents/Helpers/busstop       the command-line tool
 #   Contents/Resources/AppIcon.icns
 #   Contents/Resources/LICENSE.txt                Bus Stop's MIT License
-#   Contents/Resources/THIRD_PARTY_NOTICES.md     PortScope, WhatPort, WhatCable
+#   Contents/Resources/THIRD_PARTY_NOTICES.md     PortScope, WhatPort, WhatCable,
+#                                                 USB ID Repository
 #
 # The CLI lives in Contents/Helpers because Contents/MacOS/busstop and
 # Contents/MacOS/BusStop would be the same file on a case-insensitive volume.
 #
-# The MIT licences of the projects Bus Stop adapts code and data from require
-# their notices in every copy, so the bundle carries them, and the zip holds
-# them again next to the app:
+# The MIT and BSD licences of the projects Bus Stop adapts code and data from
+# require their notices in every copy, so the bundle carries them, and the zip
+# holds them again next to the app:
 #   Bus Stop.app
 #   LICENSE.txt
 #   THIRD_PARTY_NOTICES.md

@@ -4,7 +4,7 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Correctness on real hardware
 
-1. **Validation on real Macs and capture fixtures.** Collect raw captures (`busstop --raw`) from as many Mac models, docks, displays, hubs and chargers as possible, and turn each into a regression fixture under `Tests/BusStopCoreTests/Fixtures`. Every topology rule that was written from documentation alone gets a real capture behind it. Start with the setups already reported: a Thunderbolt dock feeding monitors and USB hubs.
+1. **Validation on real Macs and capture fixtures.** Collect raw captures (`busstop --raw`) from as many Mac models, docks, displays, hubs and chargers as possible, and turn each into a regression fixture under `Tests/BusStopCoreTests/Fixtures`. Every topology rule that was written from documentation alone gets a real capture behind it. Start with the setups already reported: a Thunderbolt dock feeding monitors and USB hubs. The first one is in: an Anker Prime Thunderbolt 5 dock with two monitors and USB hubs on a MacBook Pro (`Fixtures/AnkerPrimeTB5.json`).
 2. **"Identify this port" flow.** A guided check in Settings: "plug something into the port you want to name" lights up the port that changed and lets the user confirm or correct its name. It fixes the catalogue for Macs whose port locations are wrong or missing, and can produce a catalogue entry to send upstream.
 
 ## Cables and power
@@ -41,6 +41,9 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Done since 1.0
 
-- The topology map pans by dragging, zooms with the scroll wheel, and shows a cable's details when its link is clicked.
-- Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map.
+- The topology map pans freely by dragging, zooms with the scroll wheel or a pinch, stays sharp at every zoom, and shows a cable's details in the inspector when its link is clicked.
+- Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map, in the list and in the command-line tree.
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
+- A Cables section in the sidebar lists every link below each port.
+- A Power mode colours the map's links by watts, with pulses that follow the power.
+- USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.

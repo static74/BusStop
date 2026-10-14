@@ -1,9 +1,10 @@
 import BusStopCore
 import SwiftUI
 
-// Layers drawn behind the graph's nodes: a dotted backdrop, the links (static
-// Canvas, redrawn only when the layout changes), the travelling pulses
-// (TimelineView + Canvas) and the speed chips.
+// Layers drawn behind the graph's nodes: a dotted backdrop, the links, the
+// travelling pulses (TimelineView + Canvas) and the speed chips. Each canvas
+// is the size of the map view and draws through the `GraphCamera`, so links
+// stay sharp at any zoom and only what is on screen is drawn.
 
 nonisolated extension GraphCurve {
     var path: Path {
@@ -27,14 +28,71 @@ nonisolated struct GraphEdgeStroke: Identifiable {
     var opacity: Double
     /// Trunks get no socket dot at the port end.
     var drawsSocket: Bool
+    /// The smallest socket dot, in the same units as `width`.
+    var minimumSocketRadius: CGFloat = 2.2
     /// `color` at `opacity`, pre-blended with the background into a solid
     /// colour, so two strokes that overlap look like one.
     var solidColor: Color
 
     /// The dot where the link meets the child's card.
     var socketPath: Path {
-        let radius = max(2.2, width * 0.95)
+        let radius = max(minimumSocketRadius, width * 0.95)
         return Path(ellipseIn: CGRect(x: end.x - radius, y: end.y - radius, width: radius * 2, height: radius * 2))
+    }
+
+    /// This stroke as seen through `camera`: path, width, dash and socket in
+    /// view points.
+    func viewed(through camera: GraphCamera) -> GraphEdgeStroke {
+        var stroke = self
+        stroke.path = path.applying(camera.transform)
+        stroke.end = camera.screenPoint(end)
+        stroke.width = width * camera.scale
+        stroke.dash = dash.map { $0 * camera.scale }
+        stroke.minimumSocketRadius = minimumSocketRadius * camera.scale
+        return stroke
+    }
+}
+
+/// What the map's links show: the negotiated data rate or the power across
+/// them.
+enum GraphLinkMode: String, CaseIterable, Identifiable {
+    case data
+    case power
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .data: return "Data"
+        case .power: return "Power"
+        }
+    }
+}
+
+/// The power across one edge of the map.
+nonisolated struct GraphEdgePower: Equatable, Sendable {
+    var milliwatts: Int
+    /// The power runs from the edge's child towards its parent, such as a
+    /// dock charging the Mac.
+    var flowsToParent: Bool
+    /// A port's measured reading, as opposed to a USB power budget.
+    var isMeasured: Bool
+
+    var tier: PowerTier { PowerTier(milliwatts: milliwatts) }
+
+    /// "47 W" for a reading; "≤4.5 W" for a USB budget, which is a ceiling.
+    var label: String {
+        (isMeasured ? "" : "≤") + Format.power(milliwatts: milliwatts)
+    }
+}
+
+nonisolated extension GraphCurve {
+    /// The same curve, travelled the other way.
+    var reversed: GraphCurve {
+        var curve = self
+        (curve.start, curve.end) = (end, start)
+        (curve.control1, curve.control2) = (control2, control1)
+        return curve
     }
 }
 
@@ -53,9 +111,57 @@ struct GraphPulseTrack: Identifiable {
 
 /// Turns layout edges into strokes and pulse tracks.
 enum GraphPaint {
-    static func strokes(for layout: GraphLayout, dimmed: Set<String>) -> [GraphEdgeStroke] {
+    /// The power across every edge that carries some, by edge ID. The cable
+    /// in a Mac port (Mac to port, port to device) carries the port's
+    /// reading, towards the Mac when it charges from that port. A link
+    /// further along carries the USB budget of the child and everything
+    /// below it, away from the Mac.
+    static func powers(for layout: GraphLayout) -> [String: GraphEdgePower] {
+        let nodes = Dictionary(layout.nodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        func portReading(_ port: PhysicalPort) -> GraphEdgePower? {
+            guard let reading = WindowText.portPower(port) else { return nil }
+            return GraphEdgePower(milliwatts: reading.milliwatts, flowsToParent: reading.direction == .input,
+                                  isMeasured: reading.isMeasured)
+        }
+        var powers: [String: GraphEdgePower] = [:]
+        for edge in layout.edges where !edge.isDeparting {
+            guard let child = nodes[edge.toID] else { continue }
+            var power: GraphEdgePower?
+            switch (nodes[edge.fromID]?.content, child.content) {
+            case (_, .port(let port)), (.port(let port)?, .device):
+                power = portReading(port)
+            case (_, .device(let device, _)):
+                let milliwatts = device.rolledUpMilliwatts
+                if milliwatts > 0 { power = GraphEdgePower(milliwatts: milliwatts, flowsToParent: false, isMeasured: false) }
+            default:
+                break
+            }
+            if let power { powers[edge.id] = power }
+        }
+        return powers
+    }
+
+    static func strokes(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
+                        powers: [String: GraphEdgePower] = [:]) -> [GraphEdgeStroke] {
         layout.edges.map { edge in
             let dimFactor = dimmed.contains(edge.toID) ? 0.22 : 1
+            if mode == .power, !edge.isDeparting {
+                let tier = powers[edge.id]?.tier ?? .none
+                let color = Lagoon.powerColor(tier)
+                let opacity = (edge.isActive ? 0.95 : 0.6) * dimFactor
+                return GraphEdgeStroke(
+                    id: edge.id,
+                    path: edge.curve.path,
+                    end: edge.curve.end,
+                    color: color,
+                    width: Lagoon.powerWidth(tier),
+                    dash: edge.isDashed ? [4, 4] : [],
+                    glows: Lagoon.powerGlows(tier),
+                    opacity: opacity,
+                    drawsSocket: edge.kind == .link,
+                    solidColor: solid(color, opacity: opacity)
+                )
+            }
             switch edge.kind {
             case .trunk:
                 let color = edge.isActive ? Lagoon.accent : Lagoon.accentMuted
@@ -98,8 +204,10 @@ enum GraphPaint {
         opacity >= 1 ? color : color.mix(with: Lagoon.background, by: 1 - opacity, in: .device)
     }
 
-    static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>) -> [GraphPulseTrack] {
-        layout.edges.compactMap { edge in
+    static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
+                            powers: [String: GraphEdgePower] = [:]) -> [GraphPulseTrack] {
+        if mode == .power { return powerPulseTracks(for: layout, dimmed: dimmed, powers: powers) }
+        return layout.edges.compactMap { edge in
             guard edge.isActive, !edge.isDeparting, let link = edge.link, !dimmed.contains(edge.toID) else {
                 return nil
             }
@@ -113,6 +221,25 @@ enum GraphPaint {
                 period: period(for: tier),
                 phase: phase(for: edge.id),
                 dots: tier >= .gbps20 && !isTrunk ? 2 : 1
+            )
+        }
+    }
+
+    /// Pulses that travel the way the power flows: more watts, bigger and
+    /// faster dots.
+    static func powerPulseTracks(for layout: GraphLayout, dimmed: Set<String>,
+                                 powers: [String: GraphEdgePower]) -> [GraphPulseTrack] {
+        layout.edges.compactMap { edge in
+            guard let power = powers[edge.id], !dimmed.contains(edge.toID) else { return nil }
+            let tier = power.tier
+            return GraphPulseTrack(
+                id: edge.id,
+                curve: power.flowsToParent ? edge.curve.reversed : edge.curve,
+                color: Lagoon.powerColor(tier).mix(with: .white, by: 0.25, in: .device),
+                radius: 1.8 + CGFloat(tier.rawValue) * 0.3,
+                period: 3.2 - Double(tier.rawValue) * 0.5,
+                phase: phase(for: edge.id),
+                dots: tier >= .under45 ? 2 : 1
             )
         }
     }
@@ -148,7 +275,10 @@ enum GraphPaint {
 /// solid colours pre-blended with the background instead of translucent
 /// ones, so overlapping strokes do not add up.
 struct GraphLinksLayer: View {
+    /// Strokes already in view points (`GraphEdgeStroke.viewed(through:)`).
     var strokes: [GraphEdgeStroke]
+    /// The zoom, for the glow's blur.
+    var scale: CGFloat = 1
 
     var body: some View {
         Canvas { context, _ in
@@ -157,7 +287,7 @@ struct GraphLinksLayer: View {
             for opacity in Set(glowing.map(\.opacity)).sorted() {
                 var glow = context
                 glow.opacity = 0.55 * opacity
-                glow.addFilter(.blur(radius: 5))
+                glow.addFilter(.blur(radius: 5 * scale))
                 glow.drawLayer { layer in
                     for stroke in glowing where stroke.opacity == opacity {
                         layer.stroke(
@@ -191,10 +321,12 @@ struct GraphLinksLayer: View {
 /// halo and a brighter, slightly wider stroke. The selected link also gets
 /// an accent outline, so it stays marked while the pointer is elsewhere.
 struct GraphLinkHighlightLayer: View {
-    /// Only the strokes to highlight.
+    /// Only the strokes to highlight, in view points.
     var strokes: [GraphEdgeStroke]
     var selected: Set<String>
     var hovered: String?
+    /// The zoom, for the halo and outline widths.
+    var scale: CGFloat = 1
 
     var body: some View {
         let accent = Lagoon.accentGlow
@@ -207,19 +339,19 @@ struct GraphLinkHighlightLayer: View {
 
                 var halo = context
                 halo.opacity = isSelected ? 0.5 : 0.32
-                halo.addFilter(.blur(radius: 4))
+                halo.addFilter(.blur(radius: 4 * scale))
                 halo.stroke(stroke.path, with: .color(accent),
-                            style: StrokeStyle(lineWidth: stroke.width + 8, lineCap: .round))
+                            style: StrokeStyle(lineWidth: stroke.width + 8 * scale, lineCap: .round))
 
                 if isSelected {
                     context.stroke(stroke.path, with: .color(accent),
-                                   style: StrokeStyle(lineWidth: stroke.width + 3.5, lineCap: .round, lineJoin: .round))
+                                   style: StrokeStyle(lineWidth: stroke.width + 3.5 * scale, lineCap: .round, lineJoin: .round))
                 }
                 let core = stroke.color.mix(with: .white, by: isHovered ? 0.4 : 0.2, in: .device)
                 context.stroke(
                     stroke.path,
                     with: .color(isSelected ? background : core),
-                    style: StrokeStyle(lineWidth: stroke.width + (isSelected ? 1 : 1.5), lineCap: .round, lineJoin: .round)
+                    style: StrokeStyle(lineWidth: stroke.width + (isSelected ? 1 : 1.5) * scale, lineCap: .round, lineJoin: .round)
                 )
                 if isSelected {
                     context.stroke(stroke.path, with: .color(core),
@@ -241,7 +373,9 @@ struct GraphLinkHighlightLayer: View {
 /// animation off (setting, Reduce Motion, window hidden or covered) or no
 /// active link, nothing redraws.
 struct GraphPulseLayer: View {
+    /// Tracks in layout coordinates, drawn through `camera`.
     var tracks: [GraphPulseTrack]
+    var camera: GraphCamera
     var animate: Bool
 
     var body: some View {
@@ -260,10 +394,11 @@ struct GraphPulseLayer: View {
                 for index in 0..<max(track.dots, 1) {
                     let raw = time / track.period + track.phase + Double(index) / Double(max(track.dots, 1))
                     let progress = raw - raw.rounded(.down)
-                    let point = track.curve.point(at: CGFloat(progress))
+                    let point = camera.screenPoint(track.curve.point(at: CGFloat(progress)))
                     // Fade in as a dot leaves its start and out as it arrives.
                     let fade = sin(progress * .pi)
-                    let halo = track.radius * 3.4
+                    let radius = track.radius * camera.scale
+                    let halo = radius * 3.4
                     context.fill(
                         Path(ellipseIn: CGRect(x: point.x - halo, y: point.y - halo, width: halo * 2, height: halo * 2)),
                         with: .radialGradient(
@@ -273,7 +408,7 @@ struct GraphPulseLayer: View {
                             endRadius: halo
                         )
                     )
-                    let core = track.radius
+                    let core = radius
                     context.fill(
                         Path(ellipseIn: CGRect(x: point.x - core, y: point.y - core, width: core * 2, height: core * 2)),
                         with: .color(track.color.opacity(0.95 * fade))
@@ -286,20 +421,26 @@ struct GraphPulseLayer: View {
 
 /// Speed chips at the middle of each link.
 struct GraphChipsLayer: View {
+    /// Edges whose chips are on screen.
     var edges: [GraphEdge]
     var dimmed: Set<String>
     /// Chips never grow wider than the gap between columns.
     var maxChipWidth: CGFloat = 84
+    var camera: GraphCamera
+    /// In power mode, chips show the power across each edge instead.
+    var mode: GraphLinkMode = .data
+    var powers: [String: GraphEdgePower] = [:]
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(edges.filter { $0.chipPoint != nil && $0.link != nil }) { edge in
-                if let link = edge.link, let point = edge.chipPoint {
-                    SpeedChip(link: link)
+            ForEach(edges.filter { $0.chipPoint != nil && (mode == .power ? powers[$0.id] != nil : $0.link != nil) }) { edge in
+                if let point = edge.chipPoint {
+                    chip(for: edge)
                         .background(Capsule().fill(Lagoon.background))
                         .frame(maxWidth: maxChipWidth)
                         .fixedSize(horizontal: false, vertical: true)
-                        .position(point)
+                        .scaleEffect(camera.scale)
+                        .position(camera.screenPoint(point))
                         .opacity(dimmed.contains(edge.toID) ? 0.25 : 1)
                 }
             }
@@ -307,24 +448,42 @@ struct GraphChipsLayer: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
+
+    @ViewBuilder
+    private func chip(for edge: GraphEdge) -> some View {
+        if mode == .power, let power = powers[edge.id] {
+            PowerChip(power: power)
+        } else if let link = edge.link {
+            SpeedChip(link: link)
+        }
+    }
 }
 
 /// A faint dot grid and a soft glow behind the host, so the canvas reads as a
-/// map. It fills the whole visible canvas, not only the graph's bounds.
+/// map. The grid is fixed to the layout, so it moves and zooms with the
+/// graph, and only its visible dots are drawn.
 struct GraphBackdrop: View {
+    /// The host card, in layout coordinates.
     var hostFrame: CGRect?
+    var camera: GraphCamera
 
     var body: some View {
         let dotColor = Lagoon.accent.opacity(0.07)
         let glowColor = Lagoon.accent
         Canvas { context, size in
-            let spacing: CGFloat = 24
+            // 24 layout points apart; zoomed far out, every second (fourth…)
+            // dot, so the grid never gets denser than 12 points on screen.
+            var spacing: CGFloat = 24
+            while spacing * camera.scale < 12 { spacing *= 2 }
+            let visible = camera.visibleLayoutRect(in: size)
+            let dot = 0.8 * camera.scale
             var dots = Path()
-            var y = spacing / 2
-            while y < size.height {
-                var x = spacing / 2
-                while x < size.width {
-                    dots.addEllipse(in: CGRect(x: x - 0.8, y: y - 0.8, width: 1.6, height: 1.6))
+            var y = (visible.minY / spacing).rounded(.down) * spacing + spacing / 2
+            while y < visible.maxY + spacing {
+                var x = (visible.minX / spacing).rounded(.down) * spacing + spacing / 2
+                while x < visible.maxX + spacing {
+                    let point = camera.screenPoint(CGPoint(x: x, y: y))
+                    dots.addEllipse(in: CGRect(x: point.x - dot, y: point.y - dot, width: dot * 2, height: dot * 2))
                     x += spacing
                 }
                 y += spacing
@@ -332,12 +491,8 @@ struct GraphBackdrop: View {
             context.fill(dots, with: .color(dotColor))
 
             if let hostFrame {
-                let center = CGPoint(x: hostFrame.midX, y: hostFrame.midY)
-                // The glow fades out before the canvas's trailing and bottom
-                // edges, so a short canvas never cuts it with a hard line. The
-                // leading and top edges are the scroll view's own edges.
-                let radius = min(max(hostFrame.width, hostFrame.height) * 1.1,
-                                 size.width - center.x, size.height - center.y)
+                let center = camera.screenPoint(CGPoint(x: hostFrame.midX, y: hostFrame.midY))
+                let radius = max(hostFrame.width, hostFrame.height) * 1.1 * camera.scale
                 guard radius > 0 else { return }
                 context.fill(
                     Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),

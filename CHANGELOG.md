@@ -8,7 +8,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 - Topology map: drag to pan like a web map, and zoom around the pointer with a mouse scroll wheel. Trackpads still pan with two fingers and zoom with a pinch. Zoom now runs from 25 % to 200 %.
 - Click a link in the map to inspect it: the negotiated speed, the power across it and, for the cable in one of the Mac's own ports, what its e-marker chip says it is rated for (speed, power, current, voltage, EPR), with a note when the cable or the device is what limits the link. Hovering a link highlights it.
+- A Cables section in the window's sidebar lists every link below each port as "parent → child" with its speed. Clicking one opens it in the inspector and moves the map to it.
+- A Data / Power toggle on the map. In Power mode links are coloured from grey through deep red, orange and amber to gold as watts rise, chips show watts (a port's measured reading, or "≤" a USB power budget), and pulses run the way the power flows, such as from a dock into the Mac.
 - Port and device inspectors link to the cable and link page; the port's cable section shows rated power, maximum voltage and EPR support.
+- A USB device that reports a vendor ID but no vendor name now shows the vendor's name from a table built into Bus Stop. `scripts/generate-usb-vendors.py` generates the table from the USB ID Repository's `usb.ids` (version 2026.06.26), used under the 3-clause BSD License, whose notice is in `THIRD_PARTY_NOTICES.md`. A device's own vendor name always wins, and Bus Stop still makes no network requests.
 
 - `docs/ROADMAP.md` with the planned features after 1.0.
 
@@ -21,6 +24,13 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 - Devices behind a Thunderbolt dock are shown under the dock even when no USB device carries the dock's name (docks use generic hub chips such as "USB3.1 Gen2 Hub"). The cable's own USB 2 half of a dock's hub goes under the dock too.
 - A USB 3 hub's USB 2 half no longer appears as a separate "USB2.0 Hub" when the port has several hubs at its root, or when the hub reports no link speed.
+- A Thunderbolt 5 dock whose USB 3 and USB 2 root hubs come from different vendors (Intel and Fresco Logic on the Anker Prime) shows one hub tree instead of two. The roots merge when the hubs below them are companions, and those merge too. A real capture of this dock is now a test fixture.
+- Monitors driven from a Thunderbolt dock's DisplayPort outputs hang off the dock in the map, the list and the command-line tree, not off the Mac's port beside it.
+- A USB4 v2 / Thunderbolt 5 port no longer shows 120 Gb/s while its dock shows 80 Gb/s. The idle second lane of a bonded link reports an asymmetric width with no bandwidth; the link now comes from the lane that carries traffic, as System Information reports it.
+- The link page for the cable in a Mac port shows the power across it (a dock's charging, say), and the port inspector's "Cable and link" opens that page when one device is plugged in.
+- The zoom buttons zoom around the middle of the map instead of its top-left corner.
+- The map is drawn at screen resolution at every zoom, so links are no longer blurry at 200 %, and it draws only what is on screen, so panning and zooming a large map no longer lag. It can be dragged in any direction, a second drag no longer snaps it back to where it started, and it shows no scroll bars.
+- Clicking a link in the map opens the inspector when it is closed, since the link is described only there.
 
 ## [1.0.0] - 2026-10-12
 

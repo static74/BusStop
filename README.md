@@ -123,12 +123,11 @@ Bug reports with a raw capture (`busstop --raw > capture.json`) are the most use
 ## Credits
 
 - **[PortScope](https://github.com/azenla/portscope)** by Alex Zenla (MIT): the per-model catalogue of physical port locations.
+- **[The USB ID Repository](http://www.linux-usb.org/usb-ids.html)** (used under the 3-clause BSD License): the names of USB vendors, for devices that do not report their own. The list is built into the app; Bus Stop never downloads it.
 - **[WhatPort](https://github.com/darrylmorley/whatport)** and **[WhatCable](https://github.com/darrylmorley/whatcable)** by Darryl Morley (MIT): research on Apple's port controllers, SMC power channels and Thunderbolt chain attribution. Files that adapt their code say so at the top.
 - The Linux kernel's Thunderbolt driver ([`drivers/thunderbolt/tb_regs.h`](https://github.com/torvalds/linux/blob/master/drivers/thunderbolt/tb_regs.h)) documents the link speed codes Bus Stop decodes. No kernel code is used.
 
 Full licence texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which every build also carries in `Bus Stop.app/Contents/Resources`.
-
-Bus Stop was inspired by [ViewPorts](https://viewports.app/), a commercial menu bar app that maps a Mac's ports, devices and power. Bus Stop is an independent project written from public information; it shares no code or assets with ViewPorts and is not affiliated with its developer.
 
 ## Licence
 
