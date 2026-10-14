@@ -8,6 +8,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 - Topology map: drag to pan like a web map, and zoom around the pointer with a mouse scroll wheel. Trackpads still pan with two fingers and zoom with a pinch. Zoom now runs from 25 % to 200 %.
 - Click a link in the map to inspect it: the negotiated speed, the power across it and, for the cable in one of the Mac's own ports, what its e-marker chip says it is rated for (speed, power, current, voltage, EPR), with a note when the cable or the device is what limits the link. Hovering a link highlights it.
+- A Cables section in the window's sidebar lists every link below each port as "parent → child" with its speed. Clicking one opens it in the inspector and moves the map to it.
 - Port and device inspectors link to the cable and link page; the port's cable section shows rated power, maximum voltage and EPR support.
 
 - `docs/ROADMAP.md` with the planned features after 1.0.

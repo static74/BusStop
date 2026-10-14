@@ -39,6 +39,7 @@ enum TopologyOverviewMode: String, CaseIterable, Identifiable {
 struct WindowSidebar: View {
     var store: PortStore
     @Binding var selection: TopologySidebarItem?
+    @AppStorage("sidebarCablesExpanded") private var cablesExpanded = true
 
     var body: some View {
         List(selection: $selection) {
@@ -56,6 +57,8 @@ struct WindowSidebar: View {
                 }
             }
 
+            cablesSection
+
             Section("Details") {
                 Label("All Devices", systemImage: "list.bullet.rectangle")
                     .tag(TopologySidebarItem.devices)
@@ -68,6 +71,32 @@ struct WindowSidebar: View {
             }
         }
         .listStyle(.sidebar)
+    }
+
+    /// Every link below the Mac's ports, one group per port. A row opens the
+    /// link in the inspector and moves the map to it.
+    private var cablesSection: some View {
+        Section("Cables", isExpanded: $cablesExpanded) {
+            ForEach(store.visiblePorts.filter { !$0.devices.isEmpty }) { port in
+                let cables = SidebarCable.cables(below: port.devices, from: port.label.title)
+                DisclosureGroup {
+                    ForEach(cables) { cable in
+                        let link = StoreSelection.link(.device(cable.deviceID))
+                        SidebarCableRow(cable: cable, isSelected: store.selection == link) {
+                            store.reveal(link)
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Label(port.label.title, systemImage: "cable.connector")
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        WindowCountBadge(count: cables.count, color: Lagoon.textSecondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
     }
 
     private var eventsRow: some View {
@@ -109,5 +138,55 @@ struct SidebarPortRow: View {
         }
         .help(port.isConnected ? "\(port.label.title): connected" : "\(port.label.title): empty")
         .accessibilityLabel(WindowText.portAccessibility(port))
+    }
+}
+
+/// A link in the sidebar's Cables section: what it connects and its speed.
+nonisolated struct SidebarCable: Identifiable {
+    /// The device the link leads to.
+    var deviceID: String
+    var parentName: String
+    var childName: String
+    var link: LinkInfo?
+
+    var id: String { deviceID }
+
+    /// Every link below `devices` in tree order: from `parentName` to each
+    /// device, then from each device to the ones below it.
+    static func cables(below devices: [DeviceNode], from parentName: String) -> [SidebarCable] {
+        devices.flatMap { device in
+            [SidebarCable(deviceID: device.id, parentName: parentName, childName: device.name, link: device.link)]
+                + cables(below: device.children, from: device.name)
+        }
+    }
+}
+
+/// One link in the Cables section: "parent → child" and the negotiated rate.
+struct SidebarCableRow: View {
+    var cable: SidebarCable
+    var isSelected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        let title = "\(cable.parentName) → \(cable.childName)"
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundStyle(isSelected ? Lagoon.accent : Lagoon.textPrimary)
+                Spacer(minLength: 4)
+                if let rate = cable.link?.rateLabel {
+                    Text(rate)
+                        .lagoonFont(.caption2, monospacedDigits: true)
+                        .foregroundStyle(Lagoon.textSecondary)
+                        .fixedSize()
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel([title, cable.link?.rateLabel].compactMap { $0 }.joined(separator: ", "))
     }
 }
