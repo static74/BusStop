@@ -37,6 +37,15 @@ struct GraphNodeView: View {
             }
         }
         .opacity(isDimmed ? 0.28 : 1)
+        // Outside the dimming, so a dimmed card's focus ring stays at full strength.
+        .overlay {
+            if isFocused {
+                RoundedRectangle(cornerRadius: Lagoon.cardRadius + 3, style: .continuous)
+                    .strokeBorder(Lagoon.accentGlow, lineWidth: 2)
+                    .padding(-3)
+                    .allowsHitTesting(false)
+            }
+        }
         .onHover { isHovered = $0 }
         // New nodes fade in and slide 8 pt from their link (SPEC §4.5).
         .opacity(hasAppeared ? 1 : 0)
@@ -52,13 +61,6 @@ struct GraphNodeView: View {
             .background(background)
             .overlay(border)
             .shadow(color: isSelected ? Lagoon.accent.opacity(0.45) : .clear, radius: isSelected ? 12 : 0)
-            .overlay {
-                if isFocused {
-                    RoundedRectangle(cornerRadius: Lagoon.cardRadius + 3, style: .continuous)
-                        .strokeBorder(Lagoon.accentGlow, lineWidth: 2)
-                        .padding(-3)
-                }
-            }
             .contentShape(RoundedRectangle(cornerRadius: Lagoon.cardRadius, style: .continuous))
     }
 
