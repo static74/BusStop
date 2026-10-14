@@ -257,7 +257,7 @@ struct GraphMap: View {
                         isSelected: node.tag != nil && node.tag == selectedTag,
                         isDimmed: dimmed.contains(node.id),
                         onSelect: { if !didPan { onSelect(node) } },
-                        onPointer: { tooltip.cardPointerMoved(to: $0) }
+                        onPointer: { tooltip.cardPointerMoved(node.id, to: $0) }
                     )
                     .frame(width: node.frame.width, height: node.frame.height)
                     .scaleEffect(camera.scale)
@@ -311,7 +311,7 @@ struct GraphMap: View {
             }
         }
         // A tooltip stays where its chip was, so it goes when the map moves.
-        .onChange(of: camera) { tooltip.dismiss() }
+        .onChange(of: camera) { tooltip.cameraMoved() }
         .onChange(of: linkMode) { tooltip.dismiss() }
         .onChange(of: size) { old, new in
             // A resized window (the inspector opening, say) keeps the middle

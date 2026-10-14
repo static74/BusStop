@@ -104,6 +104,74 @@ struct GraphTooltipTests {
         #expect(state.shown == nil)
     }
 
+    let cardChip = GraphTooltipRegion(id: "port:1/power", text: "card", rect: CGRect(x: 0, y: 0, width: 50, height: 16))
+    let otherCardChip = GraphTooltipRegion(id: "port:2/power", text: "other card", rect: CGRect(x: 0, y: 100, width: 50, height: 16))
+    let linkChip = GraphTooltipRegion(id: "edge:a/speed", text: "link", rect: CGRect(x: 200, y: 0, width: 50, height: 16))
+
+    @Test @MainActor func movingOnFromATooltipShowsTheNextOneQuickly() async {
+        let state = GraphTooltipState()
+        state.initialDelay = .milliseconds(30)
+        state.setRegions([cardChip, linkChip])
+        state.mapPointerMoved(to: CGPoint(x: 10, y: 8))
+        await waitUntil { state.shown != nil }
+        #expect(state.shown?.id == cardChip.id)
+
+        // Too long to wait for: only the switch delay can bring the next one up.
+        state.initialDelay = .seconds(30)
+        state.mapPointerMoved(to: CGPoint(x: 210, y: 8))
+        #expect(state.shown == nil)
+        await waitUntil { state.shown != nil }
+        #expect(state.shown?.id == linkChip.id)
+    }
+
+    @Test @MainActor func pointerFallsBackFromTheCardToTheHitLayer() async {
+        let state = GraphTooltipState()
+        state.initialDelay = .milliseconds(10)
+        state.switchDelay = .milliseconds(10)
+        state.setRegions([cardChip, otherCardChip, linkChip])
+
+        state.mapPointerMoved(to: CGPoint(x: 210, y: 8))
+        await waitUntil { state.shown?.id == linkChip.id }
+        #expect(state.shown?.id == linkChip.id)
+
+        // The card reports last, so it wins.
+        state.cardPointerMoved("port:1", to: CGPoint(x: 10, y: 8))
+        await waitUntil { state.shown?.id == cardChip.id }
+        #expect(state.shown?.id == cardChip.id)
+
+        // Leaving the card goes back to what the hit layer last reported.
+        state.cardPointerMoved("port:1", to: nil)
+        await waitUntil { state.shown?.id == linkChip.id }
+        #expect(state.shown?.id == linkChip.id)
+
+        // A card left after another was entered does not clear the pointer.
+        state.cardPointerMoved("port:2", to: CGPoint(x: 10, y: 108))
+        state.cardPointerMoved("port:1", to: nil)
+        await waitUntil { state.shown?.id == otherCardChip.id }
+        #expect(state.shown?.id == otherCardChip.id)
+    }
+
+    @Test @MainActor func nothingShowsWhileTheWindowIsInactiveOrAfterTheMapMoves() async throws {
+        let state = GraphTooltipState()
+        state.initialDelay = .milliseconds(10)
+        state.setRegions([cardChip])
+        state.setActive(false)
+        state.cardPointerMoved("port:1", to: CGPoint(x: 10, y: 8))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(state.shown == nil)
+
+        state.setActive(true)
+        state.cardPointerMoved("port:1", to: CGPoint(x: 12, y: 8))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(state.shown == nil)
+
+        // After the map moves, the old pointer no longer counts.
+        state.cameraMoved()
+        state.setRegions([cardChip])
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(state.shown == nil)
+    }
+
     /// Waits up to two seconds for `condition`.
     @MainActor private func waitUntil(_ condition: () -> Bool) async {
         for _ in 0..<200 where !condition() {

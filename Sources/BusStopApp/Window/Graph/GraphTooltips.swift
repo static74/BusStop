@@ -57,7 +57,7 @@ nonisolated enum GraphTooltip {
     /// The smallest region containing `point`, so a chip wins over anything
     /// larger behind it.
     static func region(at point: CGPoint, in regions: [GraphTooltipRegion]) -> GraphTooltipRegion? {
-        regions
+        regions.lazy
             .filter { $0.rect.contains(point) }
             .min { $0.rect.width * $0.rect.height < $1.rect.width * $1.rect.height }
     }
@@ -87,14 +87,23 @@ extension View {
     /// Publishes this view as a tooltip region, measured in the enclosing
     /// `GraphTooltip.space`.
     func graphTooltip(_ text: String, id: String) -> some View {
-        background {
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: GraphTooltipRegionsKey.self,
-                    value: [GraphTooltipRegion(id: id, text: text, rect: proxy.frame(in: .named(GraphTooltip.space)))]
-                )
-            }
-        }
+        modifier(GraphTooltipModifier(text: text, id: id))
+    }
+}
+
+/// Keeps the view's rectangle in `GraphTooltip.space` and publishes it.
+/// That rectangle moves only when the card's content does, not when the map
+/// pans or zooms, so nothing here runs for a frame of a pan or zoom.
+struct GraphTooltipModifier: ViewModifier {
+    var text: String
+    var id: String
+    @State private var rect: CGRect?
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(GraphTooltip.space)) } action: { rect = $0 }
+            .preference(key: GraphTooltipRegionsKey.self,
+                        value: rect.map { [GraphTooltipRegion(id: id, text: text, rect: $0)] } ?? [])
     }
 }
 
@@ -110,7 +119,8 @@ extension View {
 final class GraphTooltipState {
     private(set) var shown: GraphTooltipRegion?
 
-    @ObservationIgnored var initialDelay = GraphTooltip.initialDelay
+    /// Overrides `GraphTooltip.initialDelay`, which is read when needed.
+    @ObservationIgnored var initialDelay: Duration?
     @ObservationIgnored var switchDelay = GraphTooltip.switchDelay
 
     @ObservationIgnored private var regions: [GraphTooltipRegion] = []
@@ -118,8 +128,13 @@ final class GraphTooltipState {
     /// it and the map's hit layer reported last.
     @ObservationIgnored private var pointer: CGPoint?
     @ObservationIgnored private var cardPointer: CGPoint?
+    /// The node whose card reported `cardPointer`. Only that card can clear
+    /// it, since the card left can report after the card entered.
+    @ObservationIgnored private var cardOwner: String?
     @ObservationIgnored private var mapPointer: CGPoint?
-    @ObservationIgnored private(set) var hoveredID: String?
+    @ObservationIgnored private var hoveredID: String?
+    /// False while the window does not appear active: nothing is shown.
+    @ObservationIgnored private var isActive = true
     /// Set by a click or a camera move: the chip under the pointer shows no
     /// tooltip until the pointer leaves it.
     @ObservationIgnored private var isSuppressed = false
@@ -131,10 +146,19 @@ final class GraphTooltipState {
         refresh()
     }
 
-    /// The pointer over a card, in layout coordinates; nil when it leaves.
-    func cardPointerMoved(to point: CGPoint?) {
-        cardPointer = point
-        pointer = point ?? mapPointer
+    /// The pointer over the card of node `node`, in layout coordinates; nil
+    /// when it leaves.
+    func cardPointerMoved(_ node: String, to point: CGPoint?) {
+        if let point {
+            cardOwner = node
+            cardPointer = point
+            pointer = point
+        } else {
+            guard cardOwner == node else { return }
+            cardOwner = nil
+            cardPointer = nil
+            pointer = mapPointer
+        }
         refresh()
     }
 
@@ -144,6 +168,24 @@ final class GraphTooltipState {
         mapPointer = point
         pointer = point ?? cardPointer
         refresh()
+    }
+
+    /// The map moved under the pointer: the pointer's layout position is
+    /// unknown until it reports again, so no chip can be shown for it.
+    func cameraMoved() {
+        pointer = nil
+        cardPointer = nil
+        cardOwner = nil
+        mapPointer = nil
+        dismiss()
+    }
+
+    /// Whether the window appears active. While it does not, the tooltip
+    /// stays hidden.
+    func setActive(_ isActive: Bool) {
+        guard isActive != self.isActive else { return }
+        self.isActive = isActive
+        dismiss()
     }
 
     /// Hides the tooltip until the pointer moves to another chip.
@@ -175,7 +217,7 @@ final class GraphTooltipState {
         }
         guard let id = region?.id else { return }
         let isWarm = lastHidden.map { ContinuousClock.now - $0 < GraphTooltip.warmPeriod } ?? false
-        let delay = isWarm ? switchDelay : initialDelay
+        let delay = isWarm ? switchDelay : (initialDelay ?? GraphTooltip.initialDelay)
         timer = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
@@ -184,7 +226,7 @@ final class GraphTooltipState {
     }
 
     private func show(_ id: String) {
-        guard id == hoveredID, !isSuppressed, let region = regions.first(where: { $0.id == id }) else { return }
+        guard id == hoveredID, !isSuppressed, isActive, let region = regions.first(where: { $0.id == id }) else { return }
         shown = region
     }
 }
@@ -215,8 +257,8 @@ struct GraphTooltipOverlay: View {
         .allowsHitTesting(false)
         // The chips carry the same text as accessibility labels.
         .accessibilityHidden(true)
-        .onChange(of: appearsActive) { _, isActive in
-            if !isActive { state.dismiss() }
+        .onChange(of: appearsActive, initial: true) { _, isActive in
+            state.setActive(isActive)
         }
     }
 }
