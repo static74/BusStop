@@ -46,3 +46,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
 - A Cables section in the sidebar lists every link below each port.
 - A Power mode colours the map's links by watts, with pulses that follow the power.
+- USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.

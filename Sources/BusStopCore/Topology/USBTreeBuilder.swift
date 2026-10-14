@@ -109,9 +109,9 @@ enum USBTreeBuilder {
         }
 
         for key in forest.byPort.keys.sorted() {
-            forest.byPort[key] = mergeCompanionHubs(forest.byPort[key] ?? [])
+            forest.byPort[key] = mergeCompanionHubs(forest.byPort[key] ?? []).map(withCatalogVendorNames)
         }
-        forest.unattributed = mergeCompanionHubs(forest.unattributed)
+        forest.unattributed = mergeCompanionHubs(forest.unattributed).map(withCatalogVendorNames)
         return forest
     }
 
@@ -238,6 +238,18 @@ enum USBTreeBuilder {
                           usbVersion: usbVersion, deviceClass: deviceClass, locationID: locationID,
                           link: LinkDecoding.usbDeviceLink(p), power: power(p), isTunneled: isTunneled,
                           properties: options.includeRawProperties ? p.withoutPlumbing() : nil)
+    }
+
+    /// `node` and its subtree, with the `USBVendorCatalog` name for every
+    /// device that reports no vendor name of its own. It runs after companion
+    /// hubs merge, so a hub half's own name wins over the catalogue's.
+    static func withCatalogVendorNames(_ node: DeviceNode) -> DeviceNode {
+        var node = node
+        if node.vendorName == nil, let vendorID = node.vendorID {
+            node.vendorName = USBVendorCatalog.name(forVendorID: vendorID)
+        }
+        node.children = node.children.map(withCatalogVendorNames)
+        return node
     }
 
     /// `"usb:<locationID hex 8>:<vid hex 4>:<pid hex 4>"`, with the registry

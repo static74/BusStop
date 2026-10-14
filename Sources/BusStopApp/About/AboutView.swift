@@ -46,7 +46,7 @@ struct AboutView: View {
                 .frame(width: 120, height: 1)
                 .padding(.vertical, 2)
 
-            Text("Port locations from PortScope by Alex Zenla. IOKit research informed by WhatPort and WhatCable by Darryl Morley.")
+            Text("Port locations from PortScope by Alex Zenla. USB vendor names from the USB ID Repository. IOKit research informed by WhatPort and WhatCable by Darryl Morley.")
                 .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textTertiary)
                 .multilineTextAlignment(.center)

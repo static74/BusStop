@@ -236,12 +236,13 @@ else
     pass "the app and the CLI are different binaries"
 fi
 
-# The MIT licences of PortScope, WhatPort and WhatCable require their notices
-# in every copy of the software.
+# The MIT licences of PortScope, WhatPort and WhatCable and the BSD licence of
+# the USB ID Repository require their notices in every copy of the software.
 LICENCE_TEXT="Permission is hereby granted"
 notice_file "Contents/Resources/LICENSE.txt" "$APP/Contents/Resources/LICENSE.txt" "$LICENCE_TEXT"
 notice_file "Contents/Resources/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md" \
-    "PortScope" "Alex Zenla" "WhatPort" "WhatCable" "Darryl Morley" "$LICENCE_TEXT"
+    "PortScope" "Alex Zenla" "WhatPort" "WhatCable" "Darryl Morley" "$LICENCE_TEXT" \
+    "USB ID Repository" "Redistribution and use in source and binary forms"
 
 section "Zip: $ZIP"
 if [[ -f "$ZIP" ]]; then

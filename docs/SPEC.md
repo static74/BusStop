@@ -274,6 +274,8 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 
 **USB device tree.** Parent = nearest `IOUSBHostDevice` ancestor. Hubs are `bDeviceClass == 9`. A USB 3 hub and its USB 2 companion are shown as one hub when both are present: same vendor and a matching name on the same physical port, and below the first level also the same downstream port and tier depth. Which half is which comes from the negotiated link speed, or from the declared USB version (`bcdUSB`) when there is no speed. At the first level, candidates are ranked by name, then by sharing the USB 3 half's host controller (top byte of `locationID`), then by product ID apart from its top four bits (VIA numbers the halves 0x0822 and 0x2822). When the best candidates still tie, nothing is merged. A first-level pair from different vendors (a Thunderbolt 5 dock's Intel USB 3 hub and its Fresco Logic USB 2 hub) merges only when it is the one pair whose child hubs are companions themselves. Trees are cut at 32 levels and Thunderbolt chains at 64 to stay safe on malformed captures.
 
+**USB vendor names.** A device's vendor name is its own `USB Vendor Name`, else `kUSBVendorString`; empty strings and placeholders such as "xxxxxxxx" count as missing. When a device has a vendor ID but no name of its own, the name comes from a table of USB vendor IDs that is built into Bus Stop, generated from the USB ID Repository's `usb.ids` by `scripts/generate-usb-vendors.py` and used under the 3-clause BSD License. The table holds vendors only, not products. A device's own name always wins: the table fills in names only after a USB 3 hub and its USB 2 companion are merged, so the merged hub keeps either half's own name. Bus Stop never fetches the list at run time.
+
 **Speed.** `UsbLinkSpeed` (bits/s) first; else `Device Speed` (0 Low 1.5 Mb/s, 1 Full 12 Mb/s, 2 High 480 Mb/s, 3 SuperSpeed 5 Gb/s, 4 SuperSpeed+ 10 Gb/s, 5 SuperSpeed+ 20 Gb/s); else `USBSpeed` (`tIOUSBHostConnectionSpeed`: 1 Full, 2 Low, 3 High, 4 Super, 5 Super+, 6 Super+ 2x2). Never mix the two enums.
 
 **Device power.** `UsbPowerSinkAllocation` (mA at 5 V) → mW = mA × 5. Legacy `Requested Power` ×2 mA as last resort. Hub roll-up = own allocation + descendants; hubs with `kUSBHubPowerSupply > 0` are marked self-powered and their downstream draw does not count toward the port.
@@ -363,7 +365,7 @@ The project was specified and built without a product owner in the loop. These a
 | SMC power reading | Included, optional, fails closed | It is the only live per-port output source on many Macs |
 | Widgets / App Intents | Deferred | Require team signing and an Xcode project |
 | Homebrew | Not in v1 | Homebrew disabled unsigned casks in September 2026 |
-| Licence | MIT | Matches the repository; MIT-licensed references (WhatPort, WhatCable, PortScope) are credited in `THIRD_PARTY_NOTICES.md`; no GPL code used |
+| Licence | MIT | Matches the repository; MIT-licensed references (WhatPort, WhatCable, PortScope) and the USB ID Repository's vendor list (used under its BSD-3-Clause option) are credited in `THIRD_PARTY_NOTICES.md`; no GPL code used |
 | Appearance | Always dark | The requested look is true dark; light mode would dilute it |
 
 ---
@@ -381,4 +383,5 @@ The project was specified and built without a product owner in the loop. These a
 - WhatPort (MIT): https://github.com/darrylmorley/whatport
 - WhatCable (MIT): https://github.com/darrylmorley/whatcable
 - PortScope (MIT, port-location catalogue): https://github.com/azenla/portscope
+- USB ID Repository (GPL-2.0-or-later or BSD-3-Clause, used under BSD-3-Clause; USB vendor names): http://www.linux-usb.org/usb-ids.html
 - GitHub Actions runner images: https://github.com/actions/runner-images

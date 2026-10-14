@@ -66,7 +66,8 @@ struct USBTopologyTests {
         let device = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1))?.devices.first)
         // No usable product name: the registry name is empty too, so a generic name.
         #expect(device.name == "USB Device 0x1460")
-        #expect(device.vendorName == nil)
+        // The placeholder vendor string counts as none: the name comes from the catalogue.
+        #expect(device.vendorName == "Apple, Inc.")
         #expect(device.serialNumber == "ABC123")
         #expect(device.id == "usb:reg-55:05ac:1460")
         #expect(device.locationID == nil)
@@ -76,7 +77,33 @@ struct USBTopologyTests {
         #expect(device.power?.allocatedMilliwatts == 500)
     }
 
+    @Test func vendorNameFallsBackToTheCatalogue() throws {
+        let raw = F.raw(ports: Self.twoPorts, usb: [
+            F.usb(id: 80, name: "Card Reader", vendor: 0x0BDA, location: 0x0110_0000, path: "x/Port-USB-C@1"),
+            F.usb(id: 81, parent: 80, name: "Own Name", vendor: 0x0BDA, location: 0x0111_0000,
+                  vendorName: "Realtek"),
+            F.usb(id: 82, parent: 80, name: "Unknown Vendor", vendor: 0xFFFF, location: 0x0112_0000),
+        ])
+        let devices = F.devicesByName(TopologyBuilder.build(raw))
+        #expect(devices["Card Reader"]?.vendorName == "Realtek Semiconductor Corp.")
+        #expect(devices["Own Name"]?.vendorName == "Realtek")
+        #expect(devices["Unknown Vendor"]?.vendorName == nil)
+    }
+
     // MARK: Hubs
+
+    @Test func companionHubKeepsTheOwnVendorNameOfEitherHalf() throws {
+        // The USB 3 half reports no vendor string; its USB 2 companion does.
+        let raw = F.raw(ports: Self.twoPorts, usb: [
+            F.usb(id: 90, name: "USB3.0 Hub", vendor: 0x2109, product: 0x0817, location: 0x0120_0000,
+                  speed: 5_000_000_000, deviceClass: 9, bcdUSB: 0x0320, path: "x/Port-USB-C@1"),
+            F.usb(id: 91, name: "USB2.0 Hub", vendor: 0x2109, product: 0x2817, location: 0x0110_0000,
+                  deviceClass: 9, bcdUSB: 0x0210, vendorName: "VIA Labs", path: "x/Port-USB-C@1"),
+        ])
+        let port = try #require(TopologyBuilder.build(raw).port(PortKey(type: 2, number: 1)))
+        #expect(port.devices.count == 1)
+        #expect(port.devices.first?.vendorName == "VIA Labs")
+    }
 
     @Test func usb3HubAndItsCompanionMerge() throws {
         let raw = F.raw(ports: Self.twoPorts, usb: [

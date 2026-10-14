@@ -103,6 +103,45 @@ THE SOFTWARE.
 
 ---
 
+## USB ID Repository
+
+- Project: http://www.linux-usb.org/usb-ids.html
+- Used for: the names of USB vendors, shown for a device that reports a vendor ID but no vendor name of its own. `scripts/generate-usb-vendors.py` converts the vendor list in `usb.ids` (http://www.linux-usb.org/usb.ids) into `Sources/BusStopCore/Labels/USBVendorCatalog+Data.swift`. Product names are not used. The table is built into Bus Stop, which never downloads the list.
+- Licence: the repository states that "the contents of the database and the generated files can be distributed under the terms of either the GNU General Public License (version 2 or later) or of the 3-clause BSD License." Bus Stop uses it under the 3-clause BSD License. The `usb.ids` file names no copyright holder, so the line below names the repository's contributors and its maintainer.
+
+```
+BSD 3-Clause License
+
+Copyright (c) the contributors to the USB ID Repository, maintained by Stephen J. Gowdy
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+---
+
 ## Linux kernel Thunderbolt register definitions
 
 Bus Stop decodes Thunderbolt and USB4 link speed codes (`Current Link Speed`: 0x8 = 10 Gb/s, 0x4 = 20 Gb/s, 0x2 = 40 Gb/s per lane) and link width codes as documented in the Linux kernel's [`drivers/thunderbolt/tb_regs.h`](https://github.com/torvalds/linux/blob/master/drivers/thunderbolt/tb_regs.h). Only these facts about the hardware registers are used. No code from the Linux kernel is copied into Bus Stop, and the kernel's GPL-2.0 licence therefore does not apply to Bus Stop.

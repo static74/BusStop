@@ -274,6 +274,8 @@ struct CableInspectorRows: View {
         InspectorRow(label: "Active", value: cable.isActive.map { $0 ? "Yes" : "No" })
         InspectorRow(label: "Optical", value: cable.isOptical.map { $0 ? "Yes" : "No" })
         InspectorRow(label: "Power Delivery", value: cable.pdRevision.map(InspectorFormat.pdRevision))
+        // E-marker vendor IDs are USB-IF IDs, so the built-in table names them.
+        InspectorRow(label: "Vendor", value: cable.vendorID.flatMap(USBVendorCatalog.name(forVendorID:)))
         InspectorRow(label: "Vendor ID", value: cable.vendorID.map(Format.hex4), monospaced: true)
         InspectorRow(label: "Product ID", value: cable.productID.map(Format.hex4), monospaced: true)
     }

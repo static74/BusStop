@@ -30,7 +30,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `Raw/` | `PlistValue` (a `Sendable`, `Codable` mirror of CoreFoundation property-list values), `PropertyBag` (forgiving typed accessors), `RawSnapshot` and its records (`RawNode`, `RawUSBDevice`, `RawThunderboltSwitch`, `SMCChannel`, `RawDisplay`). |
 | `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. |
 | `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, link decoding, power, displays, device classification. |
-| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, generic name) and the generated `PortLocationCatalog`. |
+| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, generic name), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
 | `Events/` | `SnapshotDiffer`, which turns two snapshots into `ConnectionEvent`s. |
 | `History/` | `PowerHistory`, the in-memory samples behind the sparklines. |
@@ -126,6 +126,10 @@ Labels resolve in this order (SPEC §5.4):
 
 A Mac missing from the catalogue still works; it just shows generic names until someone adds it.
 
+## USB vendor names
+
+A USB device that reports a vendor ID but no vendor name gets the name from `USBVendorCatalog`, a table of vendor IDs and names in `Sources/BusStopCore/Labels/USBVendorCatalog+Data.swift`. `scripts/generate-usb-vendors.py` writes that file from the USB ID Repository's `usb.ids` (used under the 3-clause BSD License), keeping the vendors and leaving out the products. The table is compiled in, and Bus Stop never downloads the list: to update it, download `usb.ids` yourself, run the script on it and commit the regenerated file, never editing it by hand. The generated file records which `usb.ids` version it came from.
+
 ## Testing
 
 | Layer | How it is tested |
@@ -161,10 +165,11 @@ Bus Stop.app/
     Resources/LICENSE.txt   Bus Stop's MIT License
     Resources/THIRD_PARTY_NOTICES.md
                             the MIT notices of PortScope, WhatPort and WhatCable
+                            and the BSD notice of the USB ID Repository
 ```
 
 The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed ad hoc with the hardened runtime (helper first, then the bundle). The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
 
-The MIT licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. The smoke test checks both.
+The MIT and BSD licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. The smoke test checks both.
 
 When `busstop` runs from inside the bundle (directly or through the symbolic link `scripts/install.sh --link-cli` makes), `--version` reads the bundle's `Info.plist`, so it reports the same version and build as the app.

@@ -11,6 +11,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A Cables section in the window's sidebar lists every link below each port as "parent → child" with its speed. Clicking one opens it in the inspector and moves the map to it.
 - A Data / Power toggle on the map. In Power mode links are coloured from grey through deep red, orange and amber to gold as watts rise, chips show watts (a port's measured reading, or "≤" a USB power budget), and pulses run the way the power flows, such as from a dock into the Mac.
 - Port and device inspectors link to the cable and link page; the port's cable section shows rated power, maximum voltage and EPR support.
+- A USB device that reports a vendor ID but no vendor name now shows the vendor's name from a table built into Bus Stop. `scripts/generate-usb-vendors.py` generates the table from the USB ID Repository's `usb.ids` (version 2026.06.26), used under the 3-clause BSD License, whose notice is in `THIRD_PARTY_NOTICES.md`. A device's own vendor name always wins, and Bus Stop still makes no network requests.
 
 - `docs/ROADMAP.md` with the planned features after 1.0.
 
