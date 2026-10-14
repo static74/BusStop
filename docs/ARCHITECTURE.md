@@ -140,15 +140,15 @@ A USB device that reports a vendor ID but no vendor name gets the name from `USB
 | Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle and the zip, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
 | App UI | Built on both supported Xcode versions in CI; checked by hand with demo mode. |
 
-CI runs on every push:
+CI runs on every pull request, and again on each push to it. Plain branch pushes and merges to `main` run nothing. Starting the workflow by hand (Actions › CI › Run workflow) also runs the macOS 27 job, which needs the paid `xcode-27` runner:
 
 - **Core (Linux, Swift 6.4)**: `swift test` in `swift:6.4-noble`.
-- **macOS 27 (Xcode 27)**: build, test, bundle, full smoke test, upload of `BusStop.zip`.
 - **macOS 26 (Xcode 26.6)**: build, test, universal bundle, smoke test without the live checks.
+- **macOS 27 (Xcode 27)**, by hand only: build, test, bundle, full smoke test, upload of `BusStop.zip`.
 
 Tags named `v*` run `.github/workflows/release.yml`, which builds a universal bundle stamped with the tag's version, runs the smoke test and publishes the zip with its SHA-256 checksum.
 
-Pushes to the main branches also run `.github/workflows/screenshots.yml`. Its `capture` job builds the app with a read-only token that the checkout does not store, captures every demo setup, the settings panes and the About window, and uploads the images as an artifact. Its `publish` job, the only one with write access, runs no project or third-party code: it downloads the artifact and force-pushes it to the `screenshots` branch, which the README's images come from.
+Starting `.github/workflows/screenshots.yml` by hand captures new screenshots on the `xcode-27` runner. Its `capture` job builds the app with a read-only token that the checkout does not store, captures every demo setup, the settings panes and the About window, and uploads the images as an artifact. Its `publish` job, the only one with write access, runs no project or third-party code: it downloads the artifact and force-pushes it to the `screenshots` branch, which the README's images come from.
 
 ## Packaging
 
