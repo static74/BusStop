@@ -2,6 +2,21 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-13: The topology window's title bar is transparent
+
+**Question.** With the inspector open, the toolbar's search field straddled the end of a gray band over the detail column, because the inspector's black runs up under the toolbar. How should the toolbar strip look?
+
+**Decision.** The topology window sets `titlebarAppearsTransparent`, so the toolbar strip shows the window's black over the map and the inspector alike (SPEC §4.1, "true dark"). The Export menu hides its chevron, so its icon sits in the middle of its glass circle.
+
+**Why.** The title bar drew a gray band over the detail column only; over the inspector, the inspector's black showed through. The search capsule began just left of that boundary, so it sat on the seam. A transparent title bar shows the window's own black under the whole strip, so no seam is left. The Export button is a `Menu`, whose disclosure chevron pushed the share icon left of centre.
+
+**Rejected alternatives.** Each was built and captured.
+
+- *Stop the inspector's background at the toolbar.* It left a step in the strip's gray from 42 to 35 and a hairline that ended at the column boundary.
+- *`.scrollEdgeEffectStyle(.soft, for: .top)` alone.* The gray band stayed.
+- *Search in the sidebar.* Search disappears from the window when the sidebar is collapsed.
+- *`.searchable` on the detail column, `DefaultToolbarItem(kind: .search)` declared before the buttons, a fixed `ToolbarSpacer` before search, or hiding the window toolbar's background.* None of them moved the field off the seam or removed the band.
+
 ## 2026-10-13: Map cards and chips render after the zoom, in one drawing group
 
 **Question.** How should the map's cards and speed/power chips stay sharp at every zoom, as the links already do?

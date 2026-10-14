@@ -182,7 +182,7 @@ SF Pro via system fonts. Titles `.headline` semibold; values `.body` with `.mono
 
 - Popover: system popover glass, `darkAqua` appearance, a `#000000` backing at the user's opacity (default 88%) so a hint of wallpaper glass shows at the edges.
 - Header controls: `GlassEffectContainer` with `.glassEffect(.regular.tint(accent.opacity(0.22)).interactive())` buttons.
-- Topology window: `containerBackground(.black, for: .window)`, glass sidebar and toolbar from the system, cards solid.
+- Topology window: true black under a transparent title bar, so the toolbar strip is black over the map and the inspector; glass sidebar and toolbar controls from the system, cards solid.
 - On macOS 27 SDK builds, AppKit glass views opt into the new interactive bounce (`NSGlassEffectView.effectIsInteractive`), guarded by `#if compiler(>=6.4)` and `#available(macOS 27, *)`.
 
 ### 4.5 Motion

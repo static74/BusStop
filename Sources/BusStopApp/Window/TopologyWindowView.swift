@@ -259,6 +259,7 @@ struct TopologyWindowView: View {
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
+            .menuIndicator(.hidden)
             .help("Export a snapshot, a report or a raw capture")
         }
 

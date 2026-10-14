@@ -148,6 +148,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
         window.contentViewController = host
         window.title = "Bus Stop"
         window.toolbarStyle = .unified
+        // The toolbar strip shows the window's black over map and inspector, not a gray band.
+        window.titlebarAppearsTransparent = true
         window.contentMinSize = Self.minimumTopologySize
         configureCommon(window)
 
