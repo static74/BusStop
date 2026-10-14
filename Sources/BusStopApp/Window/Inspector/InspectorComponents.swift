@@ -33,8 +33,10 @@ struct InspectorSection<Content: View>: View {
     }
 }
 
-/// A label/value row that hides itself when the value is unknown, with an
-/// optional copy button.
+/// A label with its value on the line below, using the full width of the
+/// inspector. A value too long for one line ends in "…" and shows in full as
+/// a tooltip. Hides itself when the value is unknown, with an optional copy
+/// button.
 struct InspectorRow: View {
     var label: String
     var value: String?
@@ -43,24 +45,33 @@ struct InspectorRow: View {
 
     var body: some View {
         if let value, !value.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(label)
-                        .foregroundStyle(Lagoon.textSecondary)
-                        .frame(minWidth: 110, alignment: .leading)
-                    Spacer(minLength: 8)
-                    Text(value)
-                        .lagoonFont(.callout, design: monospaced ? .monospaced : .default, monospacedDigits: true)
-                        .foregroundStyle(Lagoon.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                        .textSelection(.enabled)
-                }
-                .lagoonFont(.callout)
-                if copyable {
-                    WindowCopyButton(value: value, help: "Copy \(label)")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .lagoonFont(.callout)
+                    .foregroundStyle(Lagoon.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    // The first view fits whenever the whole value does, so
+                    // only a cut-off value gets the tooltip.
+                    ViewThatFits(in: .horizontal) {
+                        valueText(value)
+                        valueText(value).help(value)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if copyable {
+                        WindowCopyButton(value: value, help: "Copy \(label)")
+                    }
                 }
             }
         }
+    }
+
+    private func valueText(_ value: String) -> some View {
+        Text(value)
+            .lagoonFont(.callout, design: monospaced ? .monospaced : .default, monospacedDigits: true)
+            .foregroundStyle(Lagoon.textPrimary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .textSelection(.enabled)
     }
 }
 
