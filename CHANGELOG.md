@@ -31,6 +31,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - The zoom buttons zoom around the middle of the map instead of its top-left corner.
 - The map is drawn at screen resolution at every zoom, so links are no longer blurry at 200 %, and it draws only what is on screen, so panning and zooming a large map no longer lag. It can be dragged in any direction, a second drag no longer snaps it back to where it started, and it shows no scroll bars.
 - Clicking a link in the map opens the inspector when it is closed, since the link is described only there.
+- Map cards and speed/power chips are now sharp at every zoom. They were drawn at 100 % and enlarged, which looked pixelated at 200 %, most visibly on non-Retina displays.
 
 ## [1.0.0] - 2026-10-12
 

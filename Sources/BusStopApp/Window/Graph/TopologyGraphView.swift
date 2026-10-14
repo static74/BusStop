@@ -241,21 +241,32 @@ struct GraphMap: View {
             // Pulses rest while the map moves, so moving stays smooth.
             GraphPulseLayer(tracks: pulseTracks.filter { $0.curve.path.boundingRect.intersects(visible) },
                             camera: camera, animate: animate && drag == .zero && pinch == nil)
-            GraphChipsLayer(edges: layout.edges.filter { $0.chipPoint.map(visible.contains) ?? false },
-                            dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6, camera: camera,
-                            mode: linkMode, powers: powers)
-            ForEach(layout.nodes.filter { $0.frame.intersects(visible) }) { node in
-                GraphNodeView(
-                    node: node,
-                    snapshot: snapshot,
-                    isSelected: node.tag != nil && node.tag == selectedTag,
-                    isDimmed: dimmed.contains(node.id),
-                    onSelect: { if !didPan { onSelect(node) } }
-                )
-                .frame(width: node.frame.width, height: node.frame.height)
-                .scaleEffect(camera.scale)
-                .position(camera.screenPoint(CGPoint(x: node.frame.midX, y: node.frame.midY)))
+            ZStack(alignment: .topLeading) {
+                GraphChipsLayer(edges: layout.edges.filter { $0.chipPoint.map(visible.contains) ?? false },
+                                dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6, camera: camera,
+                                mode: linkMode, powers: powers)
+                ForEach(layout.nodes.filter { $0.frame.intersects(visible) }) { node in
+                    GraphNodeView(
+                        node: node,
+                        snapshot: snapshot,
+                        isSelected: node.tag != nil && node.tag == selectedTag,
+                        isDimmed: dimmed.contains(node.id),
+                        onSelect: { if !didPan { onSelect(node) } }
+                    )
+                    .frame(width: node.frame.width, height: node.frame.height)
+                    .scaleEffect(camera.scale)
+                    .position(camera.screenPoint(CGPoint(x: node.frame.midX, y: node.frame.midY)))
+                }
             }
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            // `scaleEffect` alone enlarges a bitmap drawn at 100 %, so cards
+            // and chips went soft above 100 %. A drawing group renders them
+            // after the zoom, at the screen's resolution. Everything inside
+            // must be pure SwiftUI drawing (text, shapes, SF Symbols): a
+            // drawing group shows glass, materials, `ProgressView`, `Menu`,
+            // `TextField`, system-styled controls and `NSViewRepresentable`s
+            // as placeholders. See docs/decisions.md.
+            .drawingGroup()
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         // The canvases cannot animate, so neither do the cards when the

@@ -25,6 +25,9 @@ struct TopologyWindowView: View {
     @State private var camera: GraphCamera?
     /// On screen, not minimised and not covered: the graph pulses only then.
     @State private var isWindowVisible = true
+    /// False from the window closing until it is shown again. The map is left
+    /// out meanwhile, so its drawing group gives back its textures.
+    @State private var isWindowOpen = true
     /// The last `store.revealGeneration` this window acted on.
     @State private var handledReveal = 0
     /// A node waiting to be scrolled into view by the graph or the list.
@@ -56,8 +59,14 @@ struct TopologyWindowView: View {
         .frame(minWidth: 860, minHeight: 540)
         .background {
             HostingWindowObserver(
-                onVisibilityChange: { isWindowVisible = $0 },
-                onClose: { camera = nil }
+                onVisibilityChange: { visible in
+                    isWindowVisible = visible
+                    if visible { isWindowOpen = true }
+                },
+                onClose: {
+                    camera = nil
+                    isWindowOpen = false
+                }
             )
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
@@ -123,7 +132,7 @@ struct TopologyWindowView: View {
     @ViewBuilder
     private func overview(ports: [PhysicalPort], includeOther: Bool) -> some View {
         switch overviewMode {
-        case .graph:
+        case .graph where isWindowOpen:
             TopologyGraphView(
                 store: store,
                 ports: ports,
@@ -133,6 +142,8 @@ struct TopologyWindowView: View {
                 isWindowVisible: isWindowVisible,
                 scrollRequest: $scrollRequest
             )
+        case .graph:
+            EmptyView()
         case .list:
             TopologyOutlineView(
                 store: store,
