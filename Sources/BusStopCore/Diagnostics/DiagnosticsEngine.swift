@@ -51,47 +51,76 @@ public enum DiagnosticsEngine {
     /// USB 3 devices linked at 480 Mb/s or slower on a port that supports
     /// USB 3 or Thunderbolt. Devices below one that is already reported are
     /// skipped, since the upstream device explains them.
+    ///
+    /// The trees are read as they were before a dock's built-in parts were
+    /// folded (`DeviceNode.unfolded()`), so a built-in hub still explains
+    /// the devices behind it; its finding points at the dock.
     static func usb2Fallbacks(_ snapshot: HostSnapshot) -> [Diagnostic] {
         var findings: [Diagnostic] = []
+        let docks = partDocks(snapshot)
         for port in snapshot.ports
         where port.supportedTransports.contains(.usb3) || port.supportedTransports.contains(.cio) {
             for root in port.devices {
-                collectUSB2Fallbacks(root, parent: nil, port: port, ancestorReported: false, into: &findings)
+                collectUSB2Fallbacks(root.unfolded(), parent: nil, port: port, docks: docks, ancestorReported: false,
+                                     into: &findings)
             }
         }
         return findings
     }
 
+    /// Walks one tree. The finding is made in a separate function so this
+    /// recursive frame stays small: trees can be up to 64 levels deep.
     private static func collectUSB2Fallbacks(_ device: DeviceNode, parent: DeviceNode?, port: PhysicalPort,
-                                             ancestorReported: Bool, into findings: inout [Diagnostic]) {
+                                             docks: [String: DeviceNode], ancestorReported: Bool,
+                                             into findings: inout [Diagnostic]) {
         let isFallback = isUSB2Fallback(device)
         if isFallback && !ancestorReported {
-            let name = displayName(device)
-            let rate = device.link?.bitsPerSecond.map(Format.dataRate(bitsPerSecond:)) ?? "USB 2 speed"
-            let version = device.usbVersion.map { "USB \($0)" } ?? "USB 3"
-            var detail = "\(name) supports \(version) but is connected at \(rate) on \(port.label.title). "
-                + "The port supports USB 3 at 5 Gb/s or faster."
-            var suggestion = "Unplug it and plug it back in firmly. If it stays slow, try another cable: "
-                + "many USB-C cables, including most charging cables, carry only USB 2 data."
-            if let parent, isHub(parent), !isUSB3Capable(parent),
-               let parentRate = parent.link?.bitsPerSecond, parentRate <= usb2MaxBitsPerSecond {
-                detail += " It is connected through \(displayName(parent)), which only supports USB 2."
-                suggestion = "Connect it directly to the Mac or through a USB 3 hub."
-            }
-            findings.append(Diagnostic(
-                id: "\(DiagnosticKind.usb2Fallback.rawValue):\(device.id)",
-                kind: .usb2Fallback,
-                severity: .warning,
-                title: "\(name) is running at USB 2 speed",
-                detail: detail,
-                suggestion: suggestion,
-                portKey: port.key,
-                deviceID: device.id))
+            findings.append(usb2FallbackFinding(device, parent: parent, port: port, dock: docks[device.id]))
         }
         for child in device.children {
-            collectUSB2Fallbacks(child, parent: device, port: port, ancestorReported: ancestorReported || isFallback,
-                                 into: &findings)
+            collectUSB2Fallbacks(child, parent: device, port: port, docks: docks,
+                                 ancestorReported: ancestorReported || isFallback, into: &findings)
         }
+    }
+
+    /// The finding for `device`, which runs at USB 2 speed. A part built into
+    /// `dock` is reported against the dock.
+    private static func usb2FallbackFinding(_ device: DeviceNode, parent: DeviceNode?, port: PhysicalPort,
+                                            dock: DeviceNode?) -> Diagnostic {
+        let name = displayName(device)
+        let rate = device.link?.bitsPerSecond.map(Format.dataRate(bitsPerSecond:)) ?? "USB 2 speed"
+        let version = device.usbVersion.map { "USB \($0)" } ?? "USB 3"
+        var detail = "\(name) supports \(version) but is connected at \(rate) on \(port.label.title). "
+            + "The port supports USB 3 at 5 Gb/s or faster."
+        var suggestion = "Unplug it and plug it back in firmly. If it stays slow, try another cable: "
+            + "many USB-C cables, including most charging cables, carry only USB 2 data."
+        if let dock {
+            detail += " It is built into \(displayName(dock))."
+            suggestion = "Unplug the dock and plug it back in firmly. If it stays slow, try the cable that "
+                + "came with the dock."
+        } else if let parent, isHub(parent), !isUSB3Capable(parent),
+                  let parentRate = parent.link?.bitsPerSecond, parentRate <= usb2MaxBitsPerSecond {
+            detail += " It is connected through \(displayName(parent)), which only supports USB 2."
+            suggestion = "Connect it directly to the Mac or through a USB 3 hub."
+        }
+        return Diagnostic(
+            id: "\(DiagnosticKind.usb2Fallback.rawValue):\(device.id)",
+            kind: .usb2Fallback,
+            severity: .warning,
+            title: "\(name) is running at USB 2 speed",
+            detail: detail,
+            suggestion: suggestion,
+            portKey: port.key,
+            deviceID: dock?.id ?? device.id)
+    }
+
+    /// Built-in part ID → the dock it is built into.
+    static func partDocks(_ snapshot: HostSnapshot) -> [String: DeviceNode] {
+        var result: [String: DeviceNode] = [:]
+        for (device, _, _) in snapshot.allDevices {
+            for part in device.internalParts ?? [] where result[part.id] == nil { result[part.id] = device }
+        }
+        return result
     }
 
     /// A USB 3 device (`bcdUSB` 0x0300 or higher) whose link runs at 480 Mb/s or slower.
@@ -353,10 +382,15 @@ public enum DiagnosticsEngine {
     // MARK: Hub power budget
 
     /// Bus-powered hubs whose devices are allocated more power than the hub's
-    /// upstream link can supply.
+    /// upstream link can supply. A dock's built-in hubs are checked with what
+    /// hangs off them, as in `usb2Fallbacks`, and point at the dock.
     static func hubsOverBudget(_ snapshot: HostSnapshot) -> [Diagnostic] {
         var findings: [Diagnostic] = []
-        for (device, port, _) in snapshot.allDevices where isHub(device) && isBusPowered(device) {
+        let docks = partDocks(snapshot)
+        let roots: [(DeviceNode, PhysicalPort?)] = snapshot.ports.flatMap { port in port.devices.map { ($0, port) } }
+            + snapshot.otherDevices.map { ($0, nil) }
+        let devices = roots.flatMap { root, port in root.unfolded().flattened().map { ($0.device, port) } }
+        for (device, port) in devices where isHub(device) && isBusPowered(device) {
             let allocated = device.children.reduce(0) { $0 + $1.rolledUpMilliwatts }
             let isUSB3 = isUSB3Link(device)
             let budget = isUSB3 ? usb3HubBudgetMilliwatts : usb2HubBudgetMilliwatts
@@ -376,7 +410,7 @@ public enum DiagnosticsEngine {
                 suggestion: "Use a hub with its own power adapter, or move drives and other power-hungry "
                     + "devices to another port.",
                 portKey: port?.key,
-                deviceID: device.id))
+                deviceID: docks[device.id]?.id ?? device.id))
         }
         return findings
     }

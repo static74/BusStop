@@ -131,6 +131,46 @@ struct InspectorLinkRow: View {
     }
 }
 
+/// One part built into a dock: icon, name, and vendor, speed and power on a
+/// second line (with the location ID when another part has the same name).
+/// Not selectable, since a part has no page of its own; the tooltip gives
+/// its IDs.
+struct InspectorPartRow: View {
+    var part: DeviceNode
+    /// Every part of the dock, to tell parts with the same name apart.
+    var siblings: [DeviceNode] = []
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: part.kind.symbolName)
+                .lagoonFont(size: 11, weight: .semibold)
+                .foregroundStyle(Lagoon.textSecondary)
+                .frame(width: 16)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(part.name)
+                    .lagoonFont(.callout)
+                    .foregroundStyle(Lagoon.textPrimary)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+                Text(WindowText.partDetail(part, siblings: siblings))
+                    .lagoonFont(.caption, monospacedDigits: true)
+                    .foregroundStyle(Lagoon.textSecondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .help(tooltip)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var tooltip: String {
+        [part.vendorProductIDString, part.locationID.map { "Location \(Format.hex8($0))" }, part.kind.displayName]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+}
+
 /// Text field for a port's custom name. Commits on Return or when focus
 /// leaves; an empty name restores the catalogue or generic name.
 ///

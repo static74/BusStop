@@ -93,6 +93,14 @@ struct LinkEnds {
         }
     }
 
+    /// The dock part a device hangs off when the folding of the dock's
+    /// built-in parts moved it up to the dock (`DeviceNode.internalParentID`).
+    var builtInPart: DeviceNode? {
+        guard case .device(let dock) = parent, case .device(let device) = child,
+              let partID = device.internalParentID else { return nil }
+        return dock.internalParts?.first { $0.id == partID }
+    }
+
     var childName: String {
         switch child {
         case .port(let port): return port.label.title
@@ -183,6 +191,10 @@ struct LinkInspector: View {
                 default:
                     LinkInspectorNote(text: "This cable is plugged into \(parentName), not into the Mac, so the "
                         + "Mac cannot read its e-marker chip. Its speed above is what the link negotiated.")
+                    if let part = ends.builtInPart {
+                        LinkInspectorNote(text: "Inside the dock, the port it uses belongs to \(part.name), "
+                            + "which is built into \(parentName).")
+                    }
                 }
             }
         }

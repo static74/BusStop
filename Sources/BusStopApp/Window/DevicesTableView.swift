@@ -33,10 +33,7 @@ struct DevicesTableView: View {
     var body: some View {
         let rows = makeRows().sorted(using: sortOrder)
         VStack(alignment: .leading, spacing: 14) {
-            WindowDetailHeader(
-                title: "All Devices",
-                subtitle: WindowText.count(store.snapshot.deviceCount, "device", "devices") + " on every port and hub"
-            )
+            WindowDetailHeader(title: "All Devices", subtitle: WindowText.devicesSubtitle(store.snapshot))
             .padding(.horizontal, 24)
             .padding(.top, 20)
 

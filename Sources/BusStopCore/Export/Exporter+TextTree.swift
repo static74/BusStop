@@ -123,7 +123,8 @@ enum TextTree {
         }
     }
 
-    /// "Samsung T9 · 10 Gb/s · 4.5 W".
+    /// "Samsung T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
+    /// as they get no card on the map.
     static func deviceText(_ device: DeviceNode) -> String {
         let name = clean(device.name)
         var parts = [name.isEmpty ? device.kind.displayName : name]

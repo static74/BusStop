@@ -241,7 +241,10 @@ final class NotificationManager {
         case .chargerConnected, .chargerDisconnected:
             return "charger:" + (subject(of: event) ?? event.id)
         case .linkChanged:
-            return "link:" + (event.deviceID ?? subject(of: event) ?? event.id)
+            // The subject, not `deviceID`: a dock's built-in part reports its
+            // link change with the dock as `deviceID`, and must not replace
+            // the dock's own link change.
+            return "link:" + (event.subjectID ?? subject(of: event) ?? event.deviceID ?? event.id)
         case .diagnosticRaised:
             // Several findings can name one device, so use the finding id.
             return "issue:" + (subject(of: event) ?? event.id)

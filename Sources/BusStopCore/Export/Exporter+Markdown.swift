@@ -196,10 +196,19 @@ private struct MarkdownReport {
 
     // MARK: Devices
 
-    /// One bullet per device, nested two spaces per level.
+    /// One bullet per device, nested two spaces per level. A dock's built-in
+    /// parts are not devices of their own: they are named on one "Built in"
+    /// bullet below the dock, like the dock's inspector lists them.
     private mutating func deviceTree(_ device: DeviceNode, depth: Int) {
         let indent = String(repeating: "  ", count: depth)
         lines.append("\(indent)- \(deviceText(device))")
+        if let parts = device.internalParts, !parts.isEmpty {
+            let names = parts.map { part in
+                let name = Self.escape(part.name)
+                return name.isEmpty ? part.kind.displayName : name
+            }
+            lines.append("\(indent)  - Built in: \(names.joined(separator: ", "))")
+        }
         for child in device.children { deviceTree(child, depth: depth + 1) }
     }
 

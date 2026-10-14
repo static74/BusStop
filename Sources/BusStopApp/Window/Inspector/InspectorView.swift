@@ -370,6 +370,7 @@ struct DeviceInspector: View {
         identitySection
         if let link = device.link { LinkInspectorSection(link: link) }
         powerSection
+        if let parts = device.internalParts, !parts.isEmpty { builtInSection(parts) }
         topologySection
         InspectorRawKeysSection(properties: device.properties, showRawKeys: store.settings.showRawKeys)
     }
@@ -415,6 +416,21 @@ struct DeviceInspector: View {
         }
     }
 
+    /// The dock's own hubs and USB functions, which have no card or row of
+    /// their own (`DockParts`).
+    private func builtInSection(_ parts: [DeviceNode]) -> some View {
+        InspectorSection(title: "Built into this dock", trailing: "\(parts.count)") {
+            ForEach(parts) { part in
+                InspectorPartRow(part: part, siblings: parts)
+            }
+            Text("These hubs and functions are inside the dock, so the map and the device lists leave them out. "
+                + "Devices plugged into the dock's ports still appear, attached to the dock.")
+                .lagoonFont(.caption)
+                .foregroundStyle(Lagoon.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var topologySection: some View {
         InspectorSection(title: "Topology") {
             if let port {
@@ -429,6 +445,7 @@ struct DeviceInspector: View {
             InspectorRow(label: "Chain depth", value: device.chainDepth.map { "\($0)" })
             InspectorRow(label: "Children", value: "\(device.children.count)")
             InspectorRow(label: "All devices below", value: "\(device.descendantCount)")
+            InspectorRow(label: "Built-in parts", value: device.internalParts.map { "\($0.count)" })
             ForEach(device.children) { child in
                 InspectorLinkRow(systemName: child.kind.symbolName, title: child.name, detail: child.link?.rateLabel) {
                     store.selection = .device(child.id)

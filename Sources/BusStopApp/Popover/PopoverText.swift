@@ -136,6 +136,9 @@ enum PopoverText {
             }
             parts.append(rollUp)
         }
+        if let builtIn = device.internalParts, !builtIn.isEmpty {
+            parts.append(count(builtIn.count, "built-in part", "built-in parts"))
+        }
         return parts.joined(separator: ", ")
     }
 
@@ -152,6 +155,9 @@ enum PopoverText {
         }
         if !device.children.isEmpty, let rollUp = rollUp(for: device) {
             lines.append("Downstream: \(rollUp)")
+        }
+        if let parts = device.internalParts, !parts.isEmpty {
+            lines.append("Built in: \(parts.map(\.name).joined(separator: ", "))")
         }
         if let vendor = device.vendorName { lines.append("Vendor: \(vendor)") }
         if let ids = device.vendorProductIDString { lines.append("IDs: \(ids)") }

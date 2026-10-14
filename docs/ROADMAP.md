@@ -44,6 +44,7 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - The topology map pans freely by dragging, zooms with the scroll wheel or a pinch, stays sharp at every zoom, and shows a cable's details in the inspector when its link is clicked.
 - Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map, in the list and in the command-line tree.
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
+- A Thunderbolt dock's built-in hubs and USB functions fold into the dock's card and are listed in its inspector, so the map draws only devices joined by real cables (checked against the Anker Prime capture).
 - A Cables section in the sidebar lists every link below each port.
 - A Power mode colours the map's links by watts, with pulses that follow the power.
 - USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.

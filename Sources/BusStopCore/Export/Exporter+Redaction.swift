@@ -3,8 +3,9 @@ import Foundation
 /// Redaction for exports.
 ///
 /// What is removed:
-/// - every `serialNumber` of devices, chargers and displays (display serials
-///   are numbers, so they become nil; the others become "REDACTED");
+/// - every `serialNumber` of devices (a dock's built-in parts included),
+///   chargers and displays (display serials are numbers, so they become nil;
+///   the others become "REDACTED");
 /// - in every property bag, at any depth, values whose key contains "serial"
 ///   (any case) or is "ConnectionUUID";
 /// - the serial number fields inside EDID blobs, in the base block and in
@@ -242,7 +243,9 @@ extension Exporter {
             }
         }
         for entry in snapshot.allDevices {
-            if let serial = entry.device.serialNumber { serials.insert(serial) }
+            for device in [entry.device] + (entry.device.internalParts ?? []) {
+                if let serial = device.serialNumber { serials.insert(serial) }
+            }
         }
         return serials
     }
@@ -346,6 +349,8 @@ private final class Redactor {
         if device.serialNumber != nil { device.serialNumber = Exporter.redactedText }
         device.properties = device.properties.map(bag)
         device.children = device.children.map(self.device)
+        device.internalParts = device.internalParts?.map(self.device)
+        device.internalParentID = device.internalParentID.map(id)
         return device
     }
 

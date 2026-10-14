@@ -19,6 +19,9 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 - Links that run together in the map no longer look brighter where they overlap, and links leaving one card start from separate points instead of a single one.
 - A monitor that reaches a port through a Thunderbolt dock is drawn under the dock in the map.
+- Device counts (the window subtitle, the menu bar text, All Devices, port and dock roll-ups, Markdown reports and `busstop --watch`) count only the devices drawn on the map, so they no longer include a dock's built-in parts: 27 devices became 20 on the Anker Prime capture. The All Devices subtitle says when built-in parts are left out, and the Dock station demo shows 8 devices instead of 9.
+- JSON snapshots: a dock's built-in parts move from its `children` to a new `internalParts` list, and a device that hangs off a built-in part records it in `internalParentID`. Snapshots without built-in parts are unchanged, and older exports still decode.
+- A built-in hub's USB 2 fallback and power budget findings point at the dock, and its link speed changes are reported naming the dock. A device that becomes a built-in part, or stops being one, raises no connect or disconnect event.
 
 ### Fixed
 
@@ -35,6 +38,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - With the inspector open, the toolbar no longer ends in a gray band that the search field overlapped. The Export button's icon is centred.
 - The topology window no longer crashes on the Events page, or on Diagnostics while it lists a finding, when the inspector is open in a window narrower than about 1100 pt. Events' filter and Clear button move under the title when they do not fit beside it, instead of being clipped, and a finding's Show buttons stack the same way.
 - Resting the pointer on a speed chip, transport chip or power badge on the map now shows what it means, such as "USB 3.2 Gen 2 @ 10 Gb/s" or "4.5 W to devices (allocated)". The map draws these tooltips itself, at the same size at every zoom; the chips on the links have them too.
+- A Thunderbolt dock's own USB parts (its USB root hub, its internal hubs and its own USB functions, such as its firmware endpoints, Ethernet and card reader) no longer appear as separate devices joined to the dock by what looked like cables. The map, the list and the command-line tree show one dock card with the devices plugged into the dock's ports, and do not mention the parts. The dock's inspector lists the built-in parts with their vendor, speed and power; VoiceOver says how many there are; Copy Details in the popover and the dock's entry in a Markdown report name them on a "Built in" line. On the Anker Prime TB5 capture, eight cards (the dock and seven built-in parts) became one. The rules are strict: a part that cannot be told apart from an external device stays on the map, and power figures do not change.
 
 ## [1.0.0] - 2026-10-12
 
