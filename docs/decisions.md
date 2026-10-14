@@ -6,13 +6,13 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Question.** With the inspector open, the toolbar's search field straddled the end of a gray band over the detail column, because the inspector's black runs up under the toolbar. How should the toolbar strip look?
 
-**Decision.** The title bar is transparent on the map (an overview or port page in Graph mode) and on the All Ports and All Devices tables. `TopologyWindowView` sets it through `HostingWindowObserver`. On those pages the toolbar strip shows the window's black over the page and the inspector alike (SPEC §4.1, "true dark"). Power, Diagnostics, Events and the List overview keep the system's opaque title bar. The Export menu hides its chevron.
+**Decision.** The title bar is transparent on the map (an overview or port page in Graph mode), the All Ports and All Devices tables, Events, and Diagnostics while it has no findings. `TopologyWindowView` sets it through `HostingWindowObserver`. On those pages the toolbar strip shows the window's black over the page and the inspector alike (SPEC §4.1, "true dark"). Power, the List overview and Diagnostics with findings keep the system's opaque title bar. The Export menu hides its chevron.
 
-**Why.** Over the map, which has no scroll view, the title bar drew an opaque gray band (40/255), while the inspector's black ran up under the toolbar. The search capsule began just left of that boundary. The map is clipped to its frame, so a transparent title bar there shows only black. The tables' rows scroll only under their own column headers, below the page title, so nothing passes under the strip there either.
+**Why.** Over the map, which has no scroll view, the title bar drew an opaque gray band (40/255), while the inspector's black ran up under the toolbar. The search capsule began just left of that boundary. The map is clipped to its frame, so a transparent title bar there shows only black. The rows of the two tables and of Events scroll only below their page header, and Diagnostics has no scroll view while it has no findings, so nothing passes under the strip on those pages either.
 
 Pages that scroll need the opaque title bar. A transparent bar on every page was built first. Under it, rows scrolled up showed crisp under the title and the toolbar buttons on the List, Power and Diagnostics pages. With the opaque bar, those rows stay hidden or dimmed as before.
 
-With the inspector open, the opaque-bar pages that scroll measure 8/255 over the detail column against 3 to 5 over the inspector, so no seam shows. The empty Events page has no scroll view and keeps a gray band (about 35/255) that ends at the inspector. On main, Power and Diagnostics also turned gray (30/255) once the window had shown the map; switching the title bar back to opaque resets that. Whether the window is active makes no difference.
+With the inspector open, the opaque-bar pages measure 8 to 16/255 over the detail column against 3 to 5 over the inspector, so no page shows a seam. On main, Power and Diagnostics turned gray (30/255) once the window had shown the map; switching the title bar back to opaque resets that. Whether the window is active makes no difference.
 
 The Export button is a `Menu`, whose disclosure chevron pushed the share icon left of centre.
 

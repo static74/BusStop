@@ -164,14 +164,15 @@ struct TopologyWindowView: View {
         }
     }
 
-    /// Pages with nothing that scrolls under the toolbar strip: the map, and
-    /// the two tables, whose rows scroll only under their own column headers.
-    /// Every other page keeps the opaque title bar, which hides or dims rows
-    /// scrolled under it.
+    /// Pages with nothing that scrolls under the toolbar strip: the map; the
+    /// two tables and Events, whose rows scroll only below their page header;
+    /// and Diagnostics while it has nothing to list. Every other page keeps
+    /// the opaque title bar, which hides or dims rows scrolled under it.
     private var titlebarIsClear: Bool {
         switch sidebarSelection ?? .overview {
         case .overview, .port: return overviewMode == .graph
-        case .allPorts, .devices: return true
+        case .allPorts, .devices, .events: return true
+        case .diagnostics: return store.snapshot.diagnostics.isEmpty
         default: return false
         }
     }
