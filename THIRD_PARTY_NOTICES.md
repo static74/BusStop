@@ -107,12 +107,12 @@ THE SOFTWARE.
 
 - Project: http://www.linux-usb.org/usb-ids.html
 - Used for: the names of USB vendors, shown for a device that reports a vendor ID but no vendor name of its own. `scripts/generate-usb-vendors.py` converts the vendor list in `usb.ids` (http://www.linux-usb.org/usb.ids) into `Sources/BusStopCore/Labels/USBVendorCatalog+Data.swift`. Product names are not used. The table is built into Bus Stop, which never downloads the list.
-- Licence: the repository states that "the contents of the database and the generated files can be distributed under the terms of either the GNU General Public License (version 2 or later) or of the 3-clause BSD License." Bus Stop uses it under the 3-clause BSD License. The `usb.ids` file names no copyright holder, so the line below names the repository's contributors and its maintainer.
+- Licence: the repository states that "the contents of the database and the generated files can be distributed under the terms of either the GNU General Public License (version 2 or later) or of the 3-clause BSD License." Bus Stop uses it under the 3-clause BSD License. The `usb.ids` file names no copyright holder, so the copyright line below is left blank.
 
 ```
 BSD 3-Clause License
 
-Copyright (c) the contributors to the USB ID Repository, maintained by Stephen J. Gowdy
+Copyright (c)
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
