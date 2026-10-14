@@ -165,6 +165,8 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
     public var connectedPorts: [PhysicalPort] { ports.filter(\.isConnected) }
 
     /// Devices on every port plus unattributed ones, counting every level.
+    /// Parts built into a dock (`DeviceNode.internalParts`) are not devices
+    /// of their own and are not counted.
     public var deviceCount: Int {
         ports.reduce(0) { $0 + $1.deviceCount } + otherDevices.reduce(0) { $0 + 1 + $1.descendantCount }
     }
@@ -190,6 +192,17 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
 
     public func device(id: String) -> DeviceNode? {
         allDevices.first { $0.device.id == id }?.device
+    }
+
+    /// IDs of every part built into a dock (`DeviceNode.internalParts`).
+    /// They are in no device tree, so `device(id:)` does not find them.
+    public var internalPartIDs: Set<String> {
+        Set(allDevices.flatMap { ($0.device.internalParts ?? []).map(\.id) })
+    }
+
+    /// The dock that has a built-in part with this ID.
+    public func dock(withPart partID: String) -> DeviceNode? {
+        allDevices.first { $0.device.internalParts?.contains { $0.id == partID } == true }?.device
     }
 
     /// The most severe diagnostic, if any.

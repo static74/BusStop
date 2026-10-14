@@ -26,6 +26,9 @@ struct USBAttributionContext {
 struct USBForest {
     var byPort: [PortKey: [DeviceNode]] = [:]
     var unattributed: [DeviceNode] = []
+    /// Registry ID of each merged hub's SuperSpeed half → its USB 2 half
+    /// (see `mergeCompanionHubs`), so later rules can read both records.
+    var companions: [UInt64: UInt64] = [:]
 }
 
 /// Builds USB device trees from `RawSnapshot.usbDevices` and ties each tree
@@ -109,9 +112,11 @@ enum USBTreeBuilder {
         }
 
         for key in forest.byPort.keys.sorted() {
-            forest.byPort[key] = mergeCompanionHubs(forest.byPort[key] ?? []).map(withCatalogVendorNames)
+            forest.byPort[key] = mergeCompanionHubs(forest.byPort[key] ?? [], pairs: &forest.companions)
+                .map(withCatalogVendorNames)
         }
-        forest.unattributed = mergeCompanionHubs(forest.unattributed).map(withCatalogVendorNames)
+        forest.unattributed = mergeCompanionHubs(forest.unattributed, pairs: &forest.companions)
+            .map(withCatalogVendorNames)
         return forest
     }
 
@@ -301,7 +306,11 @@ enum USBTreeBuilder {
     /// A root pair from different vendors (a Thunderbolt 5 dock's Intel USB 3
     /// hub and its Fresco Logic USB 2 hub) merges when it is the only pair
     /// whose child hubs are companions themselves (`childHubsPair`).
-    static func mergeCompanionHubs(_ nodes: [DeviceNode], isRoot: Bool = true) -> [DeviceNode] {
+    ///
+    /// `pairs` collects the registry IDs of every merged pair, SuperSpeed
+    /// half → USB 2 half.
+    static func mergeCompanionHubs(_ nodes: [DeviceNode], isRoot: Bool = true,
+                                   pairs: inout [UInt64: UInt64]) -> [DeviceNode] {
         let list = nodes.sorted { $0.id < $1.id }
         func isHub(_ n: DeviceNode) -> Bool { n.deviceClass == DeviceClassifier.USBClass.hub }
 
@@ -339,8 +348,11 @@ enum USBTreeBuilder {
         var result: [DeviceNode] = []
         for i in list.indices where !used.contains(i) {
             var node = list[i]
-            if let s = partner[i] { node = merge(fast: node, slow: list[s]) }
-            node.children = mergeCompanionHubs(node.children, isRoot: false)
+            if let s = partner[i] {
+                if let fastID = node.registryID, let slowID = list[s].registryID { pairs[fastID] = slowID }
+                node = merge(fast: node, slow: list[s])
+            }
+            node.children = mergeCompanionHubs(node.children, isRoot: false, pairs: &pairs)
             node.kind = DeviceClassifier.refineHub(node)
             result.append(node)
         }

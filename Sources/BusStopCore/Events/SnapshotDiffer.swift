@@ -8,6 +8,12 @@ import Foundation
 /// one event describes the whole subtree ("USB hub disconnected", detail
 /// "… · and 3 more devices").
 ///
+/// Parts built into a dock (`DeviceNode.internalParts`) are not devices of
+/// their own: they never raise connect or disconnect events and are not
+/// counted, and a device that becomes a part or stops being one (the same
+/// hardware read again) raises none either. A part's link changes are still
+/// reported, naming the dock.
+///
 /// Each physical display gives one event per plug or unplug. Display rows in
 /// a port tree are left to the display events, because a row also comes and
 /// goes when another display changes how displays are tied to ports. A
@@ -52,10 +58,11 @@ public enum SnapshotDiffer {
         // each subtree, with the rest counted in the detail.
         for (kind, from, to) in [(ConnectionEvent.Kind.deviceDisconnected, before, after),
                                  (ConnectionEvent.Kind.deviceConnected, after, before)] {
-            for entry in from.entries where to.byID[entry.device.id] == nil && !isDisplayRow(entry.device) {
+            for entry in from.entries where to.byID[entry.device.id] == nil && to.parts[entry.device.id] == nil
+                && !isDisplayRow(entry.device) {
                 if let parentID = entry.parentID, to.byID[parentID] == nil { continue }
                 let hidden = entry.device.flattened().dropFirst().filter { item in
-                    to.byID[item.device.id] == nil && !isDisplayRow(item.device)
+                    to.byID[item.device.id] == nil && to.parts[item.device.id] == nil && !isDisplayRow(item.device)
                 }.count
                 var parts = deviceContext(entry.device, port: entry.port)
                 if hidden > 0 { parts.append(hidden == 1 ? "and 1 more device" : "and \(hidden) more devices") }
@@ -72,14 +79,17 @@ public enum SnapshotDiffer {
             }
         }
 
-        // Link speed changes on devices present in both snapshots.
-        for entry in after.entries {
-            guard let previous = before.byID[entry.device.id],
-                  let oldLink = previous.device.link, let newLink = entry.device.link,
+        // Link speed changes on devices present in both snapshots, and on a
+        // dock's built-in parts, which point at the dock.
+        let linkEntries = after.entries.map { ($0, before.byID[$0.device.id], nil as DeviceNode?) }
+            + after.partEntries.map { ($0.entry, before.parts[$0.entry.device.id]?.entry, $0.dock as DeviceNode?) }
+        for (entry, previous, dock) in linkEntries {
+            guard let previous, let oldLink = previous.device.link, let newLink = entry.device.link,
                   let change = linkChange(from: oldLink, to: newLink) else { continue }
             let slower = change == .slower
             var parts: [String] = []
             if let port = entry.port { parts.append(port.label.title) }
+            if let dock { parts.append("built into \(name(of: dock))") }
             parts.append("\(linkText(oldLink)) → \(linkText(newLink))")
             events.append(ConnectionEvent(
                 id: makeID(.linkChanged, entry.device.id),
@@ -88,7 +98,7 @@ public enum SnapshotDiffer {
                 title: "\(name(of: entry.device)) \(slower ? "slowed down" : "sped up")",
                 detail: parts.joined(separator: " · "),
                 portKey: entry.port?.key,
-                deviceID: entry.device.id,
+                deviceID: dock?.id ?? entry.device.id,
                 isDowngrade: slower,
                 subjectID: entry.device.id))
         }
@@ -242,7 +252,8 @@ public enum SnapshotDiffer {
 
     // MARK: Devices
 
-    /// Every device in a snapshot with its port and parent, in display order.
+    /// Every device in a snapshot with its port and parent, in display order,
+    /// and every built-in part with its dock.
     private struct DeviceIndex {
         struct Entry {
             var device: DeviceNode
@@ -250,14 +261,30 @@ public enum SnapshotDiffer {
             var parentID: String?
         }
 
+        struct PartEntry {
+            var entry: Entry
+            var dock: DeviceNode
+        }
+
         var entries: [Entry] = []
         var byID: [String: Entry] = [:]
+        var partEntries: [PartEntry] = []
+        var parts: [String: PartEntry] = [:]
 
         init(_ snapshot: HostSnapshot) {
             for port in snapshot.ports {
                 for root in port.devices { add(root, port: port, parentID: nil) }
             }
             for root in snapshot.otherDevices { add(root, port: nil, parentID: nil) }
+            // Kept out of `add`, whose stack frame bounds how deep a tree can be.
+            for entry in entries {
+                for part in entry.device.internalParts ?? [] where parts[part.id] == nil {
+                    let partEntry = PartEntry(entry: Entry(device: part, port: entry.port, parentID: entry.device.id),
+                                              dock: entry.device)
+                    partEntries.append(partEntry)
+                    parts[part.id] = partEntry
+                }
+            }
         }
 
         private mutating func add(_ device: DeviceNode, port: PhysicalPort?, parentID: String?) {

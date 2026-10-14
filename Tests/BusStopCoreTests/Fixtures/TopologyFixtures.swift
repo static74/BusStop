@@ -148,13 +148,17 @@ enum TopologyFixtures {
     }
 
     /// An `IOThunderboltSwitch`.
+    /// `vendorID` and `modelID` are the device's own IDs (`Device Vendor ID`,
+    /// `Device Model ID`), not the switch chip's.
     static func tbSwitch(id: UInt64, parent: UInt64? = nil, depth: Int, uid: Int64? = nil, vendor: String? = nil,
-                         model: String? = nil, upstreamPort: Int? = nil, ports: [RawNode] = [],
-                         ancestry: [RawAncestor] = []) -> RawThunderboltSwitch {
+                         model: String? = nil, vendorID: Int? = nil, modelID: Int? = nil, upstreamPort: Int? = nil,
+                         ports: [RawNode] = [], ancestry: [RawAncestor] = []) -> RawThunderboltSwitch {
         var p: [String: PlistValue] = ["Depth": .int(Int64(depth))]
         if let uid { p["UID"] = .int(uid) }
         if let vendor { p["Device Vendor Name"] = .string(vendor) }
         if let model { p["Device Model Name"] = .string(model) }
+        if let vendorID { p["Device Vendor ID"] = .int(Int64(vendorID)) }
+        if let modelID { p["Device Model ID"] = .int(Int64(modelID)) }
         if let upstreamPort { p["Upstream Port Number"] = .int(Int64(upstreamPort)) }
         let node = RawNode(id: id, className: "IOThunderboltSwitchType7", name: "IOThunderboltSwitchType7",
                            properties: PropertyBag(p))

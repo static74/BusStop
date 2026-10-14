@@ -20,6 +20,7 @@ enum DeviceClassifier {
         static let hub = 9
         static let cdcData = 10
         static let video = 14
+        static let billboard = 0x11
         static let wireless = 0xE0
     }
 

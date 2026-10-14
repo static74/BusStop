@@ -133,12 +133,23 @@ public struct DeviceNode: Sendable, Hashable, Codable, Identifiable {
     public var children: [DeviceNode]
     /// Raw IORegistry properties, for the inspector.
     public var properties: PropertyBag?
+    /// The parts built into this dock (its own USB hubs and functions),
+    /// which `DockParts` takes out of `children` so the map draws only
+    /// devices joined by real cables. A flat list sorted by name: each part
+    /// has no children, and `internalParentID` says what it hangs off. Nil
+    /// when nothing was folded, so other devices encode as before.
+    public var internalParts: [DeviceNode]?
+    /// For a device that `DockParts` moved up to its dock, and for a part in
+    /// the dock's `internalParts`: the `id` of the built-in part it really
+    /// hangs off. Nil when it hangs off the dock itself or nothing was folded.
+    public var internalParentID: String?
 
     public init(id: String, registryID: UInt64? = nil, bus: DeviceBus, kind: DeviceKind, name: String,
                 vendorName: String? = nil, vendorID: Int? = nil, productID: Int? = nil, serialNumber: String? = nil,
                 usbVersion: String? = nil, deviceClass: Int? = nil, locationID: UInt32? = nil, link: LinkInfo? = nil,
                 power: DevicePower? = nil, isTunneled: Bool = false, chainDepth: Int? = nil,
-                children: [DeviceNode] = [], properties: PropertyBag? = nil) {
+                children: [DeviceNode] = [], properties: PropertyBag? = nil, internalParts: [DeviceNode]? = nil,
+                internalParentID: String? = nil) {
         self.id = id
         self.registryID = registryID
         self.bus = bus
@@ -157,24 +168,150 @@ public struct DeviceNode: Sendable, Hashable, Codable, Identifiable {
         self.chainDepth = chainDepth
         self.children = children
         self.properties = properties
+        self.internalParts = internalParts
+        self.internalParentID = internalParentID
     }
 
-    /// Number of devices below this one, at every level.
+    /// Number of devices below this one, at every level. A dock's built-in
+    /// parts (`internalParts`) are not counted.
     public var descendantCount: Int {
         children.reduce(0) { $0 + 1 + $1.descendantCount }
     }
 
     /// This device's allocation plus its descendants', stopping at
     /// self-powered hubs (their downstream draw comes from their own supply).
+    /// A dock's built-in parts count as they did inside the tree: a part's
+    /// allocation, and what hangs off it, stop at a self-powered part above
+    /// it, as `unfolded().rolledUpMilliwatts` would, without building that copy.
     public var rolledUpMilliwatts: Int {
         let own = power?.allocatedMilliwatts ?? 0
         if power?.isSelfPowered == true { return own }
+        if internalParts?.isEmpty == false { return own + rolledUpWithParts() }
         return own + children.reduce(0) { $0 + $1.rolledUpMilliwatts }
     }
 
-    /// Sum of allocations of every descendant regardless of who powers them.
+    /// Sum of allocations of every descendant regardless of who powers them,
+    /// a dock's built-in parts included.
     public var downstreamMilliwatts: Int {
-        children.reduce(0) { $0 + ($1.power?.allocatedMilliwatts ?? 0) + $1.downstreamMilliwatts }
+        if internalParts?.isEmpty == false { return downstreamWithParts() }
+        return children.reduce(0) { $0 + ($1.power?.allocatedMilliwatts ?? 0) + $1.downstreamMilliwatts }
+    }
+
+    // The two roll-ups recurse once per tree level; the work for a dock's
+    // parts lives in these functions so that the recursive frames stay small
+    // (trees can be 64 levels deep, and debug frames are large).
+
+    /// What the parts and children of a dock add to its roll-up.
+    @inline(never)
+    private func rolledUpWithParts() -> Int {
+        let parts = internalParts ?? []
+        let parents = partParents()
+        let byID = Dictionary(parts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // True when no part from `partID` up to the dock is self-powered.
+        func reachesTheDock(from partID: String?) -> Bool {
+            var current = partID
+            var steps = 0
+            while let id = current, let part = byID[id], steps <= byID.count {
+                if part.power?.isSelfPowered == true { return false }
+                current = parents[id]
+                steps += 1
+            }
+            return true
+        }
+        let fromParts = parts.reduce(0) { total, part in
+            total + (reachesTheDock(from: parents[part.id]) ? part.power?.allocatedMilliwatts ?? 0 : 0)
+        }
+        let fromChildren = children.reduce(0) { total, child in
+            let partID = child.internalParentID.flatMap { byID[$0] == nil ? nil : $0 }
+            return total + (reachesTheDock(from: partID) ? child.rolledUpMilliwatts : 0)
+        }
+        return fromParts + fromChildren
+    }
+
+    @inline(never)
+    private func downstreamWithParts() -> Int {
+        let fromParts = (internalParts ?? []).reduce(0) { $0 + ($1.power?.allocatedMilliwatts ?? 0) }
+        return fromParts + children.reduce(0) { $0 + ($1.power?.allocatedMilliwatts ?? 0) + $1.downstreamMilliwatts }
+    }
+
+    /// Built-in part ID → the part it hangs off. A part that hangs off the
+    /// dock has no entry, and neither does a part in a loop of
+    /// `internalParentID` links (possible only in a hand-edited export):
+    /// the loop is broken by putting its members at the top.
+    private func partParents() -> [String: String] {
+        guard let parts = internalParts, !parts.isEmpty else { return [:] }
+        let partIDs = Set(parts.map(\.id))
+        var links: [String: String] = [:]
+        for part in parts where links[part.id] == nil {
+            if let parent = part.internalParentID, parent != part.id, partIDs.contains(parent) {
+                links[part.id] = parent
+            }
+        }
+        var result = links
+        for id in links.keys {
+            var current = links[id]
+            var steps = 0
+            while let next = current, next != id, steps < links.count {
+                current = links[next]
+                steps += 1
+            }
+            if current == id { result[id] = nil }
+        }
+        return result
+    }
+
+    /// The tree as it was before `DockParts` folded a dock's built-in parts
+    /// out of it: each part back under the part (or the dock) it hangs off,
+    /// and each device the folding moved up back under its part. Applies at
+    /// every level; a tree without parts comes back unchanged.
+    ///
+    /// Parts whose `internalParentID` links form a loop (possible only in a
+    /// hand-edited export) go directly under the dock, with what hangs off
+    /// them, so nothing is lost.
+    public func unfolded() -> DeviceNode {
+        if internalParts != nil { return unfoldingParts() }
+        var result = self
+        result.children = children.map { $0.unfolded() }
+        return result
+    }
+
+    /// `unfolded()` for a dock with parts, kept apart so the recursive frame
+    /// of `unfolded()` stays small.
+    @inline(never)
+    private func unfoldingParts() -> DeviceNode {
+        var result = self
+        let parts = internalParts ?? []
+        let partIDs = Set(parts.map(\.id))
+        let parents = partParents()
+        var below: [String: [DeviceNode]] = [:]
+        var top: [DeviceNode] = []
+        for child in children {
+            if let parent = child.internalParentID, partIDs.contains(parent) {
+                below[parent, default: []].append(child)
+            } else {
+                top.append(child)
+            }
+        }
+        for part in parts {
+            if let parent = parents[part.id] {
+                below[parent, default: []].append(part)
+            } else {
+                top.append(part)
+            }
+        }
+        var expanded = Set<String>()
+        func restore(_ node: DeviceNode) -> DeviceNode {
+            var copy = node
+            copy.internalParentID = nil
+            guard partIDs.contains(node.id), node.internalParts == nil, expanded.insert(node.id).inserted else {
+                return copy.unfolded()
+            }
+            copy.children = node.children.map { $0.unfolded() } + (below[node.id] ?? []).map(restore)
+            return copy
+        }
+        result.internalParts = nil
+        result.children = top.map(restore)
+        return result
     }
 
     /// This node and all descendants, depth-first, with depth.

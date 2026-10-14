@@ -268,7 +268,8 @@ struct DemoDockStationTests {
         #expect(S.port(snapshot, 2, 1)?.capabilityDescription == "USB 3 (10 Gb/s)")
         #expect(S.port(snapshot, 2, 3)?.capabilityDescription == "Thunderbolt 5")
         #expect(S.port(snapshot, 2, 1)?.registryName == "Port-USB-C@1")
-        #expect(snapshot.deviceCount == 9)
+        // The dock's hub chip is built in and not counted (8 drawn devices).
+        #expect(snapshot.deviceCount == 8)
         #expect(snapshot.otherDevices.isEmpty)
     }
 
@@ -293,18 +294,26 @@ struct DemoDockStationTests {
         #expect(dock.bus == .thunderbolt)
         #expect(dock.vendorName == "CalDigit, Inc.")
         #expect(dock.link?.label == "USB4 v2 / TB5 @ 80 Gb/s")
-        #expect(dock.descendantCount == 6)
-        #expect(Set(dock.children.map(\.name)) == ["USB3.2 Gen2 Hub", "Extreme Pro 55AF"])
+        #expect(dock.descendantCount == 5)
 
-        // The hub chip's USB 2 half is merged into its SuperSpeed half.
-        let hub = try #require(dock.children.first { $0.name == "USB3.2 Gen2 Hub" })
+        // The hub chip (its USB 2 half merged into its SuperSpeed half) is
+        // the dock's tunnelled root hub: built in, so the devices on it hang
+        // off the dock card.
+        let hub = try #require(dock.internalParts?.first)
+        #expect(dock.internalParts?.count == 1)
+        #expect(hub.name == "USB3.2 Gen2 Hub")
         #expect(hub.power?.isSelfPowered == true)
-        #expect(hub.children.map(\.name) == ["Extreme 55AE", "Scarlett 2i2 4th Gen", "SD Card Reader",
-                                             "USB 10/100/1G/2.5G LAN"])
-        #expect(hub.children.map(\.kind) == [.storage, .audio, .storage, .network])
-        #expect(hub.children.map { $0.link?.label ?? "" } == [
+        #expect(dock.children.map(\.name) == ["Extreme 55AE", "Extreme Pro 55AF", "Scarlett 2i2 4th Gen",
+                                              "SD Card Reader", "USB 10/100/1G/2.5G LAN"])
+        let onHub = dock.children.filter { $0.internalParentID == hub.id }
+        #expect(onHub.map(\.name) == ["Extreme 55AE", "Scarlett 2i2 4th Gen", "SD Card Reader",
+                                      "USB 10/100/1G/2.5G LAN"])
+        #expect(onHub.map(\.kind) == [.storage, .audio, .storage, .network])
+        #expect(onHub.map { $0.link?.label ?? "" } == [
             "USB 3.2 Gen 2 @ 10 Gb/s", "USB 2.0 @ 480 Mb/s", "USB 2.0 @ 480 Mb/s", "USB 3.2 Gen 1 @ 5 Gb/s",
         ])
+        // The self-powered hub still keeps their power off the dock's figure.
+        #expect(dock.rolledUpMilliwatts == 4_480)
 
         let fastSSD = try #require(dock.children.first { $0.name == "Extreme Pro 55AF" })
         #expect(fastSSD.link?.label == "USB 3.2 Gen 2x2 @ 20 Gb/s")

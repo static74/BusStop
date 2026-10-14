@@ -375,7 +375,22 @@ final class PortStore {
             if !built.isDemo { onEvents?(newEvents) }
         }
 
-        if let selection, !Self.exists(selection, in: built) { self.selection = .host }
+        if let selection, !Self.exists(selection, in: built) {
+            self.selection = Self.fallback(for: selection, in: built)
+        }
+    }
+
+    /// Where a selection that `snapshot` no longer has goes: to the dock when
+    /// the device (or the device a link led to) is now one of the dock's
+    /// built-in parts, else to the Mac.
+    static func fallback(for selection: StoreSelection, in snapshot: HostSnapshot) -> StoreSelection {
+        switch selection {
+        case .device(let id), .link(.device(let id)):
+            if let dock = snapshot.dock(withPart: id) { return .device(dock.id) }
+            return .host
+        default:
+            return .host
+        }
     }
 
     /// False when `selection` names a port or device that `snapshot` no
@@ -398,7 +413,8 @@ final class PortStore {
         let now = Date()
         allDeparting.removeAll { now.timeIntervalSince($0.removedAt) > Self.departingLifetime }
         guard let previous else { return }
-        let currentIDs = Set(current.allDevices.map(\.device.id))
+        // A device that became one of a dock's built-in parts has not left.
+        let currentIDs = Set(current.allDevices.map(\.device.id)).union(current.internalPartIDs)
         // Devices that came back are no longer departing.
         allDeparting.removeAll { currentIDs.contains($0.id) }
 

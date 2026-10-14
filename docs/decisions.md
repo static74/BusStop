@@ -2,6 +2,52 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-14: A dock's built-in USB parts leave the device tree
+
+**Question.** On a MacBook Pro with an Anker Prime Thunderbolt 5 dock (`Tests/BusStopCoreTests/Fixtures/AnkerPrimeTB5.json`), the map drew the dock as eight cards: the dock, its USB 3 root hub ("USB3 HUB", joined to the dock by a 10 Gb/s line that looked like a cable), two USB functions named after the dock, two VIA hubs and the Ethernet and card reader on one of them. Which USB devices are part of the dock, and how should they be shown?
+
+**Decision.** `DockParts` moves a dock's built-in parts out of its `children` into `DeviceNode.internalParts`, a flat list; whatever hangs off a part moves up to the dock, with `internalParentID` naming the part. The rules start at the dock and only go down through parts, so nothing behind an external hub can be folded:
+
+- A. A hub directly below the dock, on the Mac's own xHCI, with `UsbTunnel` true, when it is the only `UsbTunnel` root on the port and the dock is the port's only switch with a live USB tunnel.
+- B. A USB device with the dock switch's own `Device Vendor ID` / `Device Model ID`, when no other switch reports that pair.
+- C. A hub or billboard on a captive port (`USBPortType` 1, both halves of a merged hub) of a hub folded by C or D.
+- D. A hub holding a B device on a captive port; with two or more such hubs, B and D are off.
+- E. A device that is not a hub, on a hub folded by C.
+
+Counts are drawn devices only. The map, the list, the Cables section and the command-line tree do not mention the parts, so the tree reads like the map. Detail views do: the dock's inspector lists them with name, vendor, speed and power, VoiceOver for the dock (window and popover) says how many there are, and the popover's Copy Details and the dock's bullet in a Markdown report name them on a "Built in: …" line. JSON exports carry them in `internalParts`. Power roll-ups and the USB 2 fallback and hub budget diagnostics read the unfolded tree (`DeviceNode.unfolded()`), so their numbers do not change and a built-in hub's finding points at the dock. A device that becomes a part, or stops being one, raises no connect or disconnect event.
+
+**Why.** On this capture, by registry ID:
+
+- Only the Intel root hub (556, 8087:5787) has `UsbTunnel`; it sits on the Mac's `AppleT8142USBXHCI` (`usb-drd0-port-ss`), and the dock switch (469, JHL9580) is the only downstream switch whose USB adapter has a non-empty `Hop Table`. Its Fresco Logic USB 2 half (554) merges with it.
+- The switch reports `Device Vendor ID` 0x291A (Anker) and `Device Model ID` 0x83B5; its `Vendor ID` / `Device ID` are Intel's chip IDs. Exactly two USB devices are 291A:83B5: "Anker Thunderbolt 5 Docking Station" at 12 Mb/s on Fresco port 5 (765) and "Anker Prime Docking Station" at 480 Mb/s with a billboard interface (433).
+- 433 sits on port 5 of the VIA hub 600/733 with `USBPortType` 1, which ties that hub to the dock (D). Without D, 600, 433 and 801 all stay.
+- The VIA hub 801/094 on port 2 of that hub is captive on both halves (C). The reporter, who owns the dock, confirmed that "USB 10/100 LAN" (0BDA:8156) and "USB Storage" (05E3:0764) on it are the dock's Ethernet and card reader (E).
+- The Intel and Fresco root ports report `USBPortType` 0 for every device, the dock's own 12 Mb/s function included, so a captive flag on a root port is not evidence (C starts below D).
+- `non-removable`, the hub-port flag `RegistryKeys.swift` reads, is on none of the 32 USB records.
+
+The "billboard" (325, 0BDA:5452, class 0x11, 2.5 W) stays. Its vendor string is "Cable Matters Inc.", it is USB 2 only on Fresco port 3 while the Intel half of port 3 is empty, which is how a USB-C to DisplayPort cable running all four lanes for video looks, and the Gigabyte M32U on the dock runs at 32.4 Gb/s (HBR3 × 4). The reporter confirmed it is a Cable Matters USB-C to DisplayPort cable. `USB Port Map` was not used as evidence. The Realtek 4-port hub (638/710) and the VIA hub 829/264 with the iPad and keyboard behind it stay too: they are external hubs plugged into the dock.
+
+Result: seven parts, one dock card instead of eight, drawn with two displays and three USB devices (the Realtek hub, the Cable Matters billboard and the VIA hub), and counts of 19 below the dock and 20 in all, down from 26 and 27.
+
+**Risks.**
+
+- Rule E would hide a device plugged into a dock port that is wired to a captive internal hub. Hubs on such a hub stay visible with everything behind them.
+- Thunderbolt 3 and 4 docks with their own PCIe xHCI, daisy-chained docks, and docks that report no or shared identity fold less or nothing: their parts stay as cards, as before.
+- While a dock enumerates, its parts can appear as cards for a capture or two before the USB tunnel's `Hop Table` is live. That raises no events either way.
+- Device counts drop: the window subtitle, the menu bar text, All Devices and every roll-up count only drawn devices. JSON snapshots carry the parts in `internalParts`.
+- Built-in parts have no rows in All Devices; searching for one finds the dock.
+
+**Rejected alternatives.**
+
+- *Match by name or vendor* ("Docking Station", VIA, Realtek, 12 and 480 Mb/s functions). VIA and Realtek hubs appear inside and outside the dock on this capture.
+- *`non-removable` hub-port flags.* Not present on any record.
+- *`USBPortType` 5 (USB-C) as the root signal.* The Fresco half reports 5 as well, and so does every synthetic test device; `UsbTunnel` on the Mac's own controller is specific.
+- *Location ID prefixes.* They say which controller and tier a device is on, not who owns the port: external devices on the dock's ports share the prefix.
+- *Captive flags anywhere below the dock.* The root ports' flags are not reliable, and a wrong flag on a root port would fold an external monitor or hub plugged into the dock.
+- *Count every device and label the count.* The reporter chose drawn devices only. A "7 built-in parts" suffix on the dock's line in the command-line tree and in Markdown was built and taken out, so those match the map; detail views name the parts instead.
+- *Dim or collapse the internal hubs instead of folding them.* They would still read as cables.
+- *Drop the parts.* The inspector should list them, and power roll-ups and diagnostics still need them.
+
 ## 2026-10-14: The map draws its own tooltips for chips and badges
 
 **Question.** Hovering a speed chip, transport chip or power badge on a map card showed no tooltip, although each carries `.help`. How should the map explain its chips?

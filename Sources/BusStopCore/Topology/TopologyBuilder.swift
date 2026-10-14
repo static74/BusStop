@@ -21,14 +21,20 @@ public struct BuildOptions: Sendable, Hashable {
 /// Pure and deterministic: the same `RawSnapshot` and options always produce
 /// the same `HostSnapshot`. See `docs/SPEC.md` §5.4 for the rules. The work
 /// is split by subject: `PortParser`, `TransportParser`, `ThunderboltParser`,
-/// `USBTreeBuilder`, `DeviceClassifier`, `DisplayParser`, `PowerParser` and
-/// `LinkDecoding`.
+/// `USBTreeBuilder`, `DockParts`, `DeviceClassifier`, `DisplayParser`,
+/// `PowerParser` and `LinkDecoding`.
 public enum TopologyBuilder {
     /// Capture note added when no port controller was found (Intel Macs,
     /// virtual machines). `DiagnosticsEngine` reports it as reduced detail.
     public static let noPortDetailNote = "Port controller details are not available on this Mac."
 
     public static func build(_ raw: RawSnapshot, options: BuildOptions = BuildOptions()) -> HostSnapshot {
+        build(raw, options: options, foldsDockParts: true)
+    }
+
+    /// `foldsDockParts` false keeps a dock's built-in parts in the tree, as
+    /// before `DockParts` existed; tests compare the two.
+    static func build(_ raw: RawSnapshot, options: BuildOptions, foldsDockParts: Bool) -> HostSnapshot {
         let index = TopologyNodeIndex(raw.portNodes)
         let ports = PortParser.parse(index)
         let transports = TransportParser.parse(index, ports: ports)
@@ -94,11 +100,18 @@ public enum TopologyBuilder {
         let usb = USBTreeBuilder.build(raw.usbDevices, context: context, options: options)
         otherDevices.append(contentsOf: usb.unattributed)
 
+        // A dock's own USB parts leave the tree (`DockParts`). Displays are
+        // added below, so they are never candidates.
+        let dockEvidence = foldsDockParts
+            ? DockParts.Evidence(raw: raw, companions: usb.companions,
+                                 usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
+            : nil
         var devices: [PortKey: [DeviceNode]] = [:]
         for record in ports.records {
             let (nested, remaining) = USBTreeBuilder.nest(usb.byPort[record.key] ?? [], into: chains[record.key] ?? [],
                                                           usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
-            devices[record.key] = nested + remaining
+            devices[record.key] = dockEvidence.map { DockParts.fold(nested + remaining, evidence: $0) }
+                ?? nested + remaining
         }
 
         // Displays.
@@ -344,22 +357,49 @@ public enum TopologyBuilder {
     }
 
     /// Device IDs must be unique for lists and selection. A repeat (only
-    /// possible with odd captures) gets its registry ID appended.
+    /// possible with odd captures) gets its registry ID appended. A dock's
+    /// built-in parts take part too, and `internalParentID` follows a part
+    /// whose ID changes.
     static func makeDeviceIDsUnique(_ snapshot: inout HostSnapshot) {
         var seen = Set<String>()
+        func unique(_ node: inout DeviceNode) {
+            guard !seen.insert(node.id).inserted else { return }
+            let base = node.id + "#" + (node.registryID.map { TopologyText.hex($0, width: 1) } ?? "dup")
+            var candidate = base
+            var n = 2
+            while !seen.insert(candidate).inserted {
+                candidate = "\(base)-\(n)"
+                n += 1
+            }
+            node.id = candidate
+        }
         func fix(_ nodes: inout [DeviceNode]) {
             for i in nodes.indices {
-                if !seen.insert(nodes[i].id).inserted {
-                    let base = nodes[i].id + "#" + (nodes[i].registryID.map { TopologyText.hex($0, width: 1) } ?? "dup")
-                    var candidate = base
-                    var n = 2
-                    while !seen.insert(candidate).inserted {
-                        candidate = "\(base)-\(n)"
-                        n += 1
-                    }
-                    nodes[i].id = candidate
+                unique(&nodes[i])
+                guard var parts = nodes[i].internalParts else {
+                    fix(&nodes[i].children)
+                    continue
+                }
+                var renamed: [String: String] = [:]
+                for j in parts.indices {
+                    let old = parts[j].id
+                    unique(&parts[j])
+                    if parts[j].id != old, renamed[old] == nil { renamed[old] = parts[j].id }
                 }
                 fix(&nodes[i].children)
+                // A repeated ID still held by another part stays ambiguous.
+                for id in parts.map(\.id) { renamed[id] = nil }
+                if !renamed.isEmpty {
+                    for j in parts.indices {
+                        if let id = parts[j].internalParentID, let new = renamed[id] { parts[j].internalParentID = new }
+                    }
+                    for j in nodes[i].children.indices {
+                        if let id = nodes[i].children[j].internalParentID, let new = renamed[id] {
+                            nodes[i].children[j].internalParentID = new
+                        }
+                    }
+                }
+                nodes[i].internalParts = parts
             }
         }
         for i in snapshot.ports.indices { fix(&snapshot.ports[i].devices) }

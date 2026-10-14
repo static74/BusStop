@@ -29,7 +29,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 |---|---|
 | `Raw/` | `PlistValue` (a `Sendable`, `Codable` mirror of CoreFoundation property-list values), `PropertyBag` (forgiving typed accessors), `RawSnapshot` and its records (`RawNode`, `RawUSBDevice`, `RawThunderboltSwitch`, `SMCChannel`, `RawDisplay`). |
 | `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. |
-| `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, link decoding, power, displays, device classification. |
+| `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, a dock's built-in USB parts (`DockParts`), link decoding, power, displays, device classification. |
 | `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, generic name), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
 | `Events/` | `SnapshotDiffer`, which turns two snapshots into `ConnectionEvent`s. |

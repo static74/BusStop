@@ -31,6 +31,14 @@ enum WindowText {
         return parts.joined(separator: " · ")
     }
 
+    /// The All Devices subtitle: "12 devices on every port and hub", saying
+    /// so when a dock's built-in parts are left out.
+    static func devicesSubtitle(_ snapshot: HostSnapshot) -> String {
+        let text = count(snapshot.deviceCount, "device", "devices") + " on every port and hub"
+        guard !snapshot.internalPartIDs.isEmpty else { return text }
+        return text + ", not counting parts built into a dock"
+    }
+
     /// Rate for VoiceOver: "10 gigabits per second", or the generation when the rate is unknown.
     static func spokenRate(_ link: LinkInfo) -> String {
         guard let rate = link.rateLabel else { return link.generation }
@@ -84,7 +92,29 @@ enum WindowText {
         } else if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0 {
             parts.append(spokenPower(milliwatts))
         }
+        if let builtIn = builtInParts(device) { parts.append(builtIn) }
         return parts.joined(separator: ", ")
+    }
+
+    /// "7 built-in parts" for a dock with parts folded into it, else nil.
+    static func builtInParts(_ device: DeviceNode) -> String? {
+        guard let parts = device.internalParts, !parts.isEmpty else { return nil }
+        return count(parts.count, "built-in part", "built-in parts")
+    }
+
+    /// Second line of a built-in part's row: "Intel Corporation · 10 Gb/s · 4.5 W".
+    /// When another of `siblings` has the same name, the location ID tells
+    /// the two apart: "VIA Labs, Inc. · 10 Gb/s · 0x00240000".
+    static func partDetail(_ part: DeviceNode, siblings: [DeviceNode] = []) -> String {
+        var parts: [String] = []
+        if let vendor = part.vendorName, !vendor.isEmpty { parts.append(vendor) }
+        if let rate = part.link?.rateLabel ?? part.link?.generation { parts.append(rate) }
+        if let milliwatts = part.power?.allocatedMilliwatts, milliwatts > 0 {
+            parts.append(Format.power(milliwatts: milliwatts))
+        }
+        let isNameShared = siblings.filter { $0.name == part.name }.count > 1
+        if isNameShared, let location = part.locationID { parts.append(Format.hex8(location)) }
+        return parts.isEmpty ? part.kind.displayName : parts.joined(separator: " · ")
     }
 
     /// Full VoiceOver description of a port.
@@ -234,11 +264,15 @@ nonisolated enum TopologySearch {
         return fields.contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
+    /// A dock matches when one of its built-in parts does, since the part
+    /// has no row or card of its own.
     static func device(_ device: DeviceNode, matches query: String) -> Bool {
         guard !query.isEmpty else { return true }
-        let fields = [device.name, device.vendorName ?? "", device.kind.displayName,
-                      device.vendorProductIDString ?? "", device.serialNumber ?? ""]
-        return fields.contains { $0.localizedCaseInsensitiveContains(query) }
+        return ([device] + (device.internalParts ?? [])).contains { node in
+            let fields = [node.name, node.vendorName ?? "", node.kind.displayName,
+                          node.vendorProductIDString ?? "", node.serialNumber ?? ""]
+            return fields.contains { $0.localizedCaseInsensitiveContains(query) }
+        }
     }
 
     static func display(_ display: DisplayInfo, matches query: String) -> Bool {
