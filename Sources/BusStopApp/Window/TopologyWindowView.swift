@@ -25,6 +25,9 @@ struct TopologyWindowView: View {
     @State private var camera: GraphCamera?
     /// On screen, not minimised and not covered: the graph pulses only then.
     @State private var isWindowVisible = true
+    /// False from the window closing until it is shown again. The map is left
+    /// out meanwhile, so its drawing group gives back its textures.
+    @State private var isWindowOpen = true
     /// The last `store.revealGeneration` this window acted on.
     @State private var handledReveal = 0
     /// A node waiting to be scrolled into view by the graph or the list.
@@ -56,8 +59,16 @@ struct TopologyWindowView: View {
         .frame(minWidth: 860, minHeight: 540)
         .background {
             HostingWindowObserver(
-                onVisibilityChange: { isWindowVisible = $0 },
-                onClose: { camera = nil }
+                onVisibilityChange: { visible in
+                    isWindowVisible = visible
+                    if visible { isWindowOpen = true }
+                },
+                onClose: {
+                    camera = nil
+                    isWindowOpen = false
+                },
+                // Clear only where nothing scrolls under the toolbar strip.
+                titlebarAppearsTransparent: titlebarIsClear
             )
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
@@ -123,7 +134,7 @@ struct TopologyWindowView: View {
     @ViewBuilder
     private func overview(ports: [PhysicalPort], includeOther: Bool) -> some View {
         switch overviewMode {
-        case .graph:
+        case .graph where isWindowOpen:
             TopologyGraphView(
                 store: store,
                 ports: ports,
@@ -133,6 +144,8 @@ struct TopologyWindowView: View {
                 isWindowVisible: isWindowVisible,
                 scrollRequest: $scrollRequest
             )
+        case .graph:
+            EmptyView()
         case .list:
             TopologyOutlineView(
                 store: store,
@@ -147,6 +160,19 @@ struct TopologyWindowView: View {
     private var showsModePicker: Bool {
         switch sidebarSelection ?? .overview {
         case .overview, .port: return true
+        default: return false
+        }
+    }
+
+    /// Pages with nothing that scrolls under the toolbar strip: the map; the
+    /// two tables and Events, whose rows scroll only below their page header;
+    /// and Diagnostics while it has nothing to list. Every other page keeps
+    /// the opaque title bar, which hides or dims rows scrolled under it.
+    private var titlebarIsClear: Bool {
+        switch sidebarSelection ?? .overview {
+        case .overview, .port: return overviewMode == .graph
+        case .allPorts, .devices, .events: return true
+        case .diagnostics: return store.snapshot.diagnostics.isEmpty
         default: return false
         }
     }
@@ -248,6 +274,7 @@ struct TopologyWindowView: View {
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
+            .menuIndicator(.hidden)
             .help("Export a snapshot, a report or a raw capture")
         }
 

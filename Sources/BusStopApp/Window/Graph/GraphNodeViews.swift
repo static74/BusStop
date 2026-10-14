@@ -14,6 +14,9 @@ struct GraphNodeView: View {
 
     @State private var isHovered = false
     @State private var hasAppeared = false
+    /// Keyboard focus. The map draws its cards in a drawing group, which
+    /// cannot show the system focus ring, so the card draws its own.
+    @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -22,6 +25,8 @@ struct GraphNodeView: View {
             if node.tag != nil {
                 Button(action: onSelect) { card }
                     .buttonStyle(GraphNodeButtonStyle())
+                    .focused($isFocused)
+                    .focusEffectDisabled()
                     .accessibilityLabel(accessibilityText)
                     .accessibilityAddTraits(isSelected ? AccessibilityTraits.isSelected : AccessibilityTraits())
                     .accessibilityHint("Shows details in the inspector")
@@ -32,6 +37,15 @@ struct GraphNodeView: View {
             }
         }
         .opacity(isDimmed ? 0.28 : 1)
+        // Outside the dimming, so a dimmed card's focus ring stays at full strength.
+        .overlay {
+            if isFocused {
+                RoundedRectangle(cornerRadius: Lagoon.cardRadius + 3, style: .continuous)
+                    .strokeBorder(Lagoon.accentGlow, lineWidth: 2)
+                    .padding(-3)
+                    .allowsHitTesting(false)
+            }
+        }
         .onHover { isHovered = $0 }
         // New nodes fade in and slide 8 pt from their link (SPEC §4.5).
         .opacity(hasAppeared ? 1 : 0)
