@@ -109,7 +109,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
     - *Data and Power*: a toggle beside the legend (remembered between launches) switches what the links show. Data colours links by negotiated speed with rate chips. Power colours them on a heat ramp that gets brighter as watts rise: grey for no power, then deep red (under 5 W), orange (5–15 W), amber (15–45 W) and gold (45 W and up); amber and gold glow. Each step is at least 3.4:1 on the black map. Chips show watts, and pulses run the way the power flows. The cable in a Mac port (the Mac → port line and the line from the port to what is plugged into it) carries the port's reading, towards the Mac when the Mac charges from that port. A link further along carries the USB power budget of the child and everything below it, shown as a ceiling ("≤4.5 W"), because macOS reports what a device is allowed to draw, not what it draws.
   - *Ports / Devices*: tables with sortable columns (name, port, speed, power, vendor, IDs).
   - *Power*: charger details with every power profile, system input / load / battery chart, per-port output chart.
-  - *Events*: reverse-chronological timeline with filters.
+  - *Events*: reverse-chronological timeline with filters. The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row.
   - *Diagnostics*: list of findings with explanations and suggested fixes.
 - **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users.
 - **Toolbar**: Refresh, Tree/Graph toggle, Export menu, Inspector toggle, search field.

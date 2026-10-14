@@ -30,18 +30,9 @@ struct EventsDetailView: View {
     var body: some View {
         let groups = makeGroups()
         VStack(alignment: .leading, spacing: 14) {
-            WindowDetailHeader(title: "Events", subtitle: subtitle) {
-                HStack(spacing: 10) {
-                    filterMenu
-                    Button("Clear", role: .destructive) {
-                        withAnimation(.snappy) { store.clearEvents() }
-                    }
-                    .disabled(store.events.isEmpty)
-                    .help("Remove every event from the timeline")
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
+            header
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
 
             if groups.isEmpty {
                 WindowEmptyState(
@@ -54,6 +45,30 @@ struct EventsDetailView: View {
             } else {
                 timeline(groups)
             }
+        }
+    }
+
+    /// The filter and Clear beside the title, or under it when one row does
+    /// not fit beside the inspector, so the header never clips them.
+    private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            WindowDetailHeader(title: "Events", subtitle: subtitle) { controls }
+            VStack(alignment: .leading, spacing: 10) {
+                WindowDetailHeader(title: "Events", subtitle: subtitle)
+                controls
+            }
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var controls: some View {
+        HStack(spacing: 10) {
+            filterMenu
+            Button("Clear", role: .destructive) {
+                withAnimation(.snappy) { store.clearEvents() }
+            }
+            .disabled(store.events.isEmpty)
+            .help("Remove every event from the timeline")
         }
     }
 

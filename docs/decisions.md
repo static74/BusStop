@@ -2,6 +2,26 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-14: No page sets the minimum width of the topology window's detail column
+
+**Question.** With the inspector open, the topology window crashed on the Events page at 1000 pt wide and narrower (issue #5). AppKit raised an exception because the window needed more update-constraints passes than it has views. How should the pages and the detail column share the width?
+
+**Decision.** `TopologyWindowView` gives the detail column `.frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)`, so no page passes a minimum width to the split view. A page that is still wider than the column runs past its right edge, under the inspector, never under the sidebar. Pages also fit narrow columns on their own: the Events header puts the filter and Clear under the title when one row does not fit (`ViewThatFits`), and a diagnostic's Show buttons stack the same way. `TopologyWindowLayoutTests` hosts the whole window as `WindowManager` does, with the inspector open, and lays it out for a second.
+
+**Why.** `NavigationSplitView` hosts each column in its own `NSHostingView`, with a constraint that keeps the column at least as wide as its fitting width, at priority 999.9. The fitting width includes the safe-area insets, and the detail column runs under the floating sidebar (232 pt) and the inspector (330 pt), so those are its insets. When the page inside sets a minimum width, the column's width and its insets keep invalidating each other. At 1000 pt the Events column settled at 535 pt wide with a right inset of 0, where every other page's column was 1000 pt wide with insets of 232 and 330. With the fix, the Events column is 1000 pt wide too, and its constraint is 562 pt, the two insets and nothing from the page. Measured on macOS 27. The root view's own minimum (860 pt from `.frame(minWidth: 860)`) was the same on every page and with or without the fix, so `sizingOptions = [.minSize]` in `WindowManager` is not involved.
+
+The threshold does not follow from the page's minimum width. The Events page measured 303.5 pt at every text size (its filter popup alone is 199.5 pt and does not grow with Text Size), and it crashed from 900 pt up to 1080 pt, but not at 1100 pt. Diagnostics with one finding measured 207 pt and crashed at 900 and 1000 pt, but not at 1050 pt. Devices and Power never crashed, and no page crashed with the inspector closed. With the fix, the Events page reports 85 to 99 pt (Small to Extra Large), the floor of its empty-state text.
+
+Each half was measured on its own in the window test. The detail column frame alone ends the crash on both pages. The adaptive Events header alone ends it on Events but not on Diagnostics, so the frame is the fix and the header keeps Clear from being clipped (at 1040 pt it was).
+
+**Rejected alternatives.**
+
+- *Raise the window's minimum width.* SPEC §3.3 promises 900 × 600, and Events crashed up to 1080 pt.
+- *Remove `.fixedSize()` from the Events filter.* Measured: still crashed at 900 pt.
+- *Only the adaptive Events header.* Measured: Diagnostics with a finding still crashed.
+- *`.clipped()` on the detail column.* It would also cut the page background off where it runs up under the transparent title bar (see the next entry).
+- *Close the inspector when the window is narrow.* It overrides the user's choice, and the inspector is where Events and Diagnostics show what they select.
+
 ## 2026-10-13: The topology window's title bar is transparent where nothing scrolls under it
 
 **Question.** With the inspector open, the toolbar's search field straddled the end of a gray band over the detail column, because the inspector's black runs up under the toolbar. How should the toolbar strip look?

@@ -115,21 +115,11 @@ struct DiagnosticCard: View {
                 }
 
                 if diagnostic.portKey != nil || diagnostic.deviceID != nil {
-                    HStack(spacing: 10) {
-                        if let key = diagnostic.portKey {
-                            Button {
-                                onShowPort(key)
-                            } label: {
-                                Label(portTitle.map { "Show \($0)" } ?? "Show Port", systemImage: "cable.connector")
-                            }
-                        }
-                        if let id = diagnostic.deviceID, let deviceName {
-                            Button {
-                                onShowDevice(id)
-                            } label: {
-                                Label("Show \(deviceName)", systemImage: "info.circle")
-                            }
-                        }
+                    // Stacked when a long port or device name leaves no room
+                    // for both beside the inspector.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) { shortcuts }
+                        VStack(alignment: .leading, spacing: 6) { shortcuts }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -147,6 +137,24 @@ struct DiagnosticCard: View {
                 .strokeBorder(diagnostic.severity == .info ? WindowContrast.stroke(contrast) : color.opacity(0.4), lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var shortcuts: some View {
+        if let key = diagnostic.portKey {
+            Button {
+                onShowPort(key)
+            } label: {
+                Label(portTitle.map { "Show \($0)" } ?? "Show Port", systemImage: "cable.connector")
+            }
+        }
+        if let id = diagnostic.deviceID, let deviceName {
+            Button {
+                onShowDevice(id)
+            } label: {
+                Label("Show \(deviceName)", systemImage: "info.circle")
+            }
+        }
     }
 
     private var severityName: String {
