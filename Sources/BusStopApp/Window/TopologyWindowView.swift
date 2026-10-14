@@ -70,6 +70,10 @@ struct TopologyWindowView: View {
         .onChange(of: sidebarSelection) { _, item in
             if case .port(let key)? = item { store.selection = .port(key) }
         }
+        .onChange(of: store.selection) { _, selection in
+            // A clicked link is only described in the inspector, so open it.
+            if case .link? = selection, !showInspector { withAnimation(.snappy) { showInspector = true } }
+        }
         .onChange(of: store.revealGeneration, initial: true) { _, generation in
             handleReveal(generation)
         }
