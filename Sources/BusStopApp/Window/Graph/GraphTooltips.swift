@@ -1,10 +1,10 @@
 import AppKit
 import SwiftUI
 
-// The map's own tooltips for its chips and badges. The 30 fps link pulses
-// keep the system's tooltips from appearing anywhere over the map, and those
-// on a card's chips never appeared at all, so the map finds the chip under
-// the pointer and draws the tooltip itself (see docs/decisions.md).
+// The map's own tooltips for its chips and badges. The system's tooltips on
+// a card's chips never appeared, and AppKit's tooltip tracking for the map's
+// hosting view can stall (see `GraphControlHost`), so the map finds the chip
+// under the pointer and draws the tooltip itself (see docs/decisions.md).
 //
 // Each chip publishes its rectangle in layout coordinates, measured before
 // the zoom. The pointer is turned into a layout point the same way, so
