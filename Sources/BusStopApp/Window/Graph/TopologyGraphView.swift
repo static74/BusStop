@@ -185,8 +185,9 @@ nonisolated struct GraphPinch: Equatable {
 /// layer finds the link nearest the pointer, highlights it on hover and
 /// selects it on click. Cards sit above it and keep their own clicks.
 ///
-/// Chips and badges get the map's own tooltips (`GraphTooltipState`): the
-/// pulses keep the system's from appearing over the map.
+/// Chips and badges get the map's own tooltips (`GraphTooltipState`); the
+/// picker and zoom buttons keep the system's, each in its own hosting view
+/// (`GraphControlHost`).
 struct GraphMap: View {
     var layout: GraphLayout
     var strokes: [GraphEdgeStroke]
@@ -414,17 +415,21 @@ struct GraphMap: View {
         commit(current.centering(rect, in: size))
     }
 
+    /// The picker and the zoom cluster each sit in their own hosting view, so
+    /// their tooltips do not depend on the map's (see `GraphControlHost`).
     private func controls(zoom: CGFloat) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
-            Picker("Links show", selection: $linkMode) {
-                ForEach(GraphLinkMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
+            GraphControlHost {
+                Picker("Links show", selection: $linkMode) {
+                    ForEach(GraphLinkMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .help("Show data rates or power on the links")
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             .fixedSize()
-            .help("Show data rates or power on the links")
             ViewThatFits(in: .horizontal) {
                 switch linkMode {
                 case .data: GraphSpeedLegend()
@@ -433,16 +438,19 @@ struct GraphMap: View {
                 Color.clear.frame(width: 0, height: 0)
             }
             Spacer(minLength: 0)
-            GraphZoomControl(
-                zoom: Double(zoom),
-                isFitting: camera == nil,
-                // Buttons zoom around the middle of the map.
-                onZoom: { target in
-                    commit(base.zoomed(to: Self.clamp(CGFloat(target)),
-                                       at: CGPoint(x: size.width / 2, y: size.height / 2)))
-                },
-                onFit: { camera = nil }
-            )
+            GraphControlHost {
+                GraphZoomControl(
+                    zoom: Double(zoom),
+                    isFitting: camera == nil,
+                    // Buttons zoom around the middle of the map.
+                    onZoom: { target in
+                        commit(base.zoomed(to: Self.clamp(CGFloat(target)),
+                                           at: CGPoint(x: size.width / 2, y: size.height / 2)))
+                    },
+                    onFit: { camera = nil }
+                )
+            }
+            .fixedSize()
         }
         .padding(16)
     }
