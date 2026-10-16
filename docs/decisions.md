@@ -2,6 +2,24 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-16: Bus Stop builds on macOS only
+
+**Question.** `BusStopCore` was kept buildable on Linux, with a CI job in the `swift:6.4-noble` container, so that contributors without a Mac could work on parsing and topology. Is that still worth it?
+
+**Decision.** No. The package builds on macOS only. `Package.swift` declares every target without `#if os(macOS)`, the `core-linux` CI job is gone, and CONTRIBUTING, ARCHITECTURE, SPEC and README no longer mention Linux. The split between targets stays: `BusStopCore` has no IOKit, AppKit or SwiftUI, so its tests run on saved captures and demo data, without the hardware or a running app. It may now use other Apple frameworks, such as `os.Logger` or CryptoKit.
+
+**Why.** The app only runs on macOS, and the project has no contributors without a Mac. The Linux build ruled out Apple frameworks in the core and had to be kept in mind in every change, for no user. The macOS 26 job runs the same core tests on every pull request.
+
+**Risks.**
+
+- Nothing now fails the build if `BusStopCore` imports IOKit, AppKit or SwiftUI. Code review has to catch it.
+- Someone without a Mac can no longer run the tests.
+
+**Rejected alternatives.**
+
+- *Keep the Linux job as a check on the core's imports.* A whole platform build is a heavy way to enforce a rule about imports.
+- *Keep the Linux build but drop the CI job.* A build nobody runs breaks without anyone noticing.
+
 ## 2026-10-14: The map's controls get their own hosting views
 
 **Question.** The map's Zoom Out, Actual Size, Zoom In and Fit buttons and its Data/Power picker carry `.help`, but often showed no tooltip. List mode was also reported to lose its chips' tooltips at the 2 s refresh, while a 5 s poll and the menu-bar popover were fine. The suspects were the 30 fps pulse `TimelineView` and `PortStore` replacing the snapshot on every poll, even when nothing changed. What stops the tooltips?

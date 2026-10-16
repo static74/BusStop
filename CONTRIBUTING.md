@@ -6,9 +6,7 @@ Thank you for helping. Bus Stop is a small project with a few firm rules: it onl
 
 ## Build and test
 
-### On a Mac
-
-You need Xcode 27 (Swift 6.4, macOS 27 SDK) or Xcode 26.6 (Swift 6.3). Both are tested in CI.
+Bus Stop builds and runs on macOS only. You need Xcode 27 (Swift 6.4, macOS 27 SDK) or Xcode 26.6 (Swift 6.3). Both are tested in CI.
 
 ```sh
 swift build                     # everything, debug
@@ -23,27 +21,16 @@ Run the app from the bundle rather than with `swift run BusStopApp`: notificatio
 
 `scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD` and `CONFIGURATION=debug`; the comment at the top of the script describes them.
 
-### On Linux, with Docker
-
-`BusStopCore` (parsing, topology, labels, diagnostics, events, export and demo data) is pure Swift and builds on Linux, so you can work on it without a Mac. The macOS-only targets are left out of the package automatically.
-
-```sh
-docker run --rm -v "$PWD":/src -w /src swift:6.4-noble swift test
-```
-
-Add `--scratch-path /tmp/busstop-build` (with a matching volume) if you want the build products outside the repository.
-
 ### Continuous integration
 
-Every push runs three jobs:
+CI runs on every pull request, and again on each push to it. Plain branch pushes and merges to `main` run nothing.
 
-| Job | What it does |
-|---|---|
-| Core (Linux, Swift 6.4) | `swift test` in the `swift:6.4-noble` container |
-| macOS 27 (Xcode 27) | build, test, `scripts/build-app.sh`, `scripts/smoke-test.sh` against demo data and the runner's own hardware, upload of `BusStop.zip` |
-| macOS 26 (Xcode 26.6) | build, test, a universal `scripts/build-app.sh`, `scripts/smoke-test.sh --skip-live` |
+| Job | When | What it does |
+|---|---|---|
+| macOS 26 (Xcode 26.6) | every pull request | build, test, a universal `scripts/build-app.sh`, `scripts/smoke-test.sh --skip-live` |
+| macOS 27 (Xcode 27) | only when started by hand (Actions › CI › Run workflow), because its runner is paid | build, test, `scripts/build-app.sh`, `scripts/smoke-test.sh` against demo data and the runner's own hardware, upload of `BusStop.zip` |
 
-The smoke test prints every command's output, so the job log shows what the CLI saw on the runner. Pull requests need all three jobs to pass.
+The smoke test prints every command's output, so the job log shows what the CLI saw on the runner. Pull requests need the macOS 26 job to pass. Releases run the full test and smoke test on Xcode 27 before they publish.
 
 ## Reporting a bug
 
@@ -71,7 +58,7 @@ Every topology bug should end up as a test, so it stays fixed.
 2. Check that it still reproduces the problem: `swift run busstop --input capture.json`.
 3. Add it to `Tests/BusStopCoreTests`. Small captures can go straight into a Swift raw string literal (`#"""…"""#`) next to the test. Larger ones go in a `.json` file under `Tests/BusStopCoreTests/Fixtures/`, declared in `Package.swift` with `resources: [.copy("Fixtures/<folder>")]` on the test target and loaded with `Bundle.module`.
 4. Write the test: decode with `Exporter.decodeRaw`, build with `TopologyBuilder.build`, and assert on what the bug was about (a device's port, a link speed, a power figure). Tests use Swift Testing (`import Testing`, `@Test`, `#expect`).
-5. Run `swift test` on Linux or macOS.
+5. Run `swift test`.
 
 Fixtures must not contain real serial numbers. Captures made with the default settings are already redacted.
 
@@ -108,7 +95,7 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 ## Code style
 
 - **Swift 6 language mode with complete concurrency checking.** Core types are `Sendable` values; UI code is `@MainActor`. No `@unchecked Sendable` without a comment explaining why it is safe.
-- **`BusStopCore` stays Foundation-only** (no IOKit, AppKit, SwiftUI or CoreGraphics), so it builds and tests on Linux. Hardware access belongs in `BusStopKit`.
+- **`BusStopCore` has no hardware access and no UI** (no IOKit, AppKit or SwiftUI), so its tests run on saved captures and demo data. Hardware access belongs in `BusStopKit`, and UI in the app.
 - **Read every IORegistry key defensively.** Keys can be missing or have an unexpected type on another Mac or macOS version, and keys starting with `Apple` are not API. Use the optional accessors on `PropertyBag` and `PlistValue`; never force-unwrap or force-cast registry data.
 - **Avoid Foundation's type names** for new types: `Port`, `Process`, `Host`, `Thread`, `Timer` and the like collide on macOS (Foundation's `NSPort` is imported as `Port`).
 - **Document types and non-obvious members** with `///` comments, including the reason behind anything surprising.

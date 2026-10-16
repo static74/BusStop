@@ -208,13 +208,11 @@ VoiceOver labels on every card and graph node ("Left Front USB-C port, Samsung T
 
 | Target | Platforms | Responsibility |
 |---|---|---|
-| `BusStopCore` | macOS, Linux | Pure Swift. Raw capture model (`RawSnapshot`), output model (`HostSnapshot`), `TopologyBuilder`, port labelling and catalogue, formatters, diagnostics, event diffing, power history, export, demo scenarios. No IOKit. Fully unit-tested on Linux and macOS. |
+| `BusStopCore` | macOS | Pure Swift. Raw capture model (`RawSnapshot`), output model (`HostSnapshot`), `TopologyBuilder`, port labelling and catalogue, formatters, diagnostics, event diffing, power history, export, demo scenarios. No IOKit, AppKit or SwiftUI. Fully unit-tested. |
 | `BusStopKit` | macOS | IOKit capture (`RegistryCapture` → `RawSnapshot`), live monitoring (`LiveMonitor`: IOKit notifications, power-source notifications, display reconfiguration, power polling), SMC power channel reader, machine info. |
 | `BusStop` | macOS | The app: AppKit status item and popover, SwiftUI views, settings, notifications, launch at login. |
 | `busstop` | macOS | Command-line tool. |
-| `BusStopCoreTests` | macOS, Linux | Unit tests with fixtures. |
-
-The manifest declares macOS-only targets inside `#if os(macOS)`, so `swift build` and `swift test` work on Linux for the core.
+| `BusStopCoreTests` | macOS | Unit tests with fixtures. |
 
 ### 5.2 Data flow
 
@@ -342,11 +340,10 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 
 ## 7. Build, packaging and distribution
 
-- `swift build` builds everything on macOS; `swift test` runs the core tests on macOS and Linux.
+- `swift build` builds everything; `swift test` runs the core, Kit and app tests.
 - `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), ad-hoc signs it and zips it.
 - `scripts/install.sh` builds and copies the app to `/Applications`. A locally built app carries no quarantine attribute.
 - GitHub Actions, on pull requests:
-  - `core-linux`: `swift:6.4-noble` container, build and test the core.
   - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip. Runs only when the workflow is started by hand, because the runner is paid.
   - `macos-26`: `macos-26` runner with Xcode 26.6 for backward compatibility.
 - Releases: tagged builds attach the ad-hoc-signed zip. README explains "Open Anyway" in System Settings › Privacy & Security for downloaded builds.
