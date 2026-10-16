@@ -114,7 +114,7 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% ·
 
 ## How it works
 
-Bus Stop reads the Mac's port controllers, USB and Thunderbolt device trees, power telemetry and displays from IOKit into a plain, platform-neutral snapshot of raw registry properties. A pure Swift topology builder turns that snapshot into ports, device trees, link speeds and power figures, a diagnostics engine adds findings, and a differ compares consecutive snapshots to produce connection events. IOKit notifications trigger a new capture within a quarter of a second of any change. Because the raw snapshot is plain data, the same pipeline runs on demo data, on saved captures and in tests on Linux. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data flow and the threading model, and [docs/SPEC.md](docs/SPEC.md) is the full specification.
+Bus Stop reads the Mac's port controllers, USB and Thunderbolt device trees, power telemetry and displays from IOKit into a plain, platform-neutral snapshot of raw registry properties. A pure Swift topology builder turns that snapshot into ports, device trees, link speeds and power figures, a diagnostics engine adds findings, and a differ compares consecutive snapshots to produce connection events. IOKit notifications trigger a new capture within a quarter of a second of any change. Because the raw snapshot is plain data, the same pipeline runs on demo data, on saved captures and in tests. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data flow and the threading model, and [docs/SPEC.md](docs/SPEC.md) is the full specification.
 
 ## Contributing
 

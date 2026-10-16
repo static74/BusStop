@@ -5,7 +5,7 @@ import Foundation
 /// IOKit hands back CoreFoundation objects (`CFString`, `CFNumber`, `CFBoolean`,
 /// `CFData`, `CFArray`, `CFDictionary`, `CFDate`). `BusStopKit` converts them
 /// into `PlistValue` so the rest of the pipeline is plain Swift, `Sendable`,
-/// `Codable`, and testable on Linux.
+/// `Codable`, and testable without the hardware.
 ///
 /// JSON encoding is designed to stay readable in test fixtures:
 /// strings, numbers, booleans, arrays and objects map directly; `Data` encodes
