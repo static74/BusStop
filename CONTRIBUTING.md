@@ -6,7 +6,7 @@ Thank you for helping. Bus Stop is a small project with a few firm rules: it onl
 
 ## Build and test
 
-Bus Stop builds and runs on macOS only. You need Xcode 27 (Swift 6.4, macOS 27 SDK) or Xcode 26.6 (Swift 6.3). Both are tested in CI.
+Bus Stop builds and runs on macOS only. You need Xcode 27 (Swift 6.4, macOS 27 SDK) or Xcode 26.6 (Swift 6.3). CI tests Xcode 26.6 on every pull request, and Xcode 27 when started by hand and on every release.
 
 ```sh
 swift build                     # everything, debug

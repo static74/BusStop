@@ -6,7 +6,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Question.** `BusStopCore` was kept buildable on Linux, with a CI job in the `swift:6.4-noble` container, so that contributors without a Mac could work on parsing and topology. Is that still worth it?
 
-**Decision.** No. The package builds on macOS only. `Package.swift` declares every target without `#if os(macOS)`, the `core-linux` CI job is gone, and CONTRIBUTING, ARCHITECTURE, SPEC and README no longer mention Linux. The split between targets stays: `BusStopCore` has no IOKit, AppKit or SwiftUI, so its tests run on saved captures and demo data, without the hardware or a running app. It may now use other Apple frameworks, such as `os.Logger` or CryptoKit.
+**Decision.** No. The package builds on macOS only. `Package.swift` declares every target without `#if os(macOS)`, the `core-linux` CI job is gone, and CONTRIBUTING, ARCHITECTURE, SPEC and README no longer describe a Linux build. The split between targets stays: `BusStopCore` has no IOKit, AppKit or SwiftUI, so its tests run on saved captures and demo data, without the hardware or a running app. It may now use other Apple frameworks, such as `os.Logger` or CryptoKit.
 
 **Why.** The app only runs on macOS, and the project has no contributors without a Mac. The Linux build ruled out Apple frameworks in the core and had to be kept in mind in every change, for no user. The macOS 26 job runs the same core tests on every pull request.
 

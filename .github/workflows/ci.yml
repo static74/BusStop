@@ -73,7 +73,7 @@ jobs:
       - name: Test
         run: swift test
       - name: Assemble universal app bundle
-        # Universal here so every push proves the x86_64 build that releases ship.
+        # Universal here so every pull request proves the x86_64 build that releases ship.
         env:
           ARCHS: universal
         run: ./scripts/build-app.sh
