@@ -400,6 +400,9 @@ struct HistoryStoreTests {
         #expect(!store.events.isEmpty)
         // No new events, but the old ones are now past the 30-day limit.
         store.ingest(capture(HistoryArchive.eventAge + 60, unplugged: true))
+        // After a step forward of over a day, ages count from the capture before it until the clock holds a day.
+        #expect(!store.events.isEmpty)
+        store.ingest(capture(HistoryArchive.eventAge + 60 + HistoryArchive.clockTrust, unplugged: true))
         #expect(store.events.isEmpty)
     }
 

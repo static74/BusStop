@@ -455,7 +455,8 @@ final class PortStore {
 
     private func saveHistory(now: Date, wait: Bool) {
         guard let historyFile, historyLoaded, !archiveHoldsDemo, settings.keepHistory, !historyIsReadOnly else { return }
-        archive.trim(now: now)
+        // Only against a time a capture has seen: a clock that just jumped ahead must not wipe the history.
+        if let lastRecordedAt { archive.trim(now: lastRecordedAt) }
         if wait { historyFile.saveNow(archive) } else { historyFile.save(archive) }
         eventsDirty = false
         powerDirty = false

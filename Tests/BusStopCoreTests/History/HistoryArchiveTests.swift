@@ -116,8 +116,16 @@ struct HistoryArchiveTests {
         archive.record(capture(120, inputMilliwatts: 3), afterGap: false)
         #expect(archive.sections[model]?.power.count == 2)
 
-        archive.record(capture(HistoryArchive.powerAge + 30, inputMilliwatts: 4), afterGap: true)
+        archive.trim(now: start.addingTimeInterval(HistoryArchive.powerAge + 30))
+        #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [2])
+
+        // After a step forward of more than a day, ages are trimmed against the capture before the step
+        // until the clock has held for a day.
+        let later = 2 * HistoryArchive.powerAge
+        archive.record(capture(later, inputMilliwatts: 4), afterGap: true)
         #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [2, 3])
+        archive.record(capture(later + HistoryArchive.clockTrust, inputMilliwatts: 5), afterGap: false)
+        #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [4])
     }
 
     @Test func portDaysKeptForNinetyDays() {
@@ -135,7 +143,7 @@ struct HistoryArchiveTests {
 
     // MARK: Recording
 
-    @Test func clockGoingBackwardsDropsOnlyOutOfOrderSamples() {
+    @Test func clockGoingBackwardsDropsThePowerAfterIt() {
         var archive = HistoryArchive()
         archive.append([event("a", 0)], model: model)
         archive.record(capture(0, plugs: 1, inputMilliwatts: 10), afterGap: true)
@@ -145,8 +153,9 @@ struct HistoryArchiveTests {
 
         let section = archive.sections[model]
         #expect(archive.events(model: model).count == 1)
-        #expect(section?.power.map(\.systemInputMilliwatts) == [10])
-        #expect(section?.pendingPower.map(\.systemInputMilliwatts) == [20])
+        // Both earlier minutes are now in the future, so power starts over from this sample.
+        #expect(section?.power.isEmpty == true)
+        #expect(section?.pendingPower.map(\.systemInputMilliwatts) == [99])
         // Nothing counted across the step, but the new value is the baseline.
         #expect(days(archive).first?.plugEvents == 1)
         #expect(section?.lastCounters["2/1"]?.plugEventCount == 4)
@@ -157,12 +166,54 @@ struct HistoryArchiveTests {
         #expect(days(archive).first?.plugEvents == 2)
     }
 
-    @Test func counterGoingDownStartsANewEpoch() {
+    @Test func clockSetAheadThenPutRightKeepsTheHistory() {
+        let year = 365 * 86_400.0
         var archive = HistoryArchive()
-        archive.record(capture(0, plugs: 10, connections: 5), afterGap: true)
-        archive.record(capture(10, plugs: 2, connections: 1), afterGap: false)
+        archive.append([event("a", 0)], model: model)
+        archive.append([event("b", 0)], model: "Mac16,1")
+        archive.record(capture(0, plugs: 1, inputMilliwatts: 10), afterGap: true)
+        archive.record(capture(70, plugs: 2, inputMilliwatts: 20), afterGap: false)
+        // The clock is a year ahead for two captures and a save.
+        archive.record(capture(year, plugs: 3, inputMilliwatts: 98), afterGap: false)
+        archive.record(capture(year + 10, plugs: 3, inputMilliwatts: 99), afterGap: false)
+        archive.trim(now: start.addingTimeInterval(year + 20))
+        #expect(archive.events(model: model).count == 1)
+        // Another Mac model's section never saw the step, and is kept too.
+        #expect(archive.events(model: "Mac16,1").count == 1)
+        #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [10, 20])
+        #expect(days(archive).map(\.plugEvents) == [1, 1])
+
+        // Put right: the samples and the port day from the future go, and new ones record again.
+        archive.record(capture(130, plugs: 4, inputMilliwatts: 30), afterGap: false)
+        archive.record(capture(200, plugs: 5, inputMilliwatts: 40), afterGap: false)
+        let section = archive.sections[model]
+        #expect(archive.events(model: model).count == 1)
+        #expect(section?.power.map(\.systemInputMilliwatts) == [10, 20, 30])
+        #expect(section?.pendingPower.map(\.systemInputMilliwatts) == [40])
+        #expect(days(archive).map(\.plugEvents) == [2])
+    }
+
+    @Test func ageTrimsStillRunWhenEverySessionFollowsAGap() {
+        var archive = HistoryArchive()
+        archive.append([event("old", 0)], model: model)
+        // A weekend Mac: four hours of use every three days, for six weeks.
+        for session in 0..<14 {
+            let t = Double(session) * 3 * 86_400
+            archive.record(capture(t, inputMilliwatts: 1), afterGap: true)
+            archive.record(capture(t + 4 * 3_600, inputMilliwatts: 1), afterGap: false)
+        }
+        #expect(archive.events(model: model).isEmpty)
+    }
+
+    @Test func counterGoingDownKeepsItsBaseline() {
+        var archive = HistoryArchive()
+        archive.record(capture(0, plugs: 10, connections: 5, overcurrents: 3), afterGap: true)
+        // One low reading, then the real values again: nothing happened.
+        archive.record(capture(10, plugs: 2, connections: 1, overcurrents: 0), afterGap: false)
+        archive.record(capture(20, plugs: 10, connections: 5, overcurrents: 3), afterGap: false)
         #expect(days(archive).isEmpty)
-        archive.record(capture(20, plugs: 4, connections: 2), afterGap: false)
+        #expect(archive.sections[model]?.lastOvercurrentAt.isEmpty == true)
+        archive.record(capture(30, plugs: 12, connections: 6, overcurrents: 3), afterGap: false)
         #expect(days(archive).first?.plugEvents == 2)
         #expect(days(archive).first?.connections == 1)
     }
