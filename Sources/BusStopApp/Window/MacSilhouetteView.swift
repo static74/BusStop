@@ -102,21 +102,14 @@ struct MacSilhouetteView: View {
                         .foregroundStyle(Lagoon.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     ForEach(unplaced) { port in
-                        Button { onSelect(port.key) } label: {
+                        portButton(port) {
                             HStack(spacing: 8) {
-                                SilhouetteConnector(connector: port.kind.catalogConnector, vertical: false,
-                                                    fill: SilhouettePaint.paint(for: port, mode: mode).color)
+                                marked(port, connector: port.kind.catalogConnector, vertical: false)
                                 Text(port.label.title)
                                     .lineLimit(1)
                                     .foregroundStyle(Lagoon.textPrimary)
                             }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .opacity(matches(port) ? 1 : 0.35)
-                        .help(Self.help(port))
-                        .accessibilityLabel(WindowText.portAccessibility(port))
-                        .accessibilityAddTraits(port.key == selectedPort ? .isSelected : [])
                     }
                 }
             }
@@ -132,32 +125,41 @@ struct MacSilhouetteView: View {
 
     /// One outline (the laptop from above, or one desktop face) with its slots.
     private func face(_ side: ChassisFace?, layout: ChassisLayout, caption: String?) -> some View {
-        let shape = ChassisShape(family: layout.family, face: side)
+        let shape = ChassisShape(family: layout.family)
         let slots = layout.slots.filter { side == nil ? ($0.face == .left || $0.face == .right) : $0.face == side }
+        let minWidth = shape.minWidth(for: slots)
+        let outline = shape
+            .stroke(Lagoon.strokeStrong, lineWidth: 1.5)
+            .background(shape.fill(Lagoon.surface))
+            .contentShape(shape)
+            // Help on the body too, so a pointer resting on it does not
+            // leave the page's tooltip tracker idle (docs/decisions.md,
+            // "The map's controls get their own hosting views").
+            .help(snapshot.machine.name)
+            .overlay {
+                GeometryReader { proxy in
+                    ForEach(slots, id: \.self) { slot in
+                        glyph(slot)
+                            .position(shape.point(for: slot, in: CGRect(origin: .zero, size: proxy.size)))
+                    }
+                }
+            }
         return VStack(alignment: .leading, spacing: 6) {
             if let caption {
                 Text(caption)
                     .lagoonFont(.caption, weight: .medium)
                     .foregroundStyle(Lagoon.textSecondary)
             }
-            shape
-                .stroke(Lagoon.strokeStrong, lineWidth: 1.5)
-                .background(shape.fill(Lagoon.surface))
-                .contentShape(shape)
-                // Help on the body too, so a pointer resting on it does not
-                // leave the page's tooltip tracker idle (docs/decisions.md,
-                // "The map's controls get their own hosting views").
-                .help(snapshot.machine.name)
-                .aspectRatio(shape.aspectRatio, contentMode: .fit)
-                .frame(maxWidth: shape.maxWidth)
-                .overlay {
-                    GeometryReader { proxy in
-                        ForEach(slots, id: \.self) { slot in
-                            glyph(slot)
-                                .position(shape.point(for: slot, in: CGRect(origin: .zero, size: proxy.size)))
-                        }
-                    }
+            // Too narrow a column scrolls the outline sideways rather than
+            // pushing its port buttons on top of each other.
+            ViewThatFits(in: .horizontal) {
+                outline
+                    .aspectRatio(shape.aspectRatio, contentMode: .fit)
+                    .frame(minWidth: minWidth, idealWidth: minWidth, maxWidth: max(shape.maxWidth, minWidth))
+                ScrollView(.horizontal) {
+                    outline.frame(width: minWidth, height: minWidth / shape.aspectRatio)
                 }
+            }
         }
     }
 
@@ -165,33 +167,9 @@ struct MacSilhouetteView: View {
     private func glyph(_ slot: ChassisSlot) -> some View {
         let vertical = slot.face == .left || slot.face == .right
         if let key = slot.portKey, let port = snapshot.port(key) {
-            let isSelected = key == selectedPort
-            Button { onSelect(key) } label: {
-                SilhouetteConnector(connector: slot.connector, vertical: vertical,
-                                    fill: SilhouettePaint.paint(for: port, mode: mode).color)
-                    .padding(3)
-                    .overlay {
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .stroke(Lagoon.accent, lineWidth: 2)
-                        }
-                    }
-                    .overlay(alignment: .topTrailing) {
-                        if let severity = snapshot.worstSeverity(on: key) {
-                            Circle()
-                                .fill(Lagoon.severityColor(severity))
-                                .frame(width: 8, height: 8)
-                                .offset(x: 4, y: -4)
-                        }
-                    }
-                    .padding(4)
-                    .contentShape(Rectangle())
+            portButton(port) {
+                marked(port, connector: slot.connector, vertical: vertical).padding(4)
             }
-            .buttonStyle(.plain)
-            .opacity(matches(port) ? 1 : 0.35)
-            .help(Self.help(port))
-            .accessibilityLabel(WindowText.portAccessibility(port))
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
         } else {
             // A connector macOS does not report: drawn, but nothing to act on.
             SilhouetteConnector(connector: slot.connector, vertical: vertical, fill: nil)
@@ -202,10 +180,45 @@ struct MacSilhouetteView: View {
         }
     }
 
+    /// The port's connector with its selection ring and diagnostic dot.
+    private func marked(_ port: PhysicalPort, connector: String, vertical: Bool) -> some View {
+        SilhouetteConnector(connector: connector, vertical: vertical,
+                            fill: SilhouettePaint.paint(for: port, mode: mode).color)
+            .padding(3)
+            .overlay {
+                if port.key == selectedPort {
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .stroke(Lagoon.accent, lineWidth: 2)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if let severity = snapshot.worstSeverity(on: port.key) {
+                    Circle()
+                        .fill(Lagoon.severityColor(severity))
+                        .frame(width: 8, height: 8)
+                        .offset(x: 4, y: -4)
+                }
+            }
+    }
+
+    /// A port's button, on the outline or under "Not placed". The tooltip and
+    /// spoken label name a diagnostic, since its dot is only a colour.
+    private func portButton(_ port: PhysicalPort, @ViewBuilder label: () -> some View) -> some View {
+        let note = snapshot.worstSeverity(on: port.key).map { ", has a \($0.rawValue) diagnostic" } ?? ""
+        return Button { onSelect(port.key) } label: { label().contentShape(Rectangle()) }
+            .buttonStyle(.plain)
+            .opacity(matches(port) ? 1 : 0.35)
+            .help(Self.help(port) + note)
+            .accessibilityLabel(WindowText.portAccessibility(port) + note)
+            .accessibilityAddTraits(port.key == selectedPort ? .isSelected : [])
+    }
+
     private func matches(_ port: PhysicalPort) -> Bool {
         let query = TopologySearch.normalized(searchText)
         return TopologySearch.port(port, matches: query)
             || port.devices.contains { TopologySearch.prune($0, query: query) != nil }
+            // A monitor macOS lists only as a display, such as one on HDMI.
+            || snapshot.displays.contains { $0.portKey == port.key && TopologySearch.display($0, matches: query) }
     }
 
     /// "Left Front: Studio Display XDR · 80 Gb/s · 15 W", or "…: empty".
@@ -308,8 +321,6 @@ struct SilhouetteConnector: View {
 /// straight on; the rear face as someone standing behind the Mac sees it.
 nonisolated struct ChassisShape: Shape {
     var family: ChassisFamily
-    /// Nil for the laptop, seen from above.
-    var face: ChassisFace?
 
     /// Width over height of the drawn frame.
     var aspectRatio: CGFloat {
@@ -334,6 +345,20 @@ nonisolated struct ChassisShape: Shape {
 
     /// Room left and right of the body so glyphs on its edge stay inside.
     private static let sideInset: CGFloat = 14
+
+    /// Centre to centre, room for the widest port button: a 28 pt connector
+    /// and 14 pt of padding that takes clicks.
+    static let slotSpacing: CGFloat = 42
+
+    /// The narrowest frame that keeps `slots` (one desktop face, or a
+    /// laptop's two sides) `slotSpacing` apart. Slots are spread evenly, so
+    /// n slots on a face need n + 1 steps along it.
+    func minWidth(for slots: [ChassisSlot]) -> CGFloat {
+        let perFace = Dictionary(grouping: slots, by: \.face).values.map(\.count).max() ?? 0
+        let length = CGFloat(perFace + 1) * Self.slotSpacing
+        // A laptop's sides run along the body's height, which is the frame's less 4 pt.
+        return family == .laptop ? (length + 4) * aspectRatio : length + 2 * Self.sideInset
+    }
 
     private func body(in rect: CGRect) -> CGRect {
         let inset = rect.insetBy(dx: Self.sideInset, dy: 2)

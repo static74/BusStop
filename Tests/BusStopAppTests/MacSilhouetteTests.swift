@@ -65,6 +65,30 @@ struct MacSilhouetteTests {
         #expect(TopologySidebarItem(automationName: "bogus") == nil)
     }
 
+    /// At its narrowest the outline keeps neighbouring port buttons apart,
+    /// so a click never lands on the next port, on every catalogued Mac.
+    @Test func slotsStayAButtonApart() throws {
+        for model in PortLocationCatalog.allModels {
+            let entry = try #require(PortLocationCatalog.entry(for: model))
+            let machine = MachineSummary(model: model, name: entry.marketingName, osVersion: "27.0", isLaptop: false)
+            // With no live ports every catalogue row becomes a slot.
+            let layout = ChassisLayout.resolve(machine: machine, ports: [])
+            let shape = ChassisShape(family: layout.family)
+            let groups: [[ChassisFace]] = layout.family == .laptop ? [[.left, .right]] : [[.front], [.rear]]
+            for faces in groups {
+                let slots = layout.slots.filter { faces.contains($0.face) }
+                let width = shape.minWidth(for: slots)
+                let rect = CGRect(x: 0, y: 0, width: width, height: width / shape.aspectRatio)
+                for face in faces {
+                    let points = slots.filter { $0.face == face }.map { shape.point(for: $0, in: rect) }
+                    for (a, b) in zip(points, points.dropFirst()) {
+                        #expect(hypot(b.x - a.x, b.y - a.y) >= ChassisShape.slotSpacing - 0.01, "\(model) \(face)")
+                    }
+                }
+            }
+        }
+    }
+
     /// Every demo port has a place on the outline's drawn faces, so none
     /// falls into "Not placed".
     @Test(arguments: DemoScenario.allCases)
