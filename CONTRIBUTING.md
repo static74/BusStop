@@ -83,7 +83,7 @@ Port names such as "Left Front" come from a catalogue of physical port locations
      ]
    }
    ```
-   Connector names in the file are `usb-c`, `magsafe`, `usb-a`, `hdmi`, `sd-card`, `ethernet` and `ac-power`. List the ports in physical order; Bus Stop shows them in that order.
+   Connector names in the file are `usb-c`, `magsafe`, `usb-a`, `hdmi`, `sd-card`, `ethernet` and `ac-power`. List the ports in physical order; Bus Stop shows them in that order. Write locations in the existing forms ("Left Rear", "Right Center", "Rear (left-center)", "Top/Front (left)"), because Bus Stop reads them to place the ports on the Mac's outline; `ChassisLayoutTests.everyCatalogueLocationParses` checks every row.
 4. Regenerate the Swift file:
    ```sh
    scripts/generate-port-catalog.py path/to/MacPortLocations.json
