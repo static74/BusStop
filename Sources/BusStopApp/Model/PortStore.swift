@@ -1,3 +1,4 @@
+import AppKit
 import BusStopCore
 import BusStopKit
 import Foundation
@@ -67,12 +68,37 @@ final class PortStore {
     @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
     @ObservationIgnored private var visibleClients = 0
     @ObservationIgnored private var isRunning = false
+    @ObservationIgnored private var screensAsleep = false
+    @ObservationIgnored private var sessionInactive = false
+    @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
 
     static let maxEvents = 500
     static let departingLifetime: TimeInterval = 1.5
 
     init(settings: AppSettings = .shared) {
         self.settings = settings
+        observeScreenSleep()
+    }
+
+    /// Nobody can see the menu bar's power text, so power polling stops.
+    var isPollingPaused: Bool { screensAsleep || sessionInactive }
+
+    private func observeScreenSleep() {
+        let center = NSWorkspace.shared.notificationCenter
+        func observe(_ name: Notification.Name, _ update: @escaping @MainActor (PortStore) -> Void) {
+            workspaceObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    update(self)
+                    self.monitor?.setPollingPaused(self.isPollingPaused)
+                }
+            })
+        }
+        observe(NSWorkspace.screensDidSleepNotification) { $0.screensAsleep = true }
+        observe(NSWorkspace.screensDidWakeNotification) { $0.screensAsleep = false }
+        // Fast user switching: another user has the screen.
+        observe(NSWorkspace.sessionDidResignActiveNotification) { $0.sessionInactive = true }
+        observe(NSWorkspace.sessionDidBecomeActiveNotification) { $0.sessionInactive = false }
     }
 
     var isDemo: Bool { settings.demoMode }
@@ -282,6 +308,7 @@ final class PortStore {
         let monitor = LiveMonitor(configuration: monitorConfiguration)
         self.monitor = monitor
         monitor.setUIVisible(visibleClients > 0)
+        monitor.setPollingPaused(isPollingPaused)
         monitor.start { [weak self] raw in
             self?.ingest(raw)
         }

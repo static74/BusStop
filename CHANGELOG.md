@@ -17,6 +17,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
+- Bus Stop uses much less energy in the background. Between hardware changes, the power poll now re-reads only the battery and SMC power values instead of the whole I/O Registry, and it does not contact powerd. The full topology is still re-read on every hardware notification and at least once a minute. A power update also pushes the next poll back, and polling stops while the screens are asleep or another user is logged in, with a full refresh on wake. Connect and disconnect events and notifications still fire while polling is paused.
 - Links that run together in the map no longer look brighter where they overlap, and links leaving one card start from separate points instead of a single one.
 - A monitor that reaches a port through a Thunderbolt dock is drawn under the dock in the map.
 - Device counts (the window subtitle, the menu bar text, All Devices, port and dock roll-ups, Markdown reports and `busstop --watch`) count only the devices drawn on the map, so they no longer include a dock's built-in parts: 27 devices became 20 on the Anker Prime capture. The All Devices subtitle says when built-in parts are left out, and the Dock station demo shows 8 devices instead of 9.

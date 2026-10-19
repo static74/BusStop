@@ -27,7 +27,7 @@ public enum RegistryCapture {
 
         let battery = PowerReader.battery()
         if battery == nil {
-            notes.append("AppleSmartBattery service not found")
+            notes.append(missingBatteryNote)
         }
         let machine = machineInfo(battery: battery)
         let ports = PortNodeReader.read(rootID: rootID, notes: &notes)
@@ -58,6 +58,30 @@ public enum RegistryCapture {
             captureNotes: notes
         )
     }
+
+    /// Re-reads only what changes without an IOKit notification (the battery
+    /// service, whose telemetry and adapter details carry system power, and
+    /// the SMC's per-port channels) and keeps everything else from `previous`.
+    /// Skips the power-source API, so no powerd round-trip.
+    static func refreshPower(_ previous: RawSnapshot, includeSMC: Bool, smc: SMCReader) -> RawSnapshot {
+        var raw = previous
+        raw.capturedAt = Date()
+        raw.battery = PowerReader.battery()
+        var notes = previous.captureNotes.filter { $0 != missingBatteryNote && !$0.hasPrefix("SMC") }
+        if raw.battery == nil {
+            notes.append(missingBatteryNote)
+        }
+        raw.smcChannels = []
+        if includeSMC {
+            let reading = smc.readChannels()
+            raw.smcChannels = reading.channels
+            if let note = reading.note { notes.append(note) }
+        }
+        raw.captureNotes = notes
+        return raw
+    }
+
+    static let missingBatteryNote = "AppleSmartBattery service not found"
 
     static func machineInfo(battery: PropertyBag?) -> MachineInfo {
         let version = ProcessInfo.processInfo.operatingSystemVersion

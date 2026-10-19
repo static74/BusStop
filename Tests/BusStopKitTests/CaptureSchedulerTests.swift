@@ -161,6 +161,18 @@ struct CaptureSchedulerTests {
                 == at(5))
     }
 
+    @Test func powerOnlyCapturesReuseTheTopologyForAMinuteAtMost() {
+        let age = LiveMonitor.maximumTopologyAge
+        // No full capture yet, or one was asked for: full.
+        #expect(LiveMonitor.needsFullCapture(requested: false, lastFull: nil, now: at(5)))
+        #expect(LiveMonitor.needsFullCapture(requested: true, lastFull: at(4), now: at(5)))
+        // Power only while the last full capture is fresh...
+        #expect(!LiveMonitor.needsFullCapture(requested: false, lastFull: at(4), now: at(5)))
+        #expect(!LiveMonitor.needsFullCapture(requested: false, lastFull: at(4), now: at(4) + (age - 0.1)))
+        // ...and full again once it is `maximumTopologyAge` old.
+        #expect(LiveMonitor.needsFullCapture(requested: false, lastFull: at(4), now: at(4) + age))
+    }
+
     @Test func onlyShowingTheUICapturesAtOnce() {
         let now = at(10)
         #expect(LiveMonitor.capturesOnVisibilityChange(wasVisible: false, visible: true, lastCapture: nil, now: now))
