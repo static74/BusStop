@@ -49,6 +49,7 @@ struct PowerLineChart: View {
         let areaColor = colorFor(areaSeries)
         let hover = hoverValues()
         let zeroLines: [Double] = showsZeroLine ? [0] : []
+        let isolatedPoints = PowerChartData.isolated(points)
         Chart {
             ForEach(areaPoints) { point in
                 AreaMark(x: .value("Time", point.date), y: .value("Watts", point.watts),
@@ -73,6 +74,12 @@ struct PowerLineChart: View {
                 .interpolationMethod(.monotone)
                 .foregroundStyle(by: .value("Series", point.series))
                 .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            }
+            // A one-point segment draws no line, so mark it with a dot.
+            ForEach(isolatedPoints) { point in
+                PointMark(x: .value("Time", point.date), y: .value("Watts", point.watts))
+                    .foregroundStyle(by: .value("Series", point.series))
+                    .symbolSize(16)
             }
             ForEach(hover) { item in
                 RuleMark(x: .value("Time", item.date))
@@ -260,6 +267,12 @@ enum PowerChartData {
             PowerChartPoint(id: "\(id)#\(index)", date: value.date, watts: value.watts, series: series,
                             segment: segments[index])
         }
+    }
+
+    /// Points alone in their segment, which a line cannot show.
+    static func isolated(_ points: [PowerChartPoint]) -> [PowerChartPoint] {
+        let sizes = Dictionary(points.map { ("\($0.series)#\($0.segment)", 1) }, uniquingKeysWith: +)
+        return points.filter { sizes["\($0.series)#\($0.segment)"] == 1 }
     }
 
     static func systemColor(_ series: String) -> Color {

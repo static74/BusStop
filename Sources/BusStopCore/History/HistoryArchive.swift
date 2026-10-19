@@ -173,12 +173,15 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public func powerSamples(model: String, since start: Date, step: TimeInterval = 60) -> [PowerSample] {
         let minutes = (sections[model]?.power ?? []).filter { $0.start >= start }.map(PowerSample.init)
         guard step > 60 else { return minutes }
-        func window(_ date: Date) -> Date {
-            Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / step).rounded(.down) * step)
-        }
-        return Dictionary(grouping: minutes) { window($0.date) }
+        return Dictionary(grouping: minutes) { Self.windowStart($0.date, step: step) }
             .sorted { $0.key < $1.key }
             .map { PowerSample(PowerBucket(start: $0.key, averaging: $0.value)) }
+    }
+
+    /// The start of the `step`-second window holding `date`. Saved minutes
+    /// and resampled windows both use it, so they line up.
+    static func windowStart(_ date: Date, step: TimeInterval) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / step).rounded(.down) * step)
     }
 
     // MARK: Codec
@@ -278,8 +281,7 @@ extension HistoryArchive.Section {
     /// bucket when the sample starts a new one. A sample older than what is
     /// already kept is dropped.
     mutating func addPower(_ sample: PowerSample) {
-        let minute = Date(timeIntervalSinceReferenceDate:
-            (sample.date.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60)
+        let minute = HistoryArchive.windowStart(sample.date, step: 60)
         if let last = power.last, minute <= last.start { return }
         if let last = pendingPower.last {
             if sample.date < last.date { return }
@@ -292,7 +294,7 @@ extension HistoryArchive.Section {
     mutating func closePendingMinute() {
         guard let first = pendingPower.first else { return }
         power.append(HistoryArchive.PowerBucket(
-            start: Date(timeIntervalSinceReferenceDate: (first.date.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60),
+            start: HistoryArchive.windowStart(first.date, step: 60),
             averaging: pendingPower))
         pendingPower.removeAll()
     }

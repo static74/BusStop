@@ -24,6 +24,11 @@ struct PowerChartDataTests {
         let ports = PowerChartData.portSeries(samples, title: { _ in "Left" }, maxGap: maxGap)
         #expect(ports.domain == ["Left"])
         #expect(ports.points.map(\.segment) == [0, 0, 1, 1])
+        #expect(PowerChartData.isolated(system).isEmpty)
+        // A lone minute between gaps gets a dot, since a line cannot show it.
+        let lone = [0.0, 60, 1_800, 3_600].map { sample($0) }
+        let lonePoints = PowerChartData.systemPoints(lone, maxGap: maxGap)
+        #expect(PowerChartData.isolated(lonePoints).map(\.date) == [start.addingTimeInterval(1_800), start.addingTimeInterval(3_600)])
         // Live samples a few seconds apart stay one line.
         let live = [0.0, 2, 4, 12].map { sample($0) }
         #expect(PowerChartData.systemPoints(live, maxGap: PowerRange.tenMinutes.maxGap).map(\.segment) == [0, 0, 0, 0])
