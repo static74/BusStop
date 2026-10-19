@@ -17,10 +17,12 @@ struct EventGroupingTests {
 
     /// `count` events, one every `spacing` seconds before `start`, newest first.
     private func log(_ count: Int, spacing: TimeInterval = 600) -> [ConnectionEvent] {
-        (0..<count).map { i in
-            ConnectionEvent(id: "e\(i)", date: start.addingTimeInterval(-Double(i) * spacing),
-                            kind: i % 3 == 0 ? .deviceDisconnected : .deviceConnected,
-                            title: i % 2 == 0 ? "Samsung T9" : "Keyboard", detail: "Left Front")
+        // Split into typed lets: the Xcode 26.6 compiler times out type-checking the one-expression form.
+        (0..<count).map { (i: Int) -> ConnectionEvent in
+            let date = start.addingTimeInterval(-Double(i) * spacing)
+            let kind: ConnectionEvent.Kind = i % 3 == 0 ? .deviceDisconnected : .deviceConnected
+            let title = i % 2 == 0 ? "Samsung T9" : "Keyboard"
+            return ConnectionEvent(id: "e\(i)", date: date, kind: kind, title: title, detail: "Left Front")
         }
     }
 

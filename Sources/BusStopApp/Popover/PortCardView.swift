@@ -6,7 +6,8 @@ import SwiftUI
 /// Empty ports are dimmed with "Nothing connected".
 ///
 /// "Rename Port…" edits the title in place: Return saves, Escape cancels,
-/// and an empty name restores the default label.
+/// and an empty name restores the default label. A pin follows the title of
+/// the port pinned to the menu bar.
 struct PortCardView: View {
     var port: PhysicalPort
     var store: PortStore
@@ -46,17 +47,26 @@ struct PortCardView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
+        let isPinned = store.pinnedPortKey == port.key
+        return HStack(alignment: .center, spacing: 10) {
             PortIcon(kind: port.kind, isActive: port.isConnected)
             VStack(alignment: .leading, spacing: 1) {
                 if isRenaming {
                     renameField
                 } else {
-                    Text(port.label.title)
-                        .lagoonFont(.headline, weight: .semibold)
-                        .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    HStack(spacing: 5) {
+                        Text(port.label.title)
+                            .lagoonFont(.headline, weight: .semibold)
+                            .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if isPinned {
+                            Image(systemName: "pin.fill")
+                                .lagoonFont(.caption)
+                                .foregroundStyle(Lagoon.accent)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 }
                 if let caption = headerCaption {
                     Text(caption)
@@ -70,24 +80,9 @@ struct PortCardView: View {
             StatusRing(isActive: port.isConnected)
         }
         .contentShape(Rectangle())
-        .contextMenu {
-            Button("Rename Port\u{2026}") { beginRenaming() }
-            if port.label.source == .user {
-                Button("Restore Default Name") { store.renamePort(port.key, to: nil) }
-            }
-            Divider()
-            Button("Show in Topology") {
-                WindowManager.shared.showTopology(selecting: .port(port.key))
-            }
-        }
         .accessibilityElement(children: isRenaming ? .contain : .ignore)
-        .accessibilityLabel(PopoverText.portAccessibilityLabel(port))
-        .accessibilityActions {
-            Button("Rename Port") { beginRenaming() }
-            Button("Show in Topology") {
-                WindowManager.shared.showTopology(selecting: .port(port.key))
-            }
-        }
+        .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned))
+        .portActions(port, store: store, rename: beginRenaming)
     }
 
     /// Capability text, or the editing hint while renaming.
@@ -212,6 +207,35 @@ struct PortCardView: View {
     static func animationKey(_ devices: [DeviceNode], departingIDs: Set<String>) -> [String] {
         devices.flatMap { $0.flattened() }.map { entry in
             departingIDs.contains(entry.device.id) ? "departing:" + entry.device.id : entry.device.id
+        }
+    }
+}
+
+extension View {
+    /// A port's context menu and the matching VoiceOver actions: Rename,
+    /// Restore Default Name, Show in Topology, and Pin to or Unpin from the
+    /// menu bar.
+    func portActions(_ port: PhysicalPort, store: PortStore, rename: @escaping () -> Void) -> some View {
+        let isPinned = store.pinnedPortKey == port.key
+        let pinTitle = isPinned ? "Unpin from Menu Bar" : "Pin to Menu Bar"
+        let togglePin = { store.pinPort(isPinned ? nil : port.key) }
+        let showInTopology = { WindowManager.shared.showTopology(selecting: .port(port.key)) }
+        return contextMenu {
+            Button("Rename Port\u{2026}", action: rename)
+            if port.label.source == .user {
+                Button("Restore Default Name") { store.renamePort(port.key, to: nil) }
+            }
+            Divider()
+            Button(pinTitle, action: togglePin)
+            Button("Show in Topology", action: showInTopology)
+        }
+        .accessibilityActions {
+            Button("Rename Port", action: rename)
+            if port.label.source == .user {
+                Button("Restore Default Name") { store.renamePort(port.key, to: nil) }
+            }
+            Button(pinTitle, action: togglePin)
+            Button("Show in Topology", action: showInTopology)
         }
     }
 }

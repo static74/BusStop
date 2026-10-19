@@ -231,6 +231,15 @@ final class PortStore {
         if let raw { ingest(raw) }
     }
 
+    /// Demo pins live under their own key, because demo scenarios use real model ids.
+    private var pinStorageKey: String { snapshot.isDemo ? "demo:\(snapshot.machine.model)" : snapshot.machine.model }
+
+    /// This Mac model's pinned port, whether or not the port is in the snapshot.
+    var pinnedPortKey: PortKey? { settings.menuBarPinnedPorts[pinStorageKey].flatMap { PortKey($0) } }
+
+    /// Pins `key` to the menu bar for this Mac model (or this demo), or unpins with nil.
+    func pinPort(_ key: PortKey?) { settings.menuBarPinnedPorts[pinStorageKey] = key?.description }
+
     func resetPortNames() {
         let prefix = "\(snapshot.machine.model)#"
         settings.portNames = settings.portNames.filter { !$0.key.hasPrefix(prefix) }
