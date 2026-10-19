@@ -66,7 +66,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A demo update that arrives just as demo mode is turned off is no longer treated as live, so it cannot post a notification for a demo device.
 - A device that left with a hub and was plugged in elsewhere within a moment is no longer drawn twice, once live and once fading under the hub.
 - A history file that can be neither read nor moved aside is no longer overwritten; Bus Stop leaves it alone and saves again once you clear the history.
-- A clock set ahead and then put right no longer erases the saved history, and power recording resumes at once instead of waiting for real time to catch up.
+- A clock set ahead and then put right no longer erases the saved history, for any Mac model and even when Bus Stop saves before its next reading, and power recording resumes at once instead of waiting for real time to catch up. While the clock is in doubt, old history is trimmed by the time of the last reading before the jump.
 - A port whose plug count was missing for a while, such as across a sleep, no longer raises a false "keeps disconnecting" warning on the next replug.
 - HDMI links, and DisplayPort or USB 3 links with no reported rate, are drawn in the accent colour on chips, the map and the Mac Outline instead of the USB 2 colour.
 - A cable whose e-marker says USB 3.2 Gen 2 / USB4 Gen 2 is rated 20 Gb/s, not 10, so the inspector no longer says it limits a 20 Gb/s link it carries.
