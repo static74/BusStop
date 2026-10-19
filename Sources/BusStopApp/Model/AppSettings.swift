@@ -187,6 +187,10 @@ final class AppSettings {
     var redactExports: Bool { didSet { defaults.set(redactExports, forKey: Key.redactExports) } }
     var demoMode: Bool { didSet { defaults.set(demoMode, forKey: Key.demoMode) } }
     var demoScenario: DemoScenario { didSet { defaults.set(demoScenario.rawValue, forKey: Key.demoScenario) } }
+    /// Save the event log, power and port counters between launches. Change
+    /// it through `PortStore.setKeepHistory`, which deletes the file when it
+    /// goes off.
+    var keepHistory: Bool { didSet { defaults.set(keepHistory, forKey: Key.keepHistory) } }
 
     // MARK: Ports
 
@@ -226,6 +230,7 @@ final class AppSettings {
         redactExports = bool(Key.redactExports, true)
         demoMode = bool(Key.demoMode, false)
         demoScenario = string(Key.demoScenario).flatMap(DemoScenario.init(rawValue:)) ?? .studioDesk
+        keepHistory = bool(Key.keepHistory, true)
         portNames = (defaults.dictionary(forKey: Key.portNames) as? [String: String]) ?? [:]
     }
 
@@ -255,6 +260,7 @@ final class AppSettings {
         redactExports = fresh.redactExports
         demoMode = fresh.demoMode
         demoScenario = fresh.demoScenario
+        keepHistory = fresh.keepHistory
         portNames = fresh.portNames
     }
 
@@ -281,6 +287,7 @@ final class AppSettings {
         static let redactExports = "redactExports"
         static let demoMode = "demoMode"
         static let demoScenario = "demoScenario"
+        static let keepHistory = "keepHistory"
         static let portNames = "portNames"
 
         static let all = [
@@ -288,7 +295,7 @@ final class AppSettings {
             menuBarPowerPrecision,
             backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
             notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
-            demoScenario, portNames,
+            demoScenario, keepHistory, portNames,
         ]
     }
 }
