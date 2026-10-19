@@ -132,7 +132,6 @@ struct AdvancedSettingsPane: View {
         store.applySettings()
         // Loads the file if history was off at launch, so saving starts.
         store.setKeepHistory(store.settings.keepHistory)
-        WindowManager.shared.refreshActivationPolicy()
     }
 }
 
