@@ -7,7 +7,8 @@ import SwiftUI
 ///
 /// "Rename Port…" edits the title in place: Return saves, Escape cancels,
 /// and an empty name restores the default label. A pin follows the title of
-/// the port pinned to the menu bar.
+/// the port pinned to the menu bar, and a health mark the title of a port
+/// with a connection-health finding.
 struct PortCardView: View {
     var port: PhysicalPort
     var store: PortStore
@@ -46,6 +47,7 @@ struct PortCardView: View {
 
     private var header: some View {
         let isPinned = store.pinnedPortKey == port.key
+        let health = PopoverText.health(of: port, in: store.snapshot.diagnostics)
         return HStack(alignment: .center, spacing: 10) {
             PortIcon(kind: port.kind, isActive: port.isConnected)
             VStack(alignment: .leading, spacing: 1) {
@@ -64,6 +66,7 @@ struct PortCardView: View {
                                 .foregroundStyle(Lagoon.accent)
                                 .accessibilityHidden(true)
                         }
+                        PortHealthMark(findings: health)
                     }
                 }
                 if let caption = headerCaption {
@@ -79,7 +82,7 @@ struct PortCardView: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: isRenaming ? .contain : .ignore)
-        .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned))
+        .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned, health: health))
         .portActions(port, store: store, rename: { isRenaming = true })
     }
 
@@ -256,6 +259,24 @@ extension View {
             }
             Button(pinTitle, action: togglePin)
             Button("Show in Topology", action: showInTopology)
+        }
+    }
+}
+
+/// A small mark after a port's name when its connections have a health
+/// finding (a flaky connection, a flapping or slower link, or a port that
+/// stands out); its tooltip lists them. The port's VoiceOver label says the
+/// same, so the mark itself is hidden.
+struct PortHealthMark: View {
+    var findings: [Diagnostic]
+
+    var body: some View {
+        if let worst = findings.map(\.severity).max() {
+            Image(systemName: "waveform.path.ecg")
+                .lagoonFont(.caption, weight: .semibold)
+                .foregroundStyle(Lagoon.severityColor(worst))
+                .help(findings.map(\.title).joined(separator: "\n"))
+                .accessibilityHidden(true)
         }
     }
 }

@@ -81,18 +81,7 @@ struct DiagnosticCard: View {
                 .accessibilityLabel(Lagoon.severityName(diagnostic.severity))
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(diagnostic.title)
-                        .lagoonFont(.headline, weight: .semibold)
-                        .foregroundStyle(Lagoon.textPrimary)
-                    Text(Lagoon.severityName(diagnostic.severity).uppercased())
-                        .lagoonFont(size: 9, weight: .heavy, design: .rounded)
-                        .tracking(0.8)
-                        .foregroundStyle(color)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(color.opacity(0.14)))
-                }
+                DiagnosticTitle(diagnostic: diagnostic)
                 Text(diagnostic.detail)
                     .lagoonFont(.callout)
                     .foregroundStyle(Lagoon.textSecondary)
@@ -155,5 +144,42 @@ struct DiagnosticCard: View {
                 Label("Show \(deviceName)", systemImage: "info.circle")
             }
         }
+    }
+}
+
+/// A finding's title and severity chip. The chip goes under the title when
+/// both do not fit on one line, so the title wraps between words, never
+/// inside one.
+struct DiagnosticTitle: View {
+    var diagnostic: Diagnostic
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) { title; chip }
+            stacked
+        }
+    }
+
+    /// The chip under the title.
+    var stacked: some View {
+        VStack(alignment: .leading, spacing: 4) { title; chip }
+    }
+
+    private var title: some View {
+        Text(diagnostic.title)
+            .lagoonFont(.headline, weight: .semibold)
+            .foregroundStyle(Lagoon.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var chip: some View {
+        let color = Lagoon.severityColor(diagnostic.severity)
+        return Text(Lagoon.severityName(diagnostic.severity).uppercased())
+            .lagoonFont(size: 9, weight: .heavy, design: .rounded)
+            .tracking(0.8)
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.14)))
     }
 }

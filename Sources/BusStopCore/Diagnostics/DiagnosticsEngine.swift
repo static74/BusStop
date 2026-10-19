@@ -11,12 +11,13 @@ public enum DiagnosticsEngine {
     /// - Parameters:
     ///   - snapshot: the freshly built snapshot (its `diagnostics` are ignored).
     ///   - raw: the raw capture it came from (for keys the model does not carry).
-    ///   - baseline: overcurrent counts per port key at app launch, to detect increases.
+    ///   - ports: each port's last 7 days from the history archive (`HistoryArchive.portHealth`),
+    ///     for the overcurrent and stands-out rules.
     ///   - extra: findings made elsewhere from the capture history (`ConnectionHealth`),
     ///     sorted and de-duplicated with the rest.
     /// - Returns: findings sorted by severity (critical first), then by id.
     ///   Ids are `"<kind>:<subject id>"` and stay the same while the finding holds.
-    public static func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot?, baseline: [String: Int] = [:],
+    public static func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot?, ports: [PortKey: PortHealth] = [:],
                                 extra: [Diagnostic] = []) -> [Diagnostic] {
         var findings: [Diagnostic] = []
         findings += usb2Fallbacks(snapshot)
@@ -25,7 +26,8 @@ public enum DiagnosticsEngine {
         findings += hubsOverBudget(snapshot)
         findings += deepChains(snapshot, raw: raw)
         findings += liquidDetections(snapshot)
-        findings += overcurrents(snapshot, baseline: baseline)
+        findings += overcurrents(snapshot, ports: ports)
+        findings += portsStandingOut(snapshot, ports: ports)
         findings += reducedDetail(snapshot, raw: raw)
         findings += extra
 
@@ -515,22 +517,71 @@ public enum DiagnosticsEngine {
         }
     }
 
-    static func overcurrents(_ snapshot: HostSnapshot, baseline: [String: Int]) -> [Diagnostic] {
+    /// How long an overcurrent warning stays after the port's last overcurrent increase.
+    static let overcurrentHold: TimeInterval = 24 * 3_600
+
+    /// Ports whose overcurrent counter went up in the last 24 hours, from the
+    /// history archive, so the warning survives a relaunch.
+    static func overcurrents(_ snapshot: HostSnapshot, ports: [PortKey: PortHealth]) -> [Diagnostic] {
         snapshot.ports.compactMap { port in
-            guard let start = baseline[port.id],
-                  let count = port.statistics?.overcurrentCount ?? port.properties?.int("Overcurrent Count"),
-                  count > start else { return nil }
-            let increase = count - start
-            let times = increase == 1 ? "once" : "\(increase) times"
+            guard let health = ports[port.key], let last = health.lastOvercurrentAt,
+                  snapshot.capturedAt.timeIntervalSince(last) < overcurrentHold else { return nil }
+            let count = max(health.overcurrents, 1)
+            let times = count == 1 ? "This happened once, in the last 24 hours."
+                : "This happened in the last 24 hours, and \(count) times in the last 7 days."
             return Diagnostic(
                 id: "\(DiagnosticKind.overcurrent.rawValue):\(port.id)",
                 kind: .overcurrent,
                 severity: .warning,
                 title: "\(port.label.title) cut power to protect the Mac",
                 detail: "A device or cable on \(port.label.title) tried to draw more current than the port allows. "
-                    + "This has happened \(times) since Bus Stop started.",
+                    + times,
                 suggestion: "Unplug what is on this port and check the cable and device for damage. "
                     + "Use a powered hub for devices that need a lot of power.",
+                portKey: port.key)
+        }
+    }
+
+    // MARK: Port stands out
+
+    /// Errors per connection, as a multiple of the sibling median, at which a port stands out.
+    static let standsOutRatio = 3.0
+    /// The sibling median never counts as lower than this, so a few errors
+    /// among spotless siblings do not stand out.
+    static let standsOutMedianFloor = 0.05
+    static let standsOutMinimumConnections = 5
+    static let standsOutMinimumErrors = 3
+    static let standsOutMinimumSiblings = 2
+
+    /// Ports with at least `standsOutRatio` times the connection errors per
+    /// connection of the median of the Mac's other ports of the same kind,
+    /// all over the same 7 days. Info only: a gentle note, never an alert.
+    /// Overcurrents are not errors, so they are never reported twice.
+    static func portsStandingOut(_ snapshot: HostSnapshot, ports: [PortKey: PortHealth]) -> [Diagnostic] {
+        func rate(_ health: PortHealth?) -> Double {
+            guard let health else { return 0 }
+            return Double(health.errors) / Double(max(health.connections, 1))
+        }
+        return snapshot.ports.compactMap { port in
+            guard let health = ports[port.key], health.connections >= standsOutMinimumConnections,
+                  health.errors >= standsOutMinimumErrors else { return nil }
+            let siblings = snapshot.ports.filter { $0.key != port.key && $0.kind == port.kind }
+            guard siblings.count >= standsOutMinimumSiblings else { return nil }
+            let rates = siblings.map { rate(ports[$0.key]) }.sorted()
+            let middle = rates.count / 2
+            let median = rates.count.isMultiple(of: 2) ? (rates[middle - 1] + rates[middle]) / 2 : rates[middle]
+            guard rate(health) >= standsOutRatio * max(median, standsOutMedianFloor) else { return nil }
+            return Diagnostic(
+                id: "\(DiagnosticKind.portStandsOut.rawValue):\(port.id)",
+                kind: .portStandsOut,
+                severity: .info,
+                title: "\(port.label.title) has more connection problems than the other ports",
+                detail: "In the last 7 days, \(health.errors) of \(health.connections) connections on "
+                    + "\(port.label.title) had a problem: the device dropped within 10 seconds, slowed down or "
+                    + "fell back to USB 2. That is at least 3 times as often as on this Mac's other "
+                    + "\(port.kind.displayName) ports.",
+                suggestion: "Check the port for dust or damage, and try the same cable and device on another port. "
+                    + "If the problems stay with this port, have it checked.",
                 portKey: port.key)
         }
     }
