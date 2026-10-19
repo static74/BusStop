@@ -58,6 +58,24 @@ struct MacSilhouetteTests {
         #expect(TopologyWindowView.page(revealing: .display(builtIn.id), from: .silhouette, store: store) == .overview)
     }
 
+    /// A search keeps a port bright when its monitor matches, also when macOS
+    /// lists that monitor only as a display, and the tooltip names it.
+    @Test func searchMatchesDisplayOnPort() throws {
+        let suite = "BusStopAppTests.SilhouetteSearch"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let store = demoStore(.dockStation, suite: suite)
+        defer { store.stop() }
+        var snapshot = store.snapshot
+        let index = try #require(snapshot.ports.firstIndex { $0.key.type == PortKey.hdmiType })
+        #expect(MacSilhouetteView.matches(snapshot.ports[index], in: snapshot, query: "LG UltraFine"))
+        #expect(!MacSilhouetteView.matches(snapshot.ports[index], in: snapshot, query: "zzz"))
+        // The display-only case: no device node under the port.
+        snapshot.ports[index].devices = []
+        let hdmi = snapshot.ports[index]
+        #expect(MacSilhouetteView.matches(hdmi, in: snapshot, query: "LG UltraFine"))
+        #expect(MacSilhouetteView.help(hdmi, in: snapshot).contains("LG UltraFine"))
+    }
+
     @Test func automationPageNames() {
         #expect(TopologySidebarItem(automationName: "silhouette") == .silhouette)
         #expect(TopologySidebarItem(automationName: "events") == .events)

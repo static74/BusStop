@@ -12,7 +12,6 @@ struct MacSilhouettePage: View {
 
     var body: some View {
         let snapshot = store.snapshot
-        let layout = ChassisLayout.resolve(machine: snapshot.machine, ports: snapshot.ports)
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 WindowDetailHeader(
@@ -24,17 +23,6 @@ struct MacSilhouettePage: View {
                     mode: linkMode,
                     searchText: searchText,
                     onSelect: { onSelect(.port($0)) })
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Positions are approximate. They come from the PortScope port catalogue.")
-                    if layout.slots.isEmpty {
-                        Text("Bus Stop does not know where this Mac's ports are. CONTRIBUTING.md in the project explains how to add it to the catalogue.")
-                    } else if PortLocationCatalog.entry(for: snapshot.machine.model) == nil {
-                        Text("Ports are placed by kind only (rear or front); this Mac is not in the catalogue yet.")
-                    }
-                }
-                .lagoonFont(.caption)
-                .foregroundStyle(Lagoon.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
             }
             .padding(24)
             // Room for the controls laid over the bottom edge.
@@ -113,6 +101,17 @@ struct MacSilhouetteView: View {
                     }
                 }
             }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Positions are approximate. They come from the PortScope port catalogue.")
+                if layout.slots.isEmpty {
+                    Text("Bus Stop does not know where this Mac's ports are. CONTRIBUTING.md in the project explains how to add it to the catalogue.")
+                } else if PortLocationCatalog.entry(for: snapshot.machine.model) == nil {
+                    Text("Ports are placed by kind only (rear or front); this Mac is not in the catalogue yet.")
+                }
+            }
+            .lagoonFont(.caption)
+            .foregroundStyle(Lagoon.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -204,16 +203,18 @@ struct MacSilhouetteView: View {
     /// A port's button, on the outline or under "Not placed". The tooltip and
     /// spoken label name a diagnostic, since its dot is only a colour.
     private func portButton(_ port: PhysicalPort, @ViewBuilder label: () -> some View) -> some View {
-        let note = snapshot.worstSeverity(on: port.key).map { ", has a \($0.rawValue) diagnostic" } ?? ""
+        let note = snapshot.worstSeverity(on: port.key).map { ", diagnostic: \(Lagoon.severityName($0))" } ?? ""
         return Button { onSelect(port.key) } label: { label().contentShape(Rectangle()) }
             .buttonStyle(.plain)
-            .opacity(matches(port) ? 1 : 0.35)
-            .help(Self.help(port) + note)
+            .opacity(Self.matches(port, in: snapshot, query: searchText) ? 1 : 0.35)
+            .help(Self.help(port, in: snapshot) + note)
             .accessibilityLabel(WindowText.portAccessibility(port) + note)
             .accessibilityAddTraits(port.key == selectedPort ? .isSelected : [])
     }
 
-    private func matches(_ port: PhysicalPort) -> Bool {
+    /// Whether a port stays bright while searching: the port, a device under
+    /// it, or a display on it matches.
+    static func matches(_ port: PhysicalPort, in snapshot: HostSnapshot, query searchText: String) -> Bool {
         let query = TopologySearch.normalized(searchText)
         return TopologySearch.port(port, matches: query)
             || port.devices.contains { TopologySearch.prune($0, query: query) != nil }
@@ -222,9 +223,11 @@ struct MacSilhouetteView: View {
     }
 
     /// "Left Front: Studio Display XDR · 80 Gb/s · 15 W", or "…: empty".
-    static func help(_ port: PhysicalPort) -> String {
+    static func help(_ port: PhysicalPort, in snapshot: HostSnapshot) -> String {
         guard port.isConnected else { return "\(port.label.title): empty" }
-        var parts = [port.devices.first?.name ?? port.charger?.displayName ?? "connected"]
+        var parts = [port.devices.first?.name
+            ?? snapshot.displays.first { $0.portKey == port.key }?.name
+            ?? port.charger?.displayName ?? "connected"]
         if let rate = port.link?.rateLabel { parts.append(rate) }
         if let power = WindowText.portPower(port) {
             parts.append((power.isMeasured ? "" : "≤") + Format.power(milliwatts: power.milliwatts))

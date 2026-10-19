@@ -151,6 +151,15 @@ enum Lagoon {
         }
     }
 
+    /// The level's name in the UI, as the Diagnostics page shows it.
+    static func severityName(_ severity: DiagnosticSeverity) -> String {
+        switch severity {
+        case .info: return "Note"
+        case .warning: return "Warning"
+        case .critical: return "Critical"
+        }
+    }
+
     static func powerColor(_ direction: PowerDirection) -> Color {
         switch direction {
         case .input: return powerIn
