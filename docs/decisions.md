@@ -299,6 +299,8 @@ The chassis family (laptop, Mac mini, Mac Studio, Mac Pro, iMac, or another desk
 
 With the controls in their own hosting views, the probe finds each control's help text through that view's own manager instead of the map's. This has not yet been checked with the real pointer.
 
+The Mac Outline (2026-10-19) hit the same stall, checked live with the agent's pointer on a Mac mini demo: after the pointer rested on the page's empty space, the last port's tooltip stayed up after the pointer left, and the next port, the body and the other face showed none. Each face now sits in its own hosting view (`GraphControlHost(fills: true)`, which takes the size the face is offered rather than its fitting size), and the body's help covers the whole frame, so no spot in that view lacks one. With the same pointer moves, every port, the body and both faces then showed their tooltips, and clicking and search dimming still worked. `MacSilhouetteTests` checks that each face has its own hosting view.
+
 **Risks.**
 
 - A manager can still stall inside one hosting view, for example after resting on the few points between two zoom buttons.
