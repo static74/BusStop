@@ -340,11 +340,12 @@ struct SystemPowerChartCard: View {
         let colors = domain.map(PowerChartData.systemColor)
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "System power", trailing: spanText)
-            if points.count < 2 {
-                PowerChartEmpty(message: "System input, battery and system load appear here once a few readings arrive. Some Macs do not report them.")
+            if points.isEmpty {
+                PowerChartEmpty(message: "System input, battery and system load appear here once readings arrive. Some Macs do not report them.")
             } else {
                 PowerLineChart(
                     points: points,
+                    isolatedPoints: PowerChartData.isolated(points),
                     domain: domain,
                     colors: colors,
                     areaSeries: PowerChartData.inputName,
@@ -368,11 +369,12 @@ struct PortPowerChartCard: View {
         let series = PowerChartData.portSeries(samples, title: title, maxGap: range.maxGap)
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Per-port power", trailing: "Positive: out to devices · negative: into the Mac")
-            if series.points.count < 2 {
+            if series.points.isEmpty {
                 PowerChartEmpty(message: "No port reports live power yet. Ports with a charger or a powered device show up here.")
             } else {
                 PowerLineChart(
                     points: series.points,
+                    isolatedPoints: PowerChartData.isolated(series.points),
                     domain: series.domain,
                     colors: series.colors,
                     areaSeries: nil,

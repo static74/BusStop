@@ -34,6 +34,8 @@ nonisolated struct PowerChartHover: Identifiable, Sendable {
 /// line and a hover crosshair with a tooltip.
 struct PowerLineChart: View {
     var points: [PowerChartPoint]
+    /// `PowerChartData.isolated(points)`, passed in so hovering does not redo it.
+    var isolatedPoints: [PowerChartPoint]
     /// Series names in legend order, with matching colours.
     var domain: [String]
     var colors: [Color]
@@ -49,7 +51,6 @@ struct PowerLineChart: View {
         let areaColor = colorFor(areaSeries)
         let hover = hoverValues()
         let zeroLines: [Double] = showsZeroLine ? [0] : []
-        let isolatedPoints = PowerChartData.isolated(points)
         Chart {
             ForEach(areaPoints) { point in
                 AreaMark(x: .value("Time", point.date), y: .value("Watts", point.watts),
