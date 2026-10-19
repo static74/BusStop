@@ -14,7 +14,7 @@ Bus Stop is a free, open-source (MIT) macOS menu bar utility that shows every ph
 2. For each port, show what is connected (hubs, docks, displays, drives, chargers, phones, input devices), the negotiated link speed, and power in or out.
 3. Show the full device chain: hubs, docks and daisy-chained Thunderbolt / USB4 devices, with every device labelled by the port it ultimately hangs off.
 4. Roll power and device counts up to each hub and to the host.
-5. Detect plug and unplug events instantly and keep a short event history.
+5. Detect plug and unplug events instantly and keep an event history between launches.
 6. Stay 100% local. No network access, no telemetry, no accounts.
 7. Look at home on macOS 27: Liquid Glass controls, true black surfaces, turquoise accent.
 8. Be easy to build from source with nothing but Xcode 27 (or Xcode 26.6) and SwiftPM.
@@ -111,7 +111,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
     - *Data and Power*: a toggle beside the legend (remembered between launches) switches what the links show. Data colours links by negotiated speed with rate chips. Power colours them on a heat ramp that gets brighter as watts rise: grey for no power, then deep red (under 5 W), orange (5–15 W), amber (15–45 W) and gold (45 W and up); amber and gold glow. Each step is at least 3.4:1 on the black map. Chips show watts, and pulses run the way the power flows. The cable in a Mac port (the Mac → port line and the line from the port to what is plugged into it) carries the port's reading, towards the Mac when the Mac charges from that port. A link further along carries the USB power budget of the child and everything below it, shown as a ceiling ("≤4.5 W"), because macOS reports what a device is allowed to draw, not what it draws.
   - *Ports / Devices*: tables with sortable columns (name, port, speed, power, vendor, IDs).
   - *Power*: charger details with every power profile, system input / load / battery chart, per-port output chart.
-  - *Events*: reverse-chronological timeline with filters. The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row.
+  - *Events*: reverse-chronological timeline of the saved event log (§5.6) with filters, grouped by day. The subtitle gives the number of events and when the oldest happened ("12 events since Oct 4, 09:15"). The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row. Clear removes this Mac model's events from the saved history too. The sidebar's Events badge counts only events since launch.
   - *Diagnostics*: list of findings with explanations and suggested fixes.
 - **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users. A dock's inspector has a "Built into this dock" section listing each built-in part (§5.4) with its name, vendor, speed and power; parts are not selectable, and searching for one finds the dock.
 - **Toolbar**: Refresh, Tree/Graph toggle, Export menu, Inspector toggle, search field.
@@ -125,7 +125,7 @@ Tabs:
 - **Appearance**: background opacity slider (60–100%, default 88%), glass tint strength, text size (S/M/L/XL), Reduce Motion override for link animation.
 - **Notifications**: toggles for device connected, device disconnected, link downgraded, charger connected/disconnected, diagnostics.
 - **Ports**: list of the Mac's ports with editable names and a "Reset names" button.
-- **Advanced**: refresh cadence for power polling (1/2/5 s), show raw IORegistry keys in the inspector, demo mode toggle and scenario picker, export raw capture, open the project page.
+- **Advanced**: refresh cadence for power polling (1/2/5 s), a History section (§5.6: "Keep history between launches", on by default, which asks before turning off and deleting the file; size on disk, oldest entry and event count; "Clear History…" with a confirmation), show raw IORegistry keys in the inspector, demo mode toggle and scenario picker, export raw capture, open the project page.
 
 ### 3.5 Notifications
 
@@ -212,7 +212,7 @@ VoiceOver labels on every card and graph node ("Left Front USB-C port, Samsung T
 
 | Target | Platforms | Responsibility |
 |---|---|---|
-| `BusStopCore` | macOS | Pure Swift. Raw capture model (`RawSnapshot`), output model (`HostSnapshot`), `TopologyBuilder`, port labelling and catalogue, formatters, diagnostics, event diffing, power history, export, demo scenarios. No IOKit, AppKit or SwiftUI. Fully unit-tested. |
+| `BusStopCore` | macOS | Pure Swift. Raw capture model (`RawSnapshot`), output model (`HostSnapshot`), `TopologyBuilder`, port labelling and catalogue, formatters, diagnostics, event diffing, power history, the saved history's format (`HistoryArchive`), export, demo scenarios. No IOKit, AppKit or SwiftUI. Fully unit-tested. |
 | `BusStopKit` | macOS | IOKit capture (`RegistryCapture` → `RawSnapshot`), live monitoring (`LiveMonitor`: IOKit notifications, power-source notifications, display reconfiguration, power polling), SMC power channel reader, machine info. |
 | `BusStop` | macOS | The app: AppKit status item and popover, SwiftUI views, settings, notifications, launch at login. |
 | `busstop` | macOS | Command-line tool. |
@@ -228,8 +228,9 @@ IOKit / IOPS / SMC / CoreGraphics
         │  (BusStopCore.TopologyBuilder, pure function)
         ▼
    HostSnapshot ── ports → device trees, power summary, diagnostics, displays
+        │  (BusStopCore.HistoryArchive.record: power minutes, port counter deltas)
         │  (BusStopCore.SnapshotDiffer)
-        ├──► [ConnectionEvent] → event log, notifications
+        ├──► [ConnectionEvent] → event log (HistoryArchive), notifications
         ▼
    PortStore (@Observable, @MainActor) → SwiftUI views, status item text
 ```
@@ -238,6 +239,7 @@ IOKit / IOPS / SMC / CoreGraphics
 - Every capture pushes the next poll back one interval. While the screens sleep or another user's session is active, polling stops and battery interest is ignored; other notifications still capture, and resuming runs one full capture.
 - Captures run on one serial background queue and never overlap. Results are delivered to the main actor.
 - Demo mode swaps the capture source for `DemoScenarios`, which produce `RawSnapshot` values, so the same builder path is exercised.
+- `PortStore` records each new capture into its `HistoryArchive` once: a settings change or a port rename rebuilds from the same capture and records nothing. New events are appended to the archive, and the event log the views show is this Mac model's section of it (§5.6).
 
 ### 5.3 Raw capture (`RawSnapshot`)
 
@@ -333,7 +335,15 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 
 ### 5.6 Persistence
 
-`UserDefaults` only: settings, port renames, menu bar pins, window frames. The event log and power history live in memory (last 500 events, last 10 minutes of samples). Nothing is written elsewhere unless the user exports.
+Settings, port renames, menu bar pins and window frames are in `UserDefaults`. History is saved in `~/Library/Application Support/io.github.static74.busstop/history.json` (the folder name is fixed, since `swift run` has no bundle identifier). Nothing else is written unless the user exports.
+
+- **What is kept**, in one section per Mac model (`hw.model`): the event log (newest 5,000 events, none older than 30 days); power averaged per minute (system input, battery, system load and each port's watts) for 7 days; each port's increases in Plug Event Count, ConnectionCount and Overcurrent Count, and liquid detections, per local calendar day for 90 days; and the time of each port's last overcurrent increase. The file is capped at about 5 MB by dropping the oldest entries. The popover's sparklines still use the in-memory 10-minute buffer (`PowerHistory`).
+- **Counting.** A counter increase is counted only between two captures Bus Stop saw back to back. The first capture after launch, wake, a change of source or the clock being set back counts nothing, so changes while Bus Stop was not watching are not attributed to the wrong day. A counter that goes down starts again from its new value. Gaps are signalled by the app, not inferred from time: while the screens sleep, captures come only on hardware changes and can be hours apart, and their deltas still count.
+- **Saving.** A serial background queue writes the file atomically: new events at most every 5 minutes (within a minute after a quiet spell), power-only changes every 15 minutes, and at once when the Mac goes to sleep and when Bus Stop quits. The folder is mode 0700 and the file 0600.
+- **Reading.** The file is read once at launch, straight into the store; restored events never notify. An entry that does not decode (an event kind from a newer version) is dropped on its own. A file that cannot be read is renamed `history-corrupt-<ms>.json` and a new one is started. A file written by a newer version is left untouched and never overwritten; Settings says so.
+- **Demo mode** never reads, shows or writes the saved history, including when Bus Stop launches straight into demo mode. Entering demo mode saves the live history and sets it aside; it comes back when demo mode ends. Each demo scenario starts with an empty history of its own.
+- **Turning it off** ("Keep history between launches") deletes the file, corrupt copies and a newer version's file included; that session's history stays in memory only, and turning it back on starts an empty history rather than saving it again. Launching with `-keepHistory NO` neither reads nor writes the file for that launch; it stays on disk. Turning it on mid-session reads the file and keeps that session's events. Clear History deletes it for every Mac model.
+- `busstop --watch` keeps nothing between runs and never touches the file.
 
 ---
 
@@ -342,6 +352,7 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 - No network code, no analytics, no crash reporting. The app does not request the network client entitlement.
 - Reads only: IORegistry properties, the power-source API and the SMC read selectors.
 - Unsandboxed, hardened-runtime-compatible, ad-hoc signed in CI. Users who build from source run their own binary.
+- The saved history (§5.6) stays on the Mac, readable only by the user's account (mode 0600). It records the Mac's model identifier (`hw.model`), never its serial number or computer name. Like port names, it is not redacted: event titles carry device names, and event ids carry display serial numbers (`display:<vendor>:<product>:<serial>`) and Thunderbolt device UIDs (`tb:<UID>`). Clear History, or turning "Keep history between launches" off, deletes it.
 - Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default). Redaction also replaces per-unit identifiers: Thunderbolt router UIDs (also inside `tb:` device ids), HPM controller and SMC channel UUIDs, USB and DisplayID container IDs, `ConnectionUUID`, EDID and DisplayID serial fields, and the computer name. Stand-ins keep their shape so a redacted raw capture still builds the same topology. `busstop --watch` and "Copy Details" apply the same redaction.
 
 ---
@@ -360,7 +371,7 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 
 ## 8. Testing
 
-- Unit tests in `BusStopCoreTests` cover: `PlistValue` coding, property accessors, speed and power formatting, port parsing, label resolution (exact, rank fallback, user override), USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, demo scenarios, JSON export round-trip.
+- Unit tests in `BusStopCoreTests` cover: `PlistValue` coding, property accessors, speed and power formatting, port parsing, label resolution (exact, rank fallback, user override), USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, the history archive (caps, local-day counter deltas, lossy decoding, newer-schema refusal), demo scenarios, JSON export round-trip. `BusStopAppTests` covers saving, restoring and clearing history with a temporary folder, including that demo mode leaves the file byte-identical.
 - Fixtures are hand-built from real public IORegistry dumps (macOS 26.3 MacBook Neo `IOPort` plane, macOS 27 MacBook Air M2 `AppleSmartBattery`, Thunderbolt `system_profiler` captures) and from the demo scenarios. Redacted `busstop --raw` captures from real setups are kept as JSON test resources (`Tests/BusStopCoreTests/Fixtures/*.json`).
 - CI runs the CLI on the macOS runner (a virtual machine with few accessories) to prove that live capture does not crash and produces valid JSON.
 
