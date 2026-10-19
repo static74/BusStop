@@ -107,11 +107,6 @@ extension PlistValue {
         return nil
     }
 
-    public var dateValue: Date? {
-        if case .date(let d) = self { return d }
-        return nil
-    }
-
     public var arrayValue: [PlistValue]? {
         if case .array(let a) = self { return a }
         return nil

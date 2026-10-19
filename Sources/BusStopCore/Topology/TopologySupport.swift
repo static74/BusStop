@@ -169,13 +169,15 @@ enum TopologyValues {
     /// 64-bit integers that sometimes arrive as their unsigned bit pattern
     /// (a number near 2^64, possibly as a `Double` or a string). Anything
     /// above `Int64.max / 2` is either converted back from two's complement
-    /// or, when it cannot be such a pattern, dropped.
+    /// or, when it cannot be such a pattern, dropped. Anything below
+    /// `-Int64.max / 2`, read or converted, is dropped too, so callers can
+    /// negate the result and take its magnitude.
     static func signedMilliwatts(_ value: PlistValue?) -> Int? {
         guard let value else { return nil }
         let half = Int64.max / 2
         switch value {
         case .int(let i):
-            guard i <= half else { return nil }
+            guard (-half...half).contains(i) else { return nil }
             return Int(exactly: i)
         case .double(let d):
             guard d.isFinite else { return nil }
@@ -183,11 +185,11 @@ enum TopologyValues {
             // 2^64 is exactly representable; values in [2^63, 2^64) are an
             // unsigned bit pattern.
             guard d >= 9_223_372_036_854_775_808.0, d < 18_446_744_073_709_551_616.0 else { return nil }
-            return Int(exactly: Int64(bitPattern: UInt64(d)))
+            return signedMilliwatts(.int(Int64(bitPattern: UInt64(d))))
         case .string(let s):
             let t = s.trimmingCharacters(in: .whitespaces)
             if let i = Int64(t) { return signedMilliwatts(.int(i)) }
-            if let u = UInt64(t), u > UInt64(Int64.max) { return Int(exactly: Int64(bitPattern: u)) }
+            if let u = UInt64(t), u > UInt64(Int64.max) { return signedMilliwatts(.int(Int64(bitPattern: u))) }
             return nil
         case .data, .bool:
             guard let i = value.int64Value else { return nil }

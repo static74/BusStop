@@ -76,14 +76,6 @@ public enum DeviceKind: String, Sendable, Hashable, Codable, CaseIterable {
         case .other: return "shippingbox"
         }
     }
-
-    /// True for nodes that can have children (hubs, docks, displays with hubs).
-    public var isContainer: Bool {
-        switch self {
-        case .hub, .dock, .display, .thunderboltDevice: return true
-        default: return false
-        }
-    }
 }
 
 /// Power information for one device.

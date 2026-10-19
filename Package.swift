@@ -66,5 +66,10 @@ let package = Package(
             dependencies: ["BusStopApp"],
             path: "Tests/BusStopAppTests"
         ),
+        .testTarget(
+            name: "BusStopCLITests",
+            dependencies: ["BusStopCLI"],
+            path: "Tests/BusStopCLITests"
+        ),
     ]
 )

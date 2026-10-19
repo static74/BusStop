@@ -502,8 +502,7 @@ public enum DiagnosticsEngine {
 
     static func liquidDetections(_ snapshot: HostSnapshot) -> [Diagnostic] {
         snapshot.ports.compactMap { port in
-            let detected = port.liquidDetected || port.properties?.bool("LDCM_LiquidDetected") == true
-            guard detected else { return nil }
+            guard port.liquidDetected else { return nil }
             return Diagnostic(
                 id: "\(DiagnosticKind.liquidDetected.rawValue):\(port.id)",
                 kind: .liquidDetected,

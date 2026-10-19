@@ -1,7 +1,6 @@
 import AppKit
 import BusStopCore
 import SwiftUI
-import UserNotifications
 
 /// Notifications: one toggle per kind of alert, plus the permission state.
 ///
@@ -76,7 +75,7 @@ struct NotificationsSettingsPane: View {
             status = nil
             return
         }
-        status = await Self.currentAuthorization()
+        status = await NotificationManager.currentAuthorization()
     }
 
     private func requestPermission() {
@@ -85,17 +84,6 @@ struct NotificationsSettingsPane: View {
             _ = await NotificationManager.shared.requestAuthorization()
             await refreshPermission()
             isRequesting = false
-        }
-    }
-
-    /// The authorization state, read off the main actor; only the Sendable
-    /// result crosses back (as in `NotificationManager`).
-    nonisolated private static func currentAuthorization() async -> NotificationManager.Authorization {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        switch settings.authorizationStatus {
-        case .notDetermined: return .notDetermined
-        case .denied: return .denied
-        default: return .allowed
         }
     }
 

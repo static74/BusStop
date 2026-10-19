@@ -102,6 +102,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openProjectPage(_ sender: Any?) {
-        NSWorkspace.shared.open(MainMenu.projectURL)
+        NSWorkspace.shared.open(URL(string: BusStopVersion.projectURL)!)
     }
 }

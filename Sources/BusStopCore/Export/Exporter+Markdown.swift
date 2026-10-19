@@ -27,7 +27,7 @@ private struct MarkdownReport {
     var text: String {
         // Collapse runs of blank lines and end with exactly one newline.
         var output: [String] = []
-        for line in lines.map(Self.trimTrailing) where !(line.isEmpty && (output.last?.isEmpty ?? true)) {
+        for line in lines.map(TextTree.trimTrailing) where !(line.isEmpty && (output.last?.isEmpty ?? true)) {
             output.append(line)
         }
         while output.last?.isEmpty == true { output.removeLast() }
@@ -177,7 +177,7 @@ private struct MarkdownReport {
             return
         }
         for diagnostic in snapshot.diagnostics {
-            lines.append("- **\(Self.severityText(diagnostic.severity)):** \(Self.escape(diagnostic.title))")
+            lines.append("- **\(TextTree.severityText(diagnostic.severity)):** \(Self.escape(diagnostic.title))")
             lines.append("  - \(Self.escape(diagnostic.detail))")
             if let suggestion = diagnostic.suggestion, !suggestion.isEmpty {
                 lines.append("  - Suggestion: \(Self.escape(suggestion))")
@@ -290,14 +290,6 @@ private struct MarkdownReport {
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
-    static func severityText(_ severity: DiagnosticSeverity) -> String {
-        switch severity {
-        case .critical: return "Critical"
-        case .warning: return "Warning"
-        case .info: return "Info"
-        }
-    }
-
     static func isoDate(_ date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
     }
@@ -312,11 +304,5 @@ private struct MarkdownReport {
             result.append(character)
         }
         return result
-    }
-
-    static func trimTrailing(_ line: String) -> String {
-        var line = line
-        while let last = line.last, last == " " || last == "\t" { line.removeLast() }
-        return line
     }
 }

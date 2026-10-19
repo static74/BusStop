@@ -76,8 +76,9 @@ final class PortStore {
     @ObservationIgnored let historyFile: HistoryFile?
     /// Changes on every capture, so no view observes it.
     @ObservationIgnored private(set) var archive = HistoryArchive()
-    /// True while `archive` holds demo data, which is never saved.
-    @ObservationIgnored private var archiveHoldsDemo = false
+    /// True while `archive` holds demo data, which is never saved: exactly
+    /// while the demo source runs. Observed, because `isDemo` reads it.
+    private var archiveHoldsDemo = false
     /// The live archive, kept aside while demo mode is on.
     @ObservationIgnored private var heldLiveArchive: HistoryArchive?
     /// Set once the file has been read (or found missing), so a save never
@@ -159,7 +160,10 @@ final class PortStore {
         }
     }
 
-    var isDemo: Bool { settings.demoMode }
+    /// Follows the running source, not the setting: the setting flips a
+    /// SwiftUI update before `applySettings()` switches the source, and a
+    /// capture in between must keep the flag of the source that made it.
+    var isDemo: Bool { archiveHoldsDemo }
 
     // MARK: Lifecycle
 
@@ -229,7 +233,7 @@ final class PortStore {
     }
 
     func refresh() {
-        if settings.demoMode {
+        if isDemo {
             demoTick += 1
             ingestDemo()
         } else {
@@ -246,7 +250,10 @@ final class PortStore {
 
     // MARK: Ports
 
-    func portNameKey(_ key: PortKey) -> String { "\(snapshot.machine.model)#\(key.description)" }
+    /// Demo names live under their own key, like pins, because demo scenarios use real model ids.
+    private func portNamePrefix(_ model: String) -> String { isDemo ? "demo:\(model)#" : "\(model)#" }
+
+    func portNameKey(_ key: PortKey) -> String { portNamePrefix(snapshot.machine.model) + key.description }
 
     /// Sets or clears (`nil` / empty) the user's name for a port.
     func renamePort(_ key: PortKey, to name: String?) {
@@ -267,7 +274,7 @@ final class PortStore {
     func pinPort(_ key: PortKey?) { settings.menuBarPinnedPorts[pinStorageKey] = key?.description }
 
     func resetPortNames() {
-        let prefix = "\(snapshot.machine.model)#"
+        let prefix = portNamePrefix(snapshot.machine.model)
         settings.portNames = settings.portNames.filter { !$0.key.hasPrefix(prefix) }
         if let raw { ingest(raw) }
     }
@@ -378,6 +385,8 @@ final class PortStore {
         portHealth = [:]
         historyFile?.delete()
         historyIsReadOnly = false
+        // The file is gone, so saving is safe even if it could not be loaded.
+        historyLoaded = true
         eventsDirty = false
         powerDirty = false
         refreshHistorySummary()
@@ -419,6 +428,9 @@ final class PortStore {
             if hasLoaded { events = archive.events(model: model) }
         case .newerSchema:
             historyIsReadOnly = true
+        case .unreadable:
+            // A save would replace the only copy; the next load tries again.
+            historyLoaded = false
         case .missing, .movedAside:
             break
         }
@@ -549,7 +561,7 @@ final class PortStore {
     }
 
     private func userPortNames(for model: String) -> [String: String] {
-        let prefix = "\(model)#"
+        let prefix = portNamePrefix(model)
         var result: [String: String] = [:]
         for (key, value) in settings.portNames where key.hasPrefix(prefix) {
             result[String(key.dropFirst(prefix.count))] = value
@@ -566,7 +578,7 @@ final class PortStore {
         let options = BuildOptions(
             userPortNames: userPortNames(for: raw.machine.model),
             includeRawProperties: true,
-            isDemo: settings.demoMode
+            isDemo: isDemo
         )
         var built = TopologyBuilder.build(raw, options: options)
 
@@ -655,9 +667,6 @@ final class PortStore {
         guard let previous else { return }
         // A device that became one of a dock's built-in parts has not left.
         let currentIDs = Set(current.allDevices.map(\.device.id)).union(current.internalPartIDs)
-        // Devices that came back are no longer departing.
-        allDeparting.removeAll { currentIDs.contains($0.id) }
-
         // The departed device without any descendant that is still connected
         // somewhere else, so nothing is drawn twice.
         func ghost(of node: DeviceNode) -> DeviceNode {
@@ -665,6 +674,11 @@ final class PortStore {
             copy.children = node.children.filter { !currentIDs.contains($0.id) }.map { ghost(of: $0) }
             return copy
         }
+
+        // Devices that came back are no longer departing, nor drawn inside
+        // the ghost of a device they left with.
+        allDeparting.removeAll { currentIDs.contains($0.id) }
+        for i in allDeparting.indices { allDeparting[i].device = ghost(of: allDeparting[i].device) }
 
         var known = Set(allDeparting.map(\.id))
         func walk(_ nodes: [DeviceNode], parentID: String?, portKey: PortKey?) {

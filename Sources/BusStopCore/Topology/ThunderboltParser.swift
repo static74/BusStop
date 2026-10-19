@@ -161,8 +161,7 @@ enum ThunderboltParser {
                 topology.decodedLinks[socket] = LinkDecoding.faster(topology.decodedLinks[socket], link)
                 let hasPeer = peerPortIDs.contains(lane.id)
                     || !(topology.chains[socket] ?? []).isEmpty
-                    || TopologyValues.isEmpty(lane.properties["Hop Table"]) == false
-                    || (lane.properties.int("Link Bandwidth") ?? 0) > 100
+                    || laneLooksLive(lane)
                 if hasPeer {
                     topology.liveLinks[socket] = LinkDecoding.faster(topology.liveLinks[socket], link)
                 }
@@ -187,6 +186,13 @@ enum ThunderboltParser {
         return value
     }
 
+    /// True when a lane adapter shows traffic: a non-empty `Hop Table`, or a
+    /// `Link Bandwidth` above 100.
+    static func laneLooksLive(_ lane: RawNode) -> Bool {
+        TopologyValues.isEmpty(lane.properties["Hop Table"]) == false
+            || (lane.properties.int("Link Bandwidth") ?? 0) > 100
+    }
+
     /// N of the nearest `acioN` ancestor.
     static func acioIndex(_ ancestry: [RawAncestor]) -> Int? {
         ancestry.lazy.compactMap { TopologyText.indexedName($0.name, prefix: "acio") }.first
@@ -205,9 +211,7 @@ enum ThunderboltParser {
         let sockets = Set(lanes.compactMap(socketID)).sorted()
         if sockets.count == 1 { return sockets[0] }
         let live = Set(lanes.filter { lane in
-            LinkDecoding.thunderboltLink(lanePort: lane.properties) != nil
-                && (TopologyValues.isEmpty(lane.properties["Hop Table"]) == false
-                    || (lane.properties.int("Link Bandwidth") ?? 0) > 100)
+            LinkDecoding.thunderboltLink(lanePort: lane.properties) != nil && laneLooksLive(lane)
         }.compactMap(socketID)).sorted()
         return live.count == 1 ? live[0] : nil
     }
@@ -283,10 +287,8 @@ enum ThunderboltParser {
         let words = TopologyText.words(name)
         let descriptions = s.ports.map { $0.properties.string("Description")?.lowercased() ?? "" }
         let hasDataAdapters = descriptions.contains { $0.contains("usb") || $0.contains("pcie") }
-        let hasLiveDisplayAdapter = s.ports.contains { port in
-            let description = port.properties.string("Description")?.lowercased() ?? ""
-            return (description.contains("dp") || description.contains("hdmi"))
-                && TopologyValues.isEmpty(port.properties["Hop Table"]) == false
+        let hasLiveDisplayAdapter = s.ports.contains {
+            isDisplayAdapter($0) && TopologyValues.isEmpty($0.properties["Hop Table"]) == false
         }
         if DeviceClassifier.has(words, "display", "monitor") { return .display }
         if hasDataAdapters, DeviceClassifier.has(words, "dock", "docking", "hub", "station") { return .dock }

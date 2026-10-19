@@ -50,9 +50,6 @@ struct GeneralSettingsPane: View {
         .onChange(of: launchAtLogin) { _, wanted in
             applyLaunchAtLogin(wanted)
         }
-        .onChange(of: settings.showDockIconWithWindow) {
-            WindowManager.shared.refreshActivationPolicy()
-        }
         .alert("Could not change the login item", isPresented: $showLaunchError) {
             Button("Open Login Items…") { LaunchAtLogin.openSystemSettings() }
             Button("OK", role: .cancel) {}
