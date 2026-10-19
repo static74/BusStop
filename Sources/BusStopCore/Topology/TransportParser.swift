@@ -265,11 +265,14 @@ enum TransportParser {
             // Passive Cable VDO and Active Cable VDO 1 share these fields
             // (USB Power Delivery 3.1): bits 2…0 the highest USB
             // speed, 6…5 the VBUS current, 10…9 the highest VBUS voltage and
-            // 17 Extended Power Range support.
+            // 17 Extended Power Range support. Speed codes 2…4 are two-lane
+            // totals, so code 2 (Gen 2) is a 20 Gb/s cable.
             switch cable & 0b111 {
             case 0: result.speedDescription = "USB 2.0 (480 Mb/s)"; result.maxBitsPerSecond = 480_000_000
             case 1: result.speedDescription = "USB 3.2 Gen 1 (5 Gb/s)"; result.maxBitsPerSecond = 5_000_000_000
-            case 2: result.speedDescription = "USB 3.2 Gen 2 (10 Gb/s)"; result.maxBitsPerSecond = 10_000_000_000
+            case 2:
+                result.speedDescription = "USB 3.2 Gen 2 / USB4 Gen 2 (20 Gb/s)"
+                result.maxBitsPerSecond = 20_000_000_000
             case 3: result.speedDescription = "USB4 Gen 3 (40 Gb/s)"; result.maxBitsPerSecond = 40_000_000_000
             case 4: result.speedDescription = "USB4 Gen 4 (80 Gb/s)"; result.maxBitsPerSecond = 80_000_000_000
             default: break
