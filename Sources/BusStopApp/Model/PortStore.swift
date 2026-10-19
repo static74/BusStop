@@ -76,8 +76,9 @@ final class PortStore {
     @ObservationIgnored let historyFile: HistoryFile?
     /// Changes on every capture, so no view observes it.
     @ObservationIgnored private(set) var archive = HistoryArchive()
-    /// True while `archive` holds demo data, which is never saved.
-    @ObservationIgnored private var archiveHoldsDemo = false
+    /// True while `archive` holds demo data, which is never saved: exactly
+    /// while the demo source runs. Observed, because `isDemo` reads it.
+    private var archiveHoldsDemo = false
     /// The live archive, kept aside while demo mode is on.
     @ObservationIgnored private var heldLiveArchive: HistoryArchive?
     /// Set once the file has been read (or found missing), so a save never
@@ -159,7 +160,10 @@ final class PortStore {
         }
     }
 
-    var isDemo: Bool { settings.demoMode }
+    /// Follows the running source, not the setting: the setting flips a
+    /// SwiftUI update before `applySettings()` switches the source, and a
+    /// capture in between must keep the flag of the source that made it.
+    var isDemo: Bool { archiveHoldsDemo }
 
     // MARK: Lifecycle
 
@@ -229,7 +233,7 @@ final class PortStore {
     }
 
     func refresh() {
-        if settings.demoMode {
+        if isDemo {
             demoTick += 1
             ingestDemo()
         } else {
@@ -566,7 +570,7 @@ final class PortStore {
         let options = BuildOptions(
             userPortNames: userPortNames(for: raw.machine.model),
             includeRawProperties: true,
-            isDemo: settings.demoMode
+            isDemo: isDemo
         )
         var built = TopologyBuilder.build(raw, options: options)
 
