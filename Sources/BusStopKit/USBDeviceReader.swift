@@ -78,12 +78,7 @@ enum USBDeviceReader {
     /// `port-number` of a `usb-drdN` node: a little-endian `UInt32` stored as
     /// `Data` (device-tree property), sometimes a plain number.
     private static func portNumber(of drd: RegistryEntry) -> Int? {
-        if let value = drd.property("port-number")?.intValue { return value }
-        // The same node seen through the device-tree plane.
-        if drd.isInPlane(RegistryPlane.deviceTree) {
-            return drd.searchProperty("port-number", plane: RegistryPlane.deviceTree, parents: false)?.intValue
-        }
-        return nil
+        drd.property("port-number")?.intValue
     }
 
     private static func interfaces(of entry: RegistryEntry) -> [RawUSBInterface] {
