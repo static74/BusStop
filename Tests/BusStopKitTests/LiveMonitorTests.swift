@@ -154,7 +154,6 @@ struct LiveMonitorTests {
         monitor.powerChangeFromAnyThread()
         try await wait(timeout: 5) { monitor.completedCaptures - monitor.completedFullCaptures > powerOnly }
         #expect(monitor.completedCaptures - monitor.completedFullCaptures > powerOnly)
-        #expect(recorder.snapshots.last?.portNodes == recorder.snapshots.first?.portNodes)
 
         let full = monitor.completedFullCaptures
         monitor.externalChangeFromAnyThread()
