@@ -67,6 +67,27 @@ struct RegistryCaptureTests {
         #expect(Set(counts).count == 1)
     }
 
+    @Test func refreshPowerKeepsTheTopologyAndReplacesPowerNotes() {
+        var previous = RegistryCapture.capture(includeSMC: false)
+        previous.capturedAt = Date(timeIntervalSince1970: 0)
+        previous.captureNotes += ["SMC read failed: old", RegistryCapture.missingBatteryNote, "Port walk note"]
+
+        let refreshed = RegistryCapture.refreshPower(previous, includeSMC: false, smc: SMCReader())
+        #expect(refreshed.capturedAt > previous.capturedAt)
+        #expect(refreshed.machine == previous.machine)
+        #expect(refreshed.portNodes == previous.portNodes)
+        #expect(refreshed.usbDevices == previous.usbDevices)
+        #expect(refreshed.thunderboltSwitches == previous.thunderboltSwitches)
+        #expect(refreshed.displays == previous.displays)
+        #expect(refreshed.adapter == previous.adapter)
+        #expect(refreshed.smcChannels.isEmpty)
+        // Topology notes stay; SMC and battery notes describe this read only.
+        #expect(refreshed.captureNotes.contains("Port walk note"))
+        #expect(!refreshed.captureNotes.contains { $0.hasPrefix("SMC") })
+        #expect(refreshed.captureNotes.contains(RegistryCapture.missingBatteryNote) == (refreshed.battery == nil))
+        #expect(refreshed.captureNotes.filter { $0 == RegistryCapture.missingBatteryNote }.count <= 1)
+    }
+
     @Test func captureWithoutSMC() {
         let raw = RegistryCapture.capture(includeSMC: false)
         #expect(raw.smcChannels.isEmpty)

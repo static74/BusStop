@@ -90,6 +90,15 @@ public final class LiveMonitor: @unchecked Sendable {
     /// When the last capture finished; poll deadlines are measured from it.
     private var lastCaptureTime: DispatchTime?
     private var captureCount = 0
+    private var fullCaptureCount = 0
+    private var pollTickCount = 0
+    /// The last delivered capture; power-only captures copy its topology.
+    private var lastRaw: RawSnapshot?
+    private var lastFullCaptureTime: DispatchTime?
+    /// Some request since the last capture needs the topology re-read.
+    private var needsFullCapture = true
+    /// Screens asleep: no poll timer, and power-only requests are dropped.
+    private var isPollingPaused = false
 
     public init(configuration: Configuration = Configuration()) {
         self.configuration = configuration
@@ -161,6 +170,24 @@ public final class LiveMonitor: @unchecked Sendable {
         }
     }
 
+    /// Pauses power polling (the screens are asleep, nobody can see power
+    /// values) or resumes it with a full capture. Hardware notifications keep
+    /// capturing either way, so connect and disconnect events still fire.
+    public func setPollingPaused(_ paused: Bool) {
+        queue.async { [weak self] in
+            guard let self, self.isPollingPaused != paused else { return }
+            self.isPollingPaused = paused
+            if paused {
+                self.pollTimer?.cancel()
+                self.pollTimer = nil
+                self.pollInterval = nil
+            } else {
+                self.scheduleCapture(urgent: true)
+                self.updatePollTimer()
+            }
+        }
+    }
+
     public func update(configuration: Configuration) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -197,6 +224,17 @@ public final class LiveMonitor: @unchecked Sendable {
     /// Number of captures run since the monitor was created.
     var completedCaptures: Int { performSync { captureCount } }
 
+    /// How many of `completedCaptures` re-read the whole topology.
+    var completedFullCaptures: Int { performSync { fullCaptureCount } }
+
+    /// Number of times the poll timer fired.
+    var pollTicks: Int { performSync { pollTickCount } }
+
+    /// Lets tests deliver a battery-interest event without real hardware.
+    func powerChangeFromAnyThread() {
+        queue.async { [weak self] in self?.scheduleCapture(urgent: false, full: false) }
+    }
+
     /// How power-source changes are observed in this build.
     static var powerSourceMechanism: String {
         #if canImport(notify)
@@ -222,7 +260,8 @@ public final class LiveMonitor: @unchecked Sendable {
                 addMatchingNotification(port: port, className: className, terminated: true, refcon: refcon)
             }
             if let battery = RegistryEntry.firstMatching(className: "AppleSmartBattery") {
-                addInterest(battery)
+                // Fires every few seconds with new telemetry; only power changes.
+                addInterest(battery, powerOnly: true)
             }
             isArming = false
         }
@@ -257,15 +296,20 @@ public final class LiveMonitor: @unchecked Sendable {
         serviceEvent(iterator, terminated: terminated)
     }
 
-    private func addInterest(_ entry: RegistryEntry) {
+    private func addInterest(_ entry: RegistryEntry, powerOnly: Bool = false) {
         guard let registrations = notifications, let port = registrations.port, let id = entry.entryID,
               registrations.interest[id] == nil else { return }
         var notification: io_object_t = 0
-        let result = IOServiceAddInterestNotification(
-            port, entry.raw, kIOGeneralInterest,
-            { refcon, _, _, _ in LiveMonitor.interestCallback(refcon) },
-            Unmanaged.passUnretained(registrations.box).toOpaque(), &notification
-        )
+        let refcon = Unmanaged.passUnretained(registrations.box).toOpaque()
+        let result = powerOnly
+            ? IOServiceAddInterestNotification(
+                port, entry.raw, kIOGeneralInterest,
+                { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: true) }, refcon, &notification
+            )
+            : IOServiceAddInterestNotification(
+                port, entry.raw, kIOGeneralInterest,
+                { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: false) }, refcon, &notification
+            )
         guard let handle = IOObjectHandle(adopting: notification), result == KERN_SUCCESS else { return }
         registrations.interest[id] = handle
     }
@@ -316,6 +360,9 @@ public final class LiveMonitor: @unchecked Sendable {
         pollTimer?.cancel()
         pollTimer = nil
         pollInterval = nil
+        lastRaw = nil
+        lastFullCaptureTime = nil
+        needsFullCapture = true
 
         // This runs on `queue`, the queue the port and the power-source
         // notification deliver on, so no callback is running and none runs
@@ -365,15 +412,20 @@ public final class LiveMonitor: @unchecked Sendable {
     }
 
     private func pollTick() {
-        scheduleCapture(urgent: true)
+        pollTickCount += 1
+        scheduleCapture(urgent: true, full: false)
     }
 
     /// Schedules a capture as `CaptureScheduler` decides: urgent requests run
     /// as soon as the queue is free, other requests are debounced, and a
     /// request that needs new work replaces the queued capture.
-    private func scheduleCapture(urgent: Bool) {
-        guard isRunning,
-              let deadline = scheduler.request(urgent: urgent, now: .now(), debounce: configuration.debounce)
+    /// `full: false` asks only for fresh power values (see `refreshPower`).
+    private func scheduleCapture(urgent: Bool, full: Bool = true) {
+        guard isRunning, full || !isPollingPaused else { return }
+        // Before the scheduler, so a capture that is already queued re-reads
+        // the topology too.
+        if full { needsFullCapture = true }
+        guard let deadline = scheduler.request(urgent: urgent, now: .now(), debounce: configuration.debounce)
         else { return }
         pendingCapture?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.runCapture() }
@@ -385,9 +437,24 @@ public final class LiveMonitor: @unchecked Sendable {
         pendingCapture = nil
         scheduler.captureStarted()
         guard isRunning, let handler else { return }
-        let raw = RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
+        let now = DispatchTime.now()
+        let raw: RawSnapshot
+        if let lastRaw, !Self.needsFullCapture(requested: needsFullCapture, lastFull: lastFullCaptureTime, now: now) {
+            raw = RegistryCapture.refreshPower(lastRaw, includeSMC: configuration.includeSMC, smc: smc)
+        } else {
+            raw = RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
+            fullCaptureCount += 1
+            lastFullCaptureTime = now
+        }
+        needsFullCapture = false
+        lastRaw = raw
         captureCount += 1
         lastCaptureTime = .now()
+        // Any capture refreshed power, so the next poll is a full interval away.
+        if let pollTimer, let pollInterval {
+            pollTimer.schedule(deadline: .now() + pollInterval, repeating: pollInterval,
+                               leeway: Self.pollLeeway(pollInterval))
+        }
         let generation = self.generation
         let gate = self.gate
         DispatchQueue.main.async {
@@ -401,9 +468,9 @@ public final class LiveMonitor: @unchecked Sendable {
     /// Creates the poll timer, or moves its next tick when the interval
     /// changes (see `nextPollDeadline`).
     private func updatePollTimer() {
-        guard isRunning else { return }
+        guard isRunning, !isPollingPaused else { return }
         let interval = Self.pollInterval(visible: uiVisible, configuration: configuration)
-        let leeway = DispatchTimeInterval.milliseconds(max(10, Int(interval * 100)))
+        let leeway = Self.pollLeeway(interval)
         if let timer = pollTimer {
             guard pollInterval != interval else { return }
             let deadline = Self.nextPollDeadline(
@@ -461,9 +528,14 @@ public final class LiveMonitor: @unchecked Sendable {
         monitor.serviceEvent(iterator, terminated: terminated)
     }
 
-    private static func interestCallback(_ refcon: UnsafeMutableRawPointer?) {
-        guard let refcon else { return }
-        Unmanaged<CallbackBox>.fromOpaque(refcon).takeUnretainedValue().monitor?.externalChangeOnQueue()
+    private static func interestCallback(_ refcon: UnsafeMutableRawPointer?, powerOnly: Bool) {
+        guard let refcon, let monitor = Unmanaged<CallbackBox>.fromOpaque(refcon).takeUnretainedValue().monitor
+        else { return }
+        if powerOnly {
+            monitor.scheduleCapture(urgent: false, full: false)
+        } else {
+            monitor.externalChangeOnQueue()
+        }
     }
 
     /// Registered with CoreGraphics. Ignores the "about to reconfigure" pass.
