@@ -312,6 +312,61 @@ struct RedactionTests {
         #expect(Exporter.redactedID("usb:0x01110000:04e8:61fb") == "usb:0x01110000:04e8:61fb")
     }
 
+    // MARK: Serials in names
+
+    /// A demo capture whose first USB device with a serial also carries it
+    /// in its product name, as some devices do.
+    private func captureWithSerialInName(_ serial: String) throws -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["kUSBSerialNumberString"] = .string(serial)
+        values["USB Product Name"] = .string("Drive \(serial)")
+        values["kUSBProductString"] = .string("Drive \(serial)")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        return raw
+    }
+
+    @Test func serialsInNamesAreRedactedInEveryFormat() throws {
+        let serial = "SNXYZ123"
+        let raw = try captureWithSerialInName(serial)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        let redactedOutputs = [
+            text(try Exporter.rawJSON(raw, redact: true)),
+            text(try Exporter.json(snapshot, redact: true)),
+            Exporter.markdown(snapshot, redact: true),
+            Exporter.textTree(Exporter.redacted(snapshot)),
+        ]
+        for output in redactedOutputs {
+            #expect(!output.contains(serial))
+        }
+        #expect(text(try Exporter.rawJSON(raw, redact: false)).contains(serial))
+        #expect(Exporter.markdown(snapshot, redact: false).contains(serial))
+        // The redacted capture still builds the same topology.
+        let rebuilt = TopologyBuilder.build(try Exporter.decodeRaw(Exporter.rawJSON(raw, redact: true)))
+        #expect(rebuilt.allDevices.count == snapshot.allDevices.count)
+    }
+
+    @Test func serialsInNamesAreRedactedFromEvents() throws {
+        let serial = "SNXYZ123"
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName(serial))
+        let device = try #require(snapshot.allDevices.first { $0.device.serialNumber == serial }?.device)
+        let connected = ConnectionEvent(id: "deviceConnected:\(device.id):1790000000000", date: S.date,
+                                        kind: .deviceConnected, title: "\(device.name) connected",
+                                        detail: "\(device.name) on Left", deviceID: device.id)
+        let redacted = Exporter.redacted(connected, serialsFrom: [snapshot])
+        #expect(!redacted.title.contains(serial) && !redacted.detail.contains(serial))
+        #expect(Exporter.redacted(connected).title.contains(serial))
+    }
+
+    @Test func wholeWordsOnly() {
+        #expect(Exporter.redacted("Drive SN-12/34 (SN-12/34)", serials: ["SN-12/34"]) == "Drive REDACTED (REDACTED)")
+        #expect(Exporter.redacted("512345 and 1234", serials: ["1234"]) == "512345 and REDACTED")
+        #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
+    }
+
     // MARK: Markdown
 
     @Test func markdownStripsControlCharacters() {

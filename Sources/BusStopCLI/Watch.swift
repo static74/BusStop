@@ -120,7 +120,10 @@ final class WatchSession {
         if isFirst { announce(snapshot) }
         var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
         archive.append(events, model: snapshot.machine.model)
-        if options.redact { events = events.map { Exporter.redacted($0) } }
+        if options.redact {
+            let snapshots = [previous, snapshot].compactMap { $0 }
+            events = events.map { Exporter.redacted($0, serialsFrom: snapshots) }
+        }
         previous = snapshot
         for event in events {
             eventCount += 1

@@ -196,7 +196,11 @@ enum PopoverText {
             lines.append("Serial: \(serial)")
         }
         lines.append("ID: \(redactSerials ? Exporter.redactedID(device.id) : device.id)")
-        return lines.joined(separator: "\n")
+        let text = lines.joined(separator: "\n")
+        guard redactSerials else { return text }
+        // Some devices put their serial in their name.
+        let serials = ([device] + (device.internalParts ?? [])).compactMap(\.serialNumber)
+        return Exporter.redacted(text, serials: serials)
     }
 
     static func copyToPasteboard(_ text: String) {
