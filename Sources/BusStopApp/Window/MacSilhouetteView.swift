@@ -278,8 +278,7 @@ enum SilhouettePaint: Equatable {
         case .power:
             return .power(PowerTier(milliwatts: WindowText.portPower(port)?.milliwatts ?? 0))
         case .data:
-            // `LinkInfo.tier` calls an unknown rate USB 2, so check the rate first.
-            if let link = port.link, link.bitsPerSecond != nil { return .link(link.tier) }
+            if let tier = port.link?.tier { return .link(tier) }
             if port.charger != nil, port.devices.isEmpty { return .charger }
             return .noRate
         }
