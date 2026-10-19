@@ -22,7 +22,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - Device counts (the window subtitle, the menu bar text, All Devices, port and dock roll-ups, Markdown reports and `busstop --watch`) count only the devices drawn on the map, so they no longer include a dock's built-in parts: 27 devices became 20 on the Anker Prime capture. The All Devices subtitle says when built-in parts are left out, and the Dock station demo shows 8 devices instead of 9.
 - JSON snapshots: a dock's built-in parts move from its `children` to a new `internalParts` list, and a device that hangs off a built-in part records it in `internalParentID`. Snapshots without built-in parts are unchanged, and older exports still decode.
 - A built-in hub's USB 2 fallback and power budget findings point at the dock, and its link speed changes are reported naming the dock. A device that becomes a built-in part, or stops being one, raises no connect or disconnect event.
-- Inspector rows put each value on its own line under the field name, so a long value uses the inspector's full width instead of wrapping in a narrow right column. A value still too long ends in "…" and shows in full when the pointer rests on it. The battery card on the Power page uses the same rows.
+- Inspector rows put each value on its own line under the field name, so a long value uses the inspector's full width instead of wrapping in a narrow right column. A value too long for one line wraps. The battery card on the Power page uses the same rows.
 
 ### Fixed
 

@@ -25,6 +25,16 @@ struct PageWidthTests {
             #expect(host.sizeThatFits(in: CGSize(width: width, height: 700)).width <= width + 1)
         }
     }
+
+    /// The Power page's battery card uses `InspectorRow`, so a long value
+    /// must wrap rather than set a minimum width.
+    @Test func inspectorRowWrapsALongValue() {
+        let host = NSHostingController(rootView: InspectorRow(
+            label: "Detail",
+            value: "3 × 80 Gb/s one way, 1 × 80 Gb/s the other · tunnelled · Apple Studio Display",
+            copyable: true))
+        #expect(host.sizeThatFits(in: CGSize(width: 120, height: 700)).width <= 121)
+    }
 }
 
 /// Hosts the whole topology window as `WindowManager` does and lets AppKit
