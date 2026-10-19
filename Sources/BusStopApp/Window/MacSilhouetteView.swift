@@ -136,22 +136,26 @@ struct MacSilhouetteView: View {
         let shape = ChassisShape(family: layout.family)
         let slots = layout.slots.filter { side == nil ? ($0.face == .left || $0.face == .right) : $0.face == side }
         let minWidth = shape.minWidth(for: slots)
-        let outline = shape
-            .stroke(Lagoon.strokeStrong, lineWidth: 1.5)
-            .background(shape.fill(Lagoon.surface))
-            .contentShape(shape)
-            // Help on the body too, so a pointer resting on it does not
-            // leave the page's tooltip tracker idle (docs/decisions.md,
-            // "The map's controls get their own hosting views").
-            .help(snapshot.machine.name)
-            .overlay {
-                GeometryReader { proxy in
-                    ForEach(slots, id: \.self) { slot in
-                        glyph(slot)
-                            .position(shape.point(for: slot, in: CGRect(origin: .zero, size: proxy.size)))
+        // Its own hosting view, so the page's tooltip tracker stalling over
+        // empty space cannot silence the ports, and help on the body too, so
+        // a pointer resting on it does not stall this one (docs/decisions.md,
+        // "The map's controls get their own hosting views").
+        let outline = GraphControlHost(fills: true) {
+            shape
+                .stroke(Lagoon.strokeStrong, lineWidth: 1.5)
+                .background(shape.fill(Lagoon.surface))
+                // The whole frame, so no spot in this hosting view lacks help.
+                .contentShape(Rectangle())
+                .help(snapshot.machine.name)
+                .overlay {
+                    GeometryReader { proxy in
+                        ForEach(slots, id: \.self) { slot in
+                            glyph(slot)
+                                .position(shape.point(for: slot, in: CGRect(origin: .zero, size: proxy.size)))
+                        }
                     }
                 }
-            }
+        }
         return VStack(alignment: .leading, spacing: 6) {
             if let caption {
                 Text(caption)

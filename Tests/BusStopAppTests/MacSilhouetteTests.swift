@@ -1,5 +1,7 @@
+import AppKit
 import BusStopCore
 import Foundation
+import SwiftUI
 import Testing
 @testable import BusStopApp
 
@@ -119,5 +121,39 @@ struct MacSilhouetteTests {
         let faces = MacSilhouetteView.faces(for: layout)
         #expect(layout.unplaced.isEmpty)
         #expect(layout.slots.allSatisfy { faces.contains($0.face) })
+    }
+
+    /// Each face sits in its own hosting view, so a stalled tooltip tracker
+    /// on the page cannot silence the ports (docs/decisions.md, "The map's
+    /// controls get their own hosting views"), and the host takes the face's
+    /// size rather than its content's fitting size.
+    @Test(arguments: [DemoScenario.studioDesk, .dockStation])
+    func eachFaceHasItsOwnHostingView(_ scenario: DemoScenario) throws {
+        let suite = "BusStopAppTests.SilhouetteHosts.\(scenario.rawValue)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        let store = demoStore(scenario, suite: suite)
+        defer { store.stop() }
+        let page = NSHostingView(rootView: MacSilhouettePage(store: store, searchText: "", onSelect: { _ in }))
+        page.frame = CGRect(x: 0, y: 0, width: 900, height: 900)
+        let window = NSWindow(contentRect: page.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = page
+        defer { window.close() }
+        for _ in 0..<5 {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            page.layoutSubtreeIfNeeded()
+        }
+
+        func hosts(in view: NSView) -> [GraphControlHostingView] {
+            view.subviews.flatMap { ($0 as? GraphControlHostingView).map { [$0] } ?? hosts(in: $0) }
+        }
+        let layout = ChassisLayout.resolve(machine: store.snapshot.machine, ports: store.snapshot.ports)
+        let shape = ChassisShape(family: layout.family)
+        // The Data/Power picker is hosted too, at its own small size.
+        let faces = hosts(in: page).filter { $0.frame.width > 200 }
+        #expect(faces.count == (layout.family == .laptop ? 1 : MacSilhouetteView.faces(for: layout).count))
+        for face in faces {
+            #expect(abs(face.frame.width / face.frame.height - shape.aspectRatio) < 0.02, "\(face.frame)")
+        }
     }
 }
