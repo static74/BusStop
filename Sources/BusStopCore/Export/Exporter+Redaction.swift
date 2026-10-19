@@ -177,11 +177,12 @@ extension Exporter {
     /// serial) and the text of any "display serial number" descriptor (tag
     /// 0xFF) in the base block, and in each DisplayID extension block the
     /// serial of the product identification and tiled display blocks and the
-    /// ContainerID. Checksums are recomputed so the blob stays valid. Blobs
-    /// shorter than one 128-byte block are returned unchanged.
+    /// ContainerID. Checksums are recomputed so the blob stays valid. A blob
+    /// shorter than one 128-byte block is dropped, and so are bytes after the
+    /// last whole block: their fields cannot be found, so nothing in them is kept.
     static func redactedEDID(_ data: Data) -> Data {
-        guard data.count >= 128 else { return data }
-        var bytes = [UInt8](data)
+        guard data.count >= 128 else { return Data() }
+        var bytes = [UInt8](data.prefix(data.count / 128 * 128))
         for index in 12...15 { bytes[index] = 0 }
         for offset in stride(from: 54, through: 108, by: 18)
         where bytes[offset] == 0 && bytes[offset + 1] == 0 && bytes[offset + 3] == 0xFF {

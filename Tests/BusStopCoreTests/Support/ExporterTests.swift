@@ -99,8 +99,8 @@ struct ExporterTests {
         #expect(!String(decoding: redacted, as: UTF8.self).contains("SN1234"))
         #expect(Array(redacted[0...7]) == Array(bytes[0...7]))
         #expect(redacted.reduce(0) { ($0 + Int($1)) & 0xFF } == 0)
-        // Too short to be an EDID: left alone.
-        #expect(Exporter.redactedEDID(Data([1, 2, 3])) == Data([1, 2, 3]))
+        // Too short to be an EDID: its serial fields cannot be found, so it is dropped.
+        #expect(Exporter.redactedEDID(Data([1, 2, 3])).isEmpty)
     }
 
     // MARK: Markdown

@@ -367,6 +367,19 @@ struct RedactionTests {
         #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
     }
 
+    // MARK: EDID
+
+    @Test func malformedEDIDIsDropped() {
+        var short = [UInt8](repeating: 0, count: 100)
+        short[12...15] = [0x12, 0x34, 0x56, 0x78]
+        #expect(Exporter.redactedEDID(Data(short)).isEmpty)
+        var long = [UInt8](repeating: 0, count: 200)
+        long[150...153] = [0x12, 0x34, 0x56, 0x78]
+        let redacted = Exporter.redactedEDID(Data(long))
+        #expect(redacted.count == 128)
+        #expect(redacted[12..<16].allSatisfy { $0 == 0 })
+    }
+
     // MARK: Markdown
 
     @Test func markdownStripsControlCharacters() {
