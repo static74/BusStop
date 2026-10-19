@@ -7,8 +7,6 @@ import AppKit
 /// its key equivalents (⌘, ⌘R ⌘1 ⌘W, and the Edit commands that text fields
 /// need) work in the popover and in every window.
 enum MainMenu {
-    static let projectURL = URL(string: "https://github.com/static74/BusStop")!
-
     /// Builds the menu. App-specific items target `delegate`.
     static func make(delegate: AppDelegate) -> NSMenu {
         let mainMenu = NSMenu(title: "Main Menu")
