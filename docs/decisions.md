@@ -2,6 +2,32 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: Port health counts the last 7 local days from the saved history
+
+**Question.** Roadmap item 8 asks for per-port counters over time (plug events, connection errors, overcurrents, liquid detection) and a gentle warning when a port's numbers stand out. Which numbers are "over time", what counts as a connection error, when does a port stand out, and how long does an overcurrent warning last now that the counters are saved?
+
+**Decision.**
+
+- **Totals stay the hardware's.** The inspector's Health section shows the port's own all-time `ConnectionCount`, `Plug Event Count` and `Overcurrent Count`, each with the last 7 days from the archive ("7 total · 2 in the last 7 days"). Liquid detections and connection errors have no hardware total, so they show the last 7 days only.
+- **7 local days.** Today and the 6 days before, in the user's calendar, matching the archive's local-day buckets (`HistoryArchive.portHealth(model:now:calendar:)`). Both sides of the stands-out ratio use the same 7 days.
+- **Connection errors come from the event log**, not from new buckets: a device that left within 10 seconds of connecting, a slower link, and a USB 2 fallback finding, each counted on the Mac port in the event. A slowdown and the fallback finding it raises in the same capture count once. Clearing the event log therefore clears the error counts too. Overcurrents are not errors, so a port is never flagged twice for them.
+- **Stands out** (`portStandsOut`, info, so no notification and no banner): at least 5 connections and 3 errors in the 7 days, and errors per connection at least 3 times the median of the Mac's other ports of the same `PortKind` (at least 2 of them), with the median floored at 0.05 so a port is not flagged against spotless siblings for a couple of errors. Never across kinds or Macs.
+- **Overcurrent** fires for 24 hours after the archive last saw the port's counter go up (`lastOvercurrentAt`), so it survives a relaunch and ends on its own; the text gives the 7-day count. The launch baseline in `PortStore` and in the CLI is gone. `busstop --watch` keeps an archive in memory (never saved) so it applies the same rules to what it saw.
+- **Popover mark.** A port card (and its compact line) with a flaky-connection, link-flapping, speed-regression or stands-out finding gets a small mark after its name in the colour of the most severe one; the tooltip lists the titles and the VoiceOver label ends with them.
+- **`PortControllerInfo` error counters** (HardReset, ShortDetect, VdoFail) are not used: their mapping from index to port is not verified, and the Anker capture does not line up. Follow-up after a per-port hardware check.
+- **Long titles.** The Diagnostics card's severity chip and an event's times move under the title when both do not fit on one line (`ViewThatFits`), because at Extra Large text in the 338 pt column the title was squeezed until "disconnecting" broke inside the word. The event's detail has no ideal width, so only the title decides.
+- **Departures from the lane design:** the health mark also goes on the compact popover line, which merged after the design; the stands-out note in the inspector is a wrapping sentence, not an `InspectorRow`, because rows truncate to one line. `SystemLoadRecorder`, which the completeness check asked about, was already deleted with the Power ranges (see below).
+
+**Why.** The hardware counters already hold the all-time story; the archive's job is "recently", and local days are what "this week" means to the user. Deriving errors from events reuses what Bus Stop already records and adds nothing to the file format. A 24-hour overcurrent warning is long enough to be seen after a relaunch and short enough not to nag about a one-off.
+
+**Rejected alternatives.**
+
+- *Error counts in the per-day buckets.* A second copy of what the event log holds, and one more field to version.
+- *All-time totals from the archive.* The archive starts when history starts; the hardware has counted since the Mac was made.
+- *Overcurrent for as long as the session runs, or until the next relaunch.* A relaunch would hide it, and a long session would keep a one-off warning for weeks.
+- *Comparing with every other port, or across Macs.* A MagSafe or HDMI port has different habits from a USB-C port, and another Mac's ports are a different machine.
+- *A health mark that is its own VoiceOver element.* The card's header is one element with one label; the mark's text goes in that label instead.
+
 ## 2026-10-19: Flaky connections are found by watching snapshots, not events
 
 **Question.** Roadmap item 7 asks Bus Stop to spot connections that keep dropping, links that keep changing speed and devices that fall back to a slower link, and to name the likely culprit. What does it watch, how does it tell one device from another across a replug, and how does it avoid crying wolf after wake or while a dock starts up?

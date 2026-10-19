@@ -20,6 +20,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Mac Outline.** An outline of the Mac with each port where it sits, coloured by what is plugged in and how fast it runs.
 - **Diagnostics in plain English.** A USB 3 device stuck at USB 2 speed, a Thunderbolt link slowed by its cable, a charger too weak for the Mac, a battery not charging, a bus-powered hub over its power budget, a very deep chain, liquid detected in a port.
 - **Flaky connections.** A device that keeps disconnecting, a link that keeps changing speed, or a drive slower than it has been on the same port, with the likely culprit: the cable, the port, a hub or the device. The Events page filters to problems.
+- **Port health.** Each port's plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days, next to the hardware's all-time counts, with a gentle note when one port has far more problems than its siblings. An overcurrent warning lasts 24 hours, even across a relaunch.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
