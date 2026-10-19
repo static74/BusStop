@@ -15,7 +15,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## History and health
 
-7. **Flaky-connection detector.** Spot repeated connect and disconnect cycles, link speed flapping and devices that fall back to USB 2, and name the likely culprit (cable, port, hub or device).
 8. **Port health statistics.** Per-port counters over time: plug events, connection errors, overcurrent events and liquid detection, with a gentle warning when a port's numbers stand out.
 
 ## Views
@@ -48,3 +47,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A compact popover layout shows one line per port, with each port's devices a click away.
 - A Mac Outline page draws the Mac with each port where it physically sits, coloured by what is plugged in and how fast it runs.
 - The event log, power and per-port counters are saved between launches in a local file with size and age caps, a Clear History button and a switch to stop saving; the Power page charts the last hour, day or week from it.
+- Devices that keep disconnecting, links that keep changing speed and devices slower than before on the same port raise a warning that names the likely culprit (cable, port, hub or device).

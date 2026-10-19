@@ -33,6 +33,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, capability heuristic, generic name), `ChassisLayout` (where each port sits on the Mac's outline), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
 | `Events/` | `SnapshotDiffer`, which turns two snapshots into `ConnectionEvent`s. |
+| `Health/` | `DeviceIdentity`, one in-memory key per physical device that survives a change of controller, and `ConnectionHealth`, which watches consecutive snapshots for devices that keep dropping, links that keep changing speed and devices slower than before on the same port (SPEC §5.4 "Connection health"). |
 | `History/` | `PowerHistory`, the in-memory samples behind the sparklines. `HistoryArchive`, what is saved between launches (SPEC §5.6): the event log, power per minute and per-port counter increases per day, one section per Mac model, with its caps and a decoder that drops a bad entry instead of the whole file. |
 | `Export/` | `Exporter`: JSON, Markdown, raw capture JSON, the CLI text tree, redaction. |
 | `Demo/` | `DemoScenario`, which builds realistic `RawSnapshot`s. |
@@ -54,7 +55,8 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
                                         │  TopologyBuilder.build (pure)
                                         ▼
                                   HostSnapshot
-                                        │  DiagnosticsEngine.evaluate (pure)
+                                        │  ConnectionHealth.observe (new captures only)
+                                        │  DiagnosticsEngine.evaluate (pure, plus the health findings)
                                         ▼
                          HostSnapshot with diagnostics
                           │                    │
@@ -68,9 +70,9 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
                                   Exporter: JSON, Markdown, raw capture
 ```
 
-`PortStore` also records each new capture into a `HistoryArchive` and appends new events to it; the app's `HistoryFile` saves it to `~/Library/Application Support/io.github.static74.busstop/history.json` on a background queue. Demo data is kept in a separate archive that is never saved. The Power page charts the live `PowerHistory` for its 10-minute range and `HistoryArchive.powerSamples` (saved minutes, averaged per 10 minutes for 7 days) for the longer ones.
+`PortStore` also records each new capture into a `HistoryArchive` and appends new events to it; the app's `HistoryFile` saves it to `~/Library/Application Support/io.github.static74.busstop/history.json` on a background queue. Demo data is kept in a separate archive that is never saved. It also feeds each new capture to a `ConnectionHealth` and keeps the findings, so a settings change that rebuilds the same capture shows them again without counting anything twice. The Power page charts the live `PowerHistory` for its 10-minute range and `HistoryArchive.powerSamples` (saved minutes, averaged per 10 minutes for 7 days) for the longer ones.
 
-The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or asks a demo scenario), builds, evaluates and prints with `Exporter`. `busstop --watch` keeps the previous snapshot and prints the output of `SnapshotDiffer` for each new one.
+The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or asks a demo scenario), builds, evaluates and prints with `Exporter`. `busstop --watch` keeps the previous snapshot and a `ConnectionHealth`, and prints the output of `SnapshotDiffer` for each new one.
 
 ### Why a raw snapshot
 

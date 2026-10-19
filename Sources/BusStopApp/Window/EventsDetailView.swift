@@ -4,7 +4,20 @@ import SwiftUI
 /// Which events the timeline shows.
 enum EventsFilter: Hashable {
     case all
+    /// Warnings and critical findings, and links that got slower.
+    case problems
     case kind(ConnectionEvent.Kind)
+
+    func includes(_ event: ConnectionEvent) -> Bool {
+        switch self {
+        case .all: return true
+        case .problems:
+            if event.kind == .linkChanged { return event.isDowngrade }
+            // Events saved before severities existed count as warnings.
+            return event.kind == .diagnosticRaised && (event.severity ?? .warning) >= .warning
+        case .kind(let kind): return event.kind == kind
+        }
+    }
 }
 
 /// Events from one calendar day.
@@ -17,7 +30,7 @@ struct EventDayGroup: Identifiable {
     static func groups(_ events: [ConnectionEvent], filter: EventsFilter, query: String,
                        calendar: Calendar = .current) -> [EventDayGroup] {
         let filtered = events.filter { event in
-            if case .kind(let kind) = filter, event.kind != kind { return false }
+            guard filter.includes(event) else { return false }
             guard !query.isEmpty else { return true }
             return event.title.localizedCaseInsensitiveContains(query)
                 || event.detail.localizedCaseInsensitiveContains(query)
@@ -120,6 +133,7 @@ struct EventsDetailView: View {
     private var filterMenu: some View {
         Picker("Show", selection: $filter) {
             Text("All events").tag(EventsFilter.all)
+            Label("Problems", systemImage: "exclamationmark.triangle").tag(EventsFilter.problems)
             Divider()
             ForEach(ConnectionEvent.Kind.allCases, id: \.self) { kind in
                 Label(WindowText.eventKind(kind), systemImage: WindowText.eventKindSymbol(kind))

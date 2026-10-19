@@ -108,12 +108,9 @@ final class NotificationManager {
 
     // MARK: Filtering
 
-    /// Whether the user's toggles allow a notification for this event.
-    /// A new finding notifies only when it is a warning or worse; pass its
-    /// `severity` when known (unknown counts as a warning).
     /// True for a diagnostic that already alerted within the cooldown.
     /// Records the alert time otherwise.
-    private func isCoolingDown(_ event: ConnectionEvent, now: Date) -> Bool {
+    func isCoolingDown(_ event: ConnectionEvent, now: Date) -> Bool {
         guard event.kind == .diagnosticRaised else { return false }
         let subject = event.subjectID ?? event.title
         if let last = lastDiagnosticAlert[subject], now.timeIntervalSince(last) < Self.diagnosticCooldown {
@@ -123,6 +120,9 @@ final class NotificationManager {
         return false
     }
 
+    /// Whether the user's toggles allow a notification for this event.
+    /// A new finding notifies only when it is a warning or worse; pass its
+    /// `severity` when known (unknown counts as a warning).
     static func isEnabled(_ event: ConnectionEvent, settings: AppSettings,
                           severity: DiagnosticSeverity? = nil) -> Bool {
         switch event.kind {

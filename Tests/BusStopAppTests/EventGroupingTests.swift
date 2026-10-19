@@ -53,6 +53,25 @@ struct EventGroupingTests {
         #expect(EventDayGroup.groups(events, filter: .all, query: "nothing like it", calendar: utc).isEmpty)
     }
 
+    @Test func problemsFilterKeepsWarningsAndDowngrades() {
+        func event(_ id: String, _ kind: ConnectionEvent.Kind, downgrade: Bool = false,
+                   severity: DiagnosticSeverity? = nil) -> ConnectionEvent {
+            ConnectionEvent(id: id, date: start, kind: kind, title: id, detail: "", isDowngrade: downgrade,
+                            severity: severity)
+        }
+        let events = [
+            event("flaky", .diagnosticRaised, severity: .warning),
+            event("liquid", .diagnosticRaised, severity: .critical),
+            event("saved before severities", .diagnosticRaised),
+            event("bottleneck", .diagnosticRaised, severity: .info),
+            event("slower", .linkChanged, downgrade: true),
+            event("faster", .linkChanged),
+            event("plugged", .deviceConnected),
+        ]
+        let kept = EventDayGroup.groups(events, filter: .problems, query: "", calendar: utc).flatMap(\.events)
+        #expect(Set(kept.map(\.id)) == ["flaky", "liquid", "saved before severities", "slower"])
+    }
+
     @Test func cacheRegroupsOnlyWhenSomethingChanged() {
         let cache = EventGroupCache()
         let events = log(10)

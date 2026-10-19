@@ -369,6 +369,9 @@ struct DeviceInspector: View {
 
         identitySection
         if let link = device.link { LinkInspectorSection(link: link) }
+        if let history = store.connectionHistory(ofDevice: device.id), Self.showsHistory(history) {
+            connectionHistorySection(history)
+        }
         powerSection
         if let parts = device.internalParts, !parts.isEmpty { builtInSection(parts) }
         topologySection
@@ -397,6 +400,28 @@ struct DeviceInspector: View {
             InspectorRow(label: "Registry ID", value: device.registryID.map(InspectorFormat.registryID),
                          monospaced: true, copyable: true)
             InspectorRow(label: "Device ID", value: device.id, monospaced: true, copyable: true)
+        }
+    }
+
+    /// Shown once the device has dropped, or runs slower than it has on this port.
+    static func showsHistory(_ history: DeviceConnectionHistory) -> Bool {
+        if history.cycles > 0 { return true }
+        guard let best = history.bestLink?.bitsPerSecond, let last = history.lastLink?.bitsPerSecond else { return false }
+        return best > last
+    }
+
+    private func connectionHistorySection(_ history: DeviceConnectionHistory) -> some View {
+        InspectorSection(title: "Connection history") {
+            InspectorRow(label: "Reconnections in the last 10 minutes", value: "\(history.cycles)")
+            InspectorRow(label: "Best link on this port", value: history.bestLink?.label)
+            InspectorRow(label: "Current link", value: history.lastLink?.label)
+            if let culprit = history.culprit {
+                // A sentence, so it wraps instead of truncating in a row.
+                Text("Likely cause: \(culprit.phrase).")
+                    .lagoonFont(.caption)
+                    .foregroundStyle(Lagoon.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

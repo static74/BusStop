@@ -61,6 +61,7 @@ These close gaps users reported against similar tools (WhatCable, WhatPort and P
   - charger below the Mac's needs, or not charging
   - bus-powered hub over its power budget
   - deep daisy chain
+  - a device that keeps disconnecting, a link that keeps changing speed, or a device slower than it has been on the same port, with the likely culprit (cable, port, hub or device)
 - Event timeline (connect, disconnect, speed change, charger change) with timestamps.
 - Power sparkline for system input over the last few minutes in the popover; on the Power page, charts of system and per-port power over the last 10 minutes, hour, 24 hours or 7 days.
 - Tree view and flat list view.
@@ -114,9 +115,9 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
   - *Mac Outline*: a generic outline of the Mac with each port where `ChassisLayout` (§5.4) puts it, drawn with shapes at their final size. A laptop is seen from above with the hinge at the top, so "Left" is the user's left. A Mac mini, Mac Studio or Mac Pro gets a front and a back elevation, each only when it has ports; an iMac gets only its back. The back is drawn as seen from behind, so "Rear (left)" is on the viewer's left, and is captioned "Back, seen from behind". A Mac the catalogue and its name do not identify gets a plain box. Every port in the snapshot is drawn, empty ones too, even when "Hide empty ports" is on. In Data mode a port is dim when empty, the link colour for its speed, the accent colour when connected with no data rate (HDMI, DisplayPort) and the charging colour when only a charger is plugged in; in Power mode it takes the power colour of its reading. A dot in the severity colour marks a port with a diagnostic about it or a device on it, and the port's tooltip and VoiceOver label name the severity. Clicking a port selects it and opens the inspector; selecting a device marks its port; search dims ports that match neither themselves, a device on them nor a display macOS reports on them. Ports stay at least one port button (42 pt) apart; a column too narrow for that scrolls the outline sideways. Catalogue connectors macOS does not report (Ethernet, the power inlet, an SD slot) are outlined and do nothing. Ports with no place are listed under "Not placed". The Data / Power toggle and the legends sit over the bottom edge, as on the map, plus a key for empty, no-rate and charger ports. Captions say positions are approximate and come from the PortScope catalogue; a Mac with no known positions is told CONTRIBUTING.md explains how to add it, and an unlisted Mac placed by kind only is told so. A reveal while this page is open stays on it when the selection is the Mac or belongs to a port.
   - *Ports / Devices*: tables with sortable columns (name, port, speed, power, vendor, IDs).
   - *Power*: charger details with every power profile, system input / load / battery chart, per-port output chart. A segmented picker beside the title (under it when the column is narrow) picks the charts' range: 10 min (the live buffer, `PowerHistory`), 1 h and 24 h (saved minutes, §5.6) or 7 d (saved minutes averaged per 10 minutes). The range is not remembered between launches. Lines break at gaps longer than 30 s (10 min) or 2.5 points (other ranges), such as sleep or time Bus Stop was not running; a reading alone between two gaps shows as a dot. The time axis shows seconds for 10 min, hours and minutes for 1 h and 24 h, and weekday and date for 7 d. The system chart's header gives the range, plus "since <time>" when the readings start later than the range reaches. The minute in progress joins the saved ranges once it ends.
-  - *Events*: reverse-chronological timeline of the saved event log (§5.6) with filters, grouped by day. The subtitle gives the number of events and when the oldest happened ("12 events since Oct 4, 09:15"). The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row. Clear removes this Mac model's events from the saved history too. The sidebar's Events badge counts only events since launch.
+  - *Events*: reverse-chronological timeline of the saved event log (§5.6) with filters, grouped by day. The subtitle gives the number of events and when the oldest happened ("12 events since Oct 4, 09:15"). The filter menu offers All events, Problems (warning and critical findings and slower links) and each event kind. The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row. Clear removes this Mac model's events from the saved history too. The sidebar's Events badge counts only events since launch.
   - *Diagnostics*: list of findings with explanations and suggested fixes.
-- **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users. A dock's inspector has a "Built into this dock" section listing each built-in part (§5.4) with its name, vendor, speed and power; parts are not selectable, and searching for one finds the dock.
+- **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users. A dock's inspector has a "Built into this dock" section listing each built-in part (§5.4) with its name, vendor, speed and power; parts are not selectable, and searching for one finds the dock. A device that has dropped and come back, or runs slower than it has on this port, gets a "Connection history" section: reconnections in the last 10 minutes, its best link on this port, its current link, and the likely cause once it counts as flaky (§5.4 "Connection health").
 - **Toolbar**: Refresh, Tree/Graph toggle, Export menu, Inspector toggle, search field.
 
 ### 3.4 Settings window
@@ -132,7 +133,7 @@ Tabs:
 
 ### 3.5 Notifications
 
-Local `UserNotifications`. Title names the device; body names the port and link, e.g. "Samsung T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification.
+Local `UserNotifications`. Title names the device; body names the port and link, e.g. "Samsung T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification. New warning and critical findings, the connection health ones included (§5.4), notify under the diagnostics toggle, and each finding alerts at most once every 30 minutes.
 
 ### 3.6 Command-line tool
 
@@ -232,6 +233,7 @@ IOKit / IOPS / SMC / CoreGraphics
         ▼
    HostSnapshot ── ports → device trees, power summary, diagnostics, displays
         │  (BusStopCore.HistoryArchive.record: power minutes, port counter deltas)
+        │  (BusStopCore.ConnectionHealth.observe → extra findings for DiagnosticsEngine)
         │  (BusStopCore.SnapshotDiffer)
         ├──► [ConnectionEvent] → event log (HistoryArchive), notifications
         ▼
@@ -243,6 +245,7 @@ IOKit / IOPS / SMC / CoreGraphics
 - Captures run on one serial background queue and never overlap. Results are delivered to the main actor.
 - Demo mode swaps the capture source for `DemoScenarios`, which produce `RawSnapshot` values, so the same builder path is exercised.
 - `PortStore` records each new capture into its `HistoryArchive` once: a settings change or a port rename rebuilds from the same capture and records nothing. New events are appended to the archive, and the event log the views show is this Mac model's section of it (§5.6).
+- Each new capture also goes to `ConnectionHealth` once, before diagnostics are evaluated; its findings are passed to `DiagnosticsEngine.evaluate(…, extra:)` and reused when the same capture is rebuilt. The first capture after launch, wake, a change of source or a clock set back is marked as after a gap. `busstop --watch` does the same, marking only its first capture.
 
 ### 5.3 Raw capture (`RawSnapshot`)
 
@@ -327,6 +330,15 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 | Deep chain | Thunderbolt depth > 5 | Info |
 | Liquid detected | `LDCM_LiquidDetected == Yes` | Critical |
 | Overcurrent | `Overcurrent Count` increased since launch | Warning |
+| Flaky connection | One device disconnected and came back on the same Mac port 3 or more times in 10 minutes (Connection health, below) | Warning |
+| Link flapping | A USB or Thunderbolt link changed direction (faster, slower) 3 or more times in 10 minutes | Warning |
+| Speed regression | A USB or Thunderbolt device runs slower than its best link this session on the same Mac port, which supports USB 3 or Thunderbolt, and USB 2 fallback does not already name it | Warning |
+
+**Connection health** (`ConnectionHealth`, fed every new capture once, in order). Devices are followed by `DeviceIdentity`, so a device keeps its identity when it comes back on another controller: a USB device with a plausible serial (not empty, not all zeros, never seen on two devices at once) by vendor, product and serial; one without by vendor, product, Mac port and route (the `locationID` without its controller byte); a hub by vendor, name (without speed words) and depth on the Mac port, so it keeps its identity when it loses its SuperSpeed half; Thunderbolt devices and displays by their ids. A key two devices would share is dropped. Identities stay in memory and never reach the file, an event or a finding id.
+- A *cycle* is a device leaving and coming back to the same Mac port. A leave counts only for the top-most device of what left together, after the device had been present for 2 seconds (a dock enumerating in stages), and not within 15 seconds of a gap (launch, wake, change of source), when devices re-enumerate. A device that comes back on another port moved; that is not a cycle. On a Mac port whose devices did not change, half the increase in `Plug Event Count` adds cycles to the device plugged into it, because a replug can be faster than a capture.
+- A finding stays until its 10-minute window has had no new cycle or reversal, so it does not toggle; a speed regression stays until the link is back or the device is gone. Finding ids are fixed at first raise: `flakyConnection:<device id>`, `flakyConnection:port:<port key>`, `linkFlapping:<device id>`, `speedRegression:<device id>`. A dock's built-in part is reported as the dock.
+- The likely culprit, in the finding's text ("Likely cause: the cable."): the device when it cycled on two or more Mac ports; the hub when two or more devices behind one hub that stayed connected cycled, mentioning power when the hub is bus-powered; the port when three or more devices plugged straight into it cycled there and on no other port, mentioning liquid or overcurrent when the port reports them; otherwise the cable, then the device.
+- DisplayPort links are left out, since they retrain on a mode change or wake, and Thunderbolt 5 Bandwidth Boost (80 ↔ 120 Gb/s) is not a change (`SnapshotDiffer.linkChange`).
 
 ### 5.5 Threading and safety
 

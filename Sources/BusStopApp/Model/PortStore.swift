@@ -94,6 +94,10 @@ final class PortStore {
     @ObservationIgnored private var historyDeletedByUser = false
     @ObservationIgnored private var saveTimer: Timer?
     @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
+    @ObservationIgnored private var connectionHealth = ConnectionHealth()
+    /// The health findings of the last new capture, reused when settings
+    /// changes re-ingest it.
+    @ObservationIgnored private var cachedHealth: [Diagnostic] = []
     @ObservationIgnored private var visibleClients = 0
     @ObservationIgnored private var isRunning = false
     @ObservationIgnored private var screensAsleep = false
@@ -433,6 +437,11 @@ final class PortStore {
         historySummary = (archiveHoldsDemo ? heldLiveArchive : archive)?.summary ?? HistoryArchive.Summary()
     }
 
+    /// How often a device in the current snapshot has dropped, and its best link on this port.
+    func connectionHistory(ofDevice id: String) -> DeviceConnectionHistory? {
+        connectionHealth.history(ofDevice: id)
+    }
+
     // MARK: Export
 
     func exportJSON() throws -> Data { try Exporter.json(snapshot, redact: settings.redactExports) }
@@ -511,6 +520,8 @@ final class PortStore {
         history.removeAll()
         allDeparting.removeAll()
         overcurrentBaseline.removeAll()
+        connectionHealth = ConnectionHealth()
+        cachedHealth = []
         events.removeAll()
         hasLoaded = false
         selection = .host
@@ -542,7 +553,10 @@ final class PortStore {
         var built = TopologyBuilder.build(raw, options: options)
 
         if raw.capturedAt != lastRecordedAt {
-            archive.record(built, afterGap: nextCaptureAfterGap)
+            // A clock set back is a gap too.
+            let afterGap = nextCaptureAfterGap || raw.capturedAt < (lastRecordedAt ?? .distantPast)
+            archive.record(built, afterGap: afterGap)
+            cachedHealth = connectionHealth.observe(built, afterGap: afterGap)
             nextCaptureAfterGap = false
             lastRecordedAt = raw.capturedAt
             if !built.isDemo { powerDirty = true }
@@ -553,7 +567,8 @@ final class PortStore {
                 if let count = port.statistics?.overcurrentCount { overcurrentBaseline[port.id] = count }
             }
         }
-        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline)
+        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline,
+                                                       extra: cachedHealth)
 
         let isFirstCapture = !hasLoaded
         let previous = hasLoaded ? snapshot : nil
