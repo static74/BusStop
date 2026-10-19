@@ -130,6 +130,27 @@ struct HistoryStoreTests {
         #expect(store.connectionHistory(ofDevice: deviceID)?.cycles == 3)
     }
 
+    /// A device that keeps dropping out stays selected while it is gone, so
+    /// its inspector (and Connection history) is there again when it returns.
+    @Test func aDeviceThatDropsOutStaysSelected() throws {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        // flakyCable unplugs the iPhone on tick 2 of every 4.
+        func tick(_ n: Int) {
+            store.ingest(DemoScenario.flakyCable.raw(at: start.addingTimeInterval(Double(n) * 2), tick: n))
+        }
+        tick(0)
+        let iPhone = try #require(store.snapshot.allDevices.first { $0.device.name == "iPhone" }?.device.id)
+        store.selection = .device(iPhone)
+        tick(1)
+        tick(2)
+        #expect(store.snapshot.device(id: iPhone) == nil)
+        #expect(store.selection == .device(iPhone))
+        tick(3)
+        #expect(store.snapshot.device(id: iPhone) != nil)
+        #expect(store.selection == .device(iPhone))
+    }
+
     @Test func aClockSetBackIsAGapForHealth() {
         let sandbox = Sandbox()
         let store = sandbox.store()

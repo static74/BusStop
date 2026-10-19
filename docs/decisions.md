@@ -2,6 +2,21 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: A device that disconnects stays selected
+
+**Question.** A selected device that left a capture moved the selection to the Mac (or to its dock, when it had become one of the dock's built-in parts). A device that keeps dropping out, which is the one the inspector's Connection history section is for, kicked the inspector back to the Mac every time it dropped. It stayed there when the device returned. In the flakyCable demo that was every eight seconds. What should a dropped selection do?
+
+**Decision.** A device, or a link to one, that disconnects stays selected, as a display already did. The inspector's existing "Device disconnected" (or "Link not available") state shows while it is gone, with its "Show the Mac" button. The full inspector comes back when the same device ID returns. A device that became a dock's built-in part still selects the dock, and a port macOS stops reporting still selects the Mac. The change is one line in `PortStore.fallback(for:in:)`.
+
+**Why.** The inspector, tables and outline already cope with a selection the snapshot does not have: displays relied on it, and the "Device disconnected" state existed but was unreachable for devices. Keeping the selection costs nothing when the device never returns, because one click on "Show the Mac" or anywhere else moves on.
+
+**Risks.** A device that comes back with a new ID does not reselect itself. That happens on another port, or when its location ID changes. The inspector stays on "Device disconnected" until the user picks something.
+
+**Rejected alternatives.**
+
+- *A grace period before falling back to the Mac.* A timer and a second rule, for a selection that is just as clear while the device is away.
+- *Following the device by its connection-health identity.* Needed only for a device that returns on another port, and it would move the user's selection without a click.
+
 ## 2026-10-19: The theme setting
 
 **Question.** With a light palette in place (see the next entry), how does the user pick it, how does the choice reach every window, the popover and the system controls, and what happens to the code that forced Dark?
