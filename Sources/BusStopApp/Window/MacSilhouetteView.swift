@@ -40,19 +40,27 @@ struct MacSilhouettePage: View {
             GraphLinkModePicker(linkMode: $linkMode)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
-                    // Their spoken text describes the map's glows and pulses.
-                    switch linkMode {
-                    case .data: GraphSpeedLegend().accessibilityHidden(true)
-                    case .power: GraphPowerLegend().accessibilityHidden(true)
-                    }
+                    modeLegend.accessibilityHidden(true)
                     SilhouetteStateLegend(mode: linkMode)
                 }
+                // The speed or power key explains most of the colours, so it
+                // outlasts the state key, and then speaks for both.
+                modeLegend.accessibilityLabel(SilhouetteStateLegend.spokenText(linkMode))
                 SilhouetteStateLegend(mode: linkMode)
                 Color.clear.frame(width: 0, height: 0)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
+    }
+
+    /// The map's key for the current mode. Its own spoken text describes the
+    /// map's glows and pulses, which this page does not draw.
+    @ViewBuilder private var modeLegend: some View {
+        switch linkMode {
+        case .data: GraphSpeedLegend()
+        case .power: GraphPowerLegend()
+        }
     }
 }
 
@@ -450,8 +458,12 @@ struct SilhouetteStateLegend: View {
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
         .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(mode == .data
+        .accessibilityLabel(Self.spokenText(mode))
+    }
+
+    static func spokenText(_ mode: GraphLinkMode) -> String {
+        mode == .data
             ? "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
-            : "Port colours by power: dim for empty, then deep red, orange, amber and gold as watts rise")
+            : "Port colours by power: dim for empty, then deep red, orange, amber and gold as watts rise"
     }
 }
