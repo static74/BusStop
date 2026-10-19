@@ -107,8 +107,10 @@ enum PopoverText {
     }
 
     /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts",
-    /// then ", pinned to the menu bar" when `isPinned`.
-    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool) -> String {
+    /// then ", pinned to the menu bar" when `isPinned`. `speaksLink` adds the port's
+    /// link speed ("link at 40 gigabits per second") unless the one device already
+    /// says it; the compact row needs it because its speed chip is not read.
+    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool, speaksLink: Bool = false) -> String {
         var parts = ["\(spokenPortTitle(port.label)) port"]
         if port.devices.count == 1, let device = port.devices.first {
             var phrase = "\(device.name) connected"
@@ -125,6 +127,10 @@ enum PopoverText {
             parts.append("connected")
         } else {
             parts.append("nothing connected")
+        }
+        if speaksLink, let rate = spokenRate(port.link),
+           port.devices.count != 1 || spokenRate(port.devices[0].link) != rate {
+            parts.append("link at \(rate)")
         }
         if let power = spokenPortPower(port.power) { parts.append(power) }
         if isPinned { parts.append("pinned to the menu bar") }

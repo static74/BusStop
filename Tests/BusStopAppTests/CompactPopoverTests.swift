@@ -115,6 +115,30 @@ struct CompactPopoverTests {
         #expect(PopoverText.compactSummary(port(connected: false), devices: [drive]) == "Samsung T9")
     }
 
+    @Test func compactRowSpeaksThePortLink() {
+        let fast = LinkInfo(family: .thunderbolt, generation: "Thunderbolt 4", bitsPerSecond: 40_000_000_000)
+        let slow = LinkInfo(family: .usb, generation: "USB 2.0", bitsPerSecond: 480_000_000)
+        func port(_ devices: [DeviceNode]) -> PhysicalPort {
+            PhysicalPort(key: PortKey(type: 2, number: 1), kind: .usbC, number: 1, registryName: "Port-USB-C@1",
+                         label: PortLabel(location: "Left Rear", source: .catalog, connector: "USB-C", number: 1),
+                         isConnected: true, link: fast, devices: devices)
+        }
+        func device(_ name: String, link: LinkInfo?) -> DeviceNode {
+            DeviceNode(id: "usb:\(name)", bus: .usb, kind: .storage, name: name, link: link)
+        }
+        let several = port([device("Drive", link: fast), device("Mouse", link: slow)])
+        #expect(PopoverText.portAccessibilityLabel(several, isPinned: false, speaksLink: true)
+                == "Left Rear USB-C port, 2 devices connected, link at 40 gigabits per second")
+        // The card reads its transport chips, so its label leaves the link out.
+        #expect(PopoverText.portAccessibilityLabel(several, isPinned: false)
+                == "Left Rear USB-C port, 2 devices connected")
+        // One device at the port's speed already says it.
+        #expect(PopoverText.portAccessibilityLabel(port([device("Drive", link: fast)]), isPinned: false, speaksLink: true)
+                == "Left Rear USB-C port, Drive connected at 40 gigabits per second")
+        #expect(PopoverText.portAccessibilityLabel(port([device("Mouse", link: slow)]), isPinned: false, speaksLink: true)
+                == "Left Rear USB-C port, Mouse connected at 480 megabits per second, link at 40 gigabits per second")
+    }
+
     @Test func popoverLayoutPersistsAndResets() {
         let suite = "BusStopAppTests.CompactPopover.layout"
         defer { UserDefaults.standard.removePersistentDomain(forName: suite) }

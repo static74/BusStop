@@ -95,7 +95,7 @@ struct PortCardView: View {
     @ViewBuilder
     private var chips: some View {
         let transports = port.activeTransports.filter { $0.kind != .cc }
-        let power = port.power.flatMap { power in (power.milliwatts ?? 0) > 0 ? power : nil }
+        let power = port.shownPower
         if !transports.isEmpty || power != nil {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
@@ -255,5 +255,12 @@ extension View {
             Button(pinTitle, action: togglePin)
             Button("Show in Topology", action: showInTopology)
         }
+    }
+}
+
+extension PhysicalPort {
+    /// The power the card and the compact row show: none at 0 W.
+    var shownPower: PortPower? {
+        power.flatMap { ($0.milliwatts ?? 0) > 0 ? $0 : nil }
     }
 }

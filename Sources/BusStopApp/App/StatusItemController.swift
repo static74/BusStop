@@ -104,11 +104,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         setPopoverCounted(false)
     }
 
-    /// Keeps `store.setUIVisible` calls balanced however the popover closes.
+    /// Keeps `store.setUIVisible` calls balanced however the popover closes,
+    /// and on close resets the compact rows' arrows for the next open.
     private func setPopoverCounted(_ counted: Bool) {
         guard counted != isPopoverCounted else { return }
         isPopoverCounted = counted
         store.setUIVisible(counted)
+        if !counted {
+            (popover.contentViewController as? NSHostingController<PopoverView>)?.rootView.closeCount += 1
+        }
     }
 
     // MARK: Clicks

@@ -10,6 +10,9 @@ import SwiftUI
 /// the popover as its preferred content size.
 struct PopoverView: View {
     var store: PortStore
+    /// Bumped each time the popover closes, so compact rows start closed at
+    /// the next open: the hosting controller and its view state are reused.
+    var closeCount = 0
 
     // First-pass guesses; replaced by measurements on the first layout.
     @State private var headerHeight: CGFloat = 64
@@ -120,6 +123,7 @@ struct PopoverView: View {
             }
             if settings.popoverLayout == .compact {
                 CompactPortList(ports: ports, store: store)
+                    .id(closeCount)
             } else {
                 ForEach(ports) { port in
                     PortCardView(port: port, store: store)

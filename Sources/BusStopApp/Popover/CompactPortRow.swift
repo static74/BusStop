@@ -59,7 +59,7 @@ struct CompactPortRow: View {
 
     private func line(_ devices: [DeviceNode]) -> some View {
         let isPinned = store.pinnedPortKey == port.key
-        let power = port.power.flatMap { power in (power.milliwatts ?? 0) > 0 ? power : nil }
+        let power = port.shownPower
         return HStack(alignment: .center, spacing: 8) {
             chevron(hasDevices: !devices.isEmpty)
             PortIcon(kind: port.kind, isActive: port.isConnected, size: 18)
@@ -100,7 +100,7 @@ struct CompactPortRow: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: isRenaming ? .contain : .ignore)
-        .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned))
+        .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned, speaksLink: true))
         .portActions(port, store: store, rename: { isRenaming = true })
         .accessibilityActions {
             if !devices.isEmpty {
