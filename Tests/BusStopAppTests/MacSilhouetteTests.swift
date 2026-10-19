@@ -22,7 +22,6 @@ struct MacSilhouetteTests {
         #expect(SilhouettePaint.paint(for: port(isConnected: false), mode: .data) == .empty)
         let tenGigabit = LinkInfo(family: .usb, generation: "USB 3.2 Gen 2", bitsPerSecond: 10_000_000_000)
         #expect(SilhouettePaint.paint(for: port(link: tenGigabit), mode: .data) == .link(.gbps10))
-        // HDMI has no rate; `LinkInfo.tier` would call it USB 2.
         let hdmi = LinkInfo(family: .hdmi, generation: "HDMI")
         #expect(SilhouettePaint.paint(for: port(link: hdmi, kind: .hdmi), mode: .data) == .noRate)
         let charger = ChargerInfo(name: "96W USB-C Power Adapter", ratedWatts: 96)

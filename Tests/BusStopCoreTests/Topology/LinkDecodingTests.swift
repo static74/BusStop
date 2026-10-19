@@ -105,6 +105,14 @@ struct LinkDecodingTests {
         #expect(idle.label == "DisplayPort")
     }
 
+    @Test func unknownRateHasNoTier() throws {
+        // HDMI never reports a rate; it must not read as USB 2.
+        let hdmi = try #require(TransportParser.link(kind: .hdmi, properties: nil))
+        #expect(hdmi.tier == nil)
+        #expect(LinkDecoding.displayPortLink(["LinkRate": 0]).tier == nil)
+        #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignaling": 2]).tier == .gbps10)
+    }
+
     // MARK: Thunderbolt
 
     @Test(arguments: [
