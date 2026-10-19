@@ -113,4 +113,4 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 
 ## Releases
 
-Maintainers bump `BusStopVersion.string` in `Sources/BusStopCore/Version.swift`, add the version to `CHANGELOG.md`, and push a tag such as `v1.1.0`. The release workflow builds a universal app, runs the smoke test and publishes `BusStop.zip` with its SHA-256 checksum.
+Maintainers release from an up-to-date `main` with `scripts/release.sh 1.1.0`. The script sets `BusStopVersion.string`, turns the `[Unreleased]` section of `CHANGELOG.md` into `[1.1.0]`, runs `swift test`, commits and tags `v1.1.0`, and prints the push command. Pushing the tag starts the release workflow, which fails if the tag and `BusStopVersion.string` differ, then builds a universal app, runs the smoke test and publishes `BusStop.zip` with its SHA-256 checksum. Choose the number by [Semantic Versioning](https://semver.org/): a fix raises the patch number, a new feature the minor number, and a change that breaks the command-line output or the saved history the major number. The build number (`CFBundleVersion`) is the commit count and needs no bump.

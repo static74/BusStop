@@ -2,6 +2,21 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: One script prepares each release, and the tag starts the build
+
+**Question.** How should Bus Stop number its versions, and how does a built app reach users?
+
+**Decision.** A maintainer picks the Semantic Versioning number and runs `scripts/release.sh X.Y.Z` on `main`. The script sets `BusStopVersion.string`, moves `[Unreleased]` in `CHANGELOG.md` under the new version, runs `swift test`, commits and tags `vX.Y.Z`, and stops before pushing. Pushing the tag starts `release.yml`, which builds the app and attaches `BusStop.zip` to the GitHub release; the README links to the latest release. `release.yml` now fails when the tag and `BusStopVersion.string` differ, before it spends time on the paid runner. `CFBundleVersion` stays the commit count, so it rises on its own.
+
+**Why.** The version number tells users how big a change is, so a person chooses it; everything after that choice is mechanical and belongs in one command. Ending at a local tag keeps the push, which publishes and bills the `xcode-27` runner, a deliberate step.
+
+**Rejected alternatives.**
+
+- *Commit the built app or zip to the repository.* Binaries bloat every clone and go stale against the source; GitHub releases exist to hold them.
+- *release-please or semantic-release.* Both derive the number from Conventional Commits, which this repository does not use, and add a bot pull request per release.
+- *A `workflow_dispatch` job that bumps, commits to `main` and tags.* It runs the build in a job that can push to `main`, and adds another way to start the paid runner.
+- *Build on `release: published` as well as on tag pushes.* A release made in the GitHub web page with a new tag can also push that tag, so the build could run twice.
+
 ## 2026-10-19: A device that disconnects stays selected
 
 **Question.** A selected device that left a capture moved the selection to the Mac (or to its dock, when it had become one of the dock's built-in parts). A device that keeps dropping out, which is the one the inspector's Connection history section is for, kicked the inspector back to the Mac every time it dropped. It stayed there when the device returned. In the flakyCable demo that was every eight seconds. What should a dropped selection do?
