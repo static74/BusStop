@@ -253,6 +253,42 @@ struct HistoryStoreTests {
         #expect(relaunched.events == session + saved)
     }
 
+    @Test func turningKeepHistoryOffAndOnNeverWritesTheDeletedHistoryBack() {
+        let sandbox = Sandbox()
+        let store = storeWithSavedEvents(sandbox)
+        let deleted = Set(store.events.map(\.id))
+        #expect(!deleted.isEmpty)
+        store.setKeepHistory(false)
+        store.setKeepHistory(true)
+        #expect(store.events.isEmpty)
+        store.ingest(capture(4))
+        store.flushHistory()
+        #expect(sandbox.data() != nil)
+
+        let relaunched = sandbox.store()
+        relaunched.loadHistoryIfNeeded()
+        #expect(deleted.isDisjoint(with: relaunched.events.map(\.id)))
+    }
+
+    @Test func eventsSaveAtMostEveryFiveMinutes() throws {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        store.ingest(capture(0))
+        store.ingest(capture(2, unplugged: true))
+        store.saveHistoryIfDue(now: start)
+        store.historyFile?.waitForWrites()
+        let saved = try #require(sandbox.data())
+
+        store.ingest(capture(60))
+        store.saveHistoryIfDue(now: start.addingTimeInterval(PortStore.eventSaveInterval - 60))
+        store.historyFile?.waitForWrites()
+        #expect(sandbox.data() == saved)
+        store.saveHistoryIfDue(now: start.addingTimeInterval(PortStore.eventSaveInterval))
+        store.historyFile?.waitForWrites()
+        #expect(sandbox.data() != saved)
+    }
+
     @Test func expiredEventsLeaveTheEventsPage() {
         let sandbox = Sandbox()
         let store = storeWithSavedEvents(sandbox)

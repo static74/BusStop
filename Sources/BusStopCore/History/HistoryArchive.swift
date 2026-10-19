@@ -151,6 +151,7 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
 
     // MARK: Codec
 
+    /// Why `decode` could not read a history file.
     public enum DecodeError: Error, Equatable {
         /// Not a history file, or cut short.
         case corrupt
@@ -218,6 +219,9 @@ extension HistoryArchive.Section {
         addPower(PowerSample(snapshot))
 
         let day = calendar.startOfDay(for: date)
+        // Rebuilt every capture: a port or reading that is missing loses its
+        // baseline, so counts only ever span back-to-back readings.
+        var counters: [String: PortStatistics] = [:]
         for port in snapshot.ports {
             let key = port.id
             var change = HistoryArchive.PortDay(day: day)
@@ -227,13 +231,14 @@ extension HistoryArchive.Section {
                     change.connections = HistoryArchive.delta(last.connectionCount, stats.connectionCount)
                     change.overcurrents = HistoryArchive.delta(last.overcurrentCount, stats.overcurrentCount)
                 }
-                lastCounters[key] = stats
+                counters[key] = stats
             }
             if !gap, port.liquidDetected, lastLiquid[key] == false { change.liquidDetections = 1 }
             lastLiquid[key] = port.liquidDetected
             if change.overcurrents > 0 { lastOvercurrentAt[key] = date }
             if !change.isEmpty { add(change, port: key) }
         }
+        lastCounters = counters
         trim(now: date)
     }
 

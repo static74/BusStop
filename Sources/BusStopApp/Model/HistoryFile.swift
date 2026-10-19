@@ -21,6 +21,7 @@ nonisolated final class HistoryFile: Sendable {
         url = directory.appending(path: "history.json")
     }
 
+    /// What `load()` found.
     enum LoadResult: Sendable {
         case loaded(HistoryArchive)
         case missing

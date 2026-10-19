@@ -13,19 +13,19 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - **Dates** use `JSONEncoder`'s default (seconds as a number), which keeps the milliseconds that event ids carry.
 - **Decoding.** Lists are decoded entry by entry, so one event of a kind this version does not know drops only that event. A file that does not parse is renamed `history-corrupt-<ms>.json`. A file with a newer `schemaVersion` is never overwritten; Settings says so.
 - **Gaps are signalled by the app, not inferred from timestamps.** The first capture after launch, `NSWorkspace.didWakeNotification`, a change of source, or a capture dated before the last one counts no deltas. There are no stored gap markers; a missing power minute is the gap.
-- **Saves.** At most once a minute when there are new events, every 15 minutes when only power changed, and synchronously at `willSleepNotification` and quit, on a serial utility queue with an atomic write. Re-ingesting the same capture (a setting change, a port rename) records nothing.
+- **Saves.** At most every 5 minutes when there are new events (checked once a minute, so the first event after a quiet spell saves within a minute), every 15 minutes when only power changed, and synchronously at `willSleepNotification` and quit, on a serial utility queue with an atomic write. Re-ingesting the same capture (a setting change, a port rename) records nothing.
 - **Demo mode.** Launching in demo never reads the file. Entering demo saves the live archive and holds it aside; leaving restores it. Demo captures go into their own archive, which is never saved and starts over at each scenario change, so two scenarios with the same Mac model never mix.
-- **Settings.** A History section in Settings › Advanced rather than a new tab, which would change the Automation values and the screenshots. Turning "Keep history between launches" off deletes the file after a confirmation.
+- **Settings.** A History section in Settings › Advanced rather than a new tab, which would change the Automation values and the screenshots. Turning "Keep history between launches" off deletes the file after a confirmation; turning it back on in the same session starts empty, so the deleted history is never written back.
 - **Delivery.** Roadmap items 6 to 8 ship as four pull requests instead of the eight steps first planned: this file and its store (with the Events page that now reads a multi-session log), the Power page ranges, the flaky-connection detector, and port health. The archive already records what the later ones read (system load, per-port days, the last overcurrent).
 - **Roadmap.** Shipped items are deleted from `docs/ROADMAP.md` without renumbering the rest. Markdown renders an ordered list from its first number, so the gaps do not show, and renumbering in every PR of four parallel lanes would conflict each time.
 
-**Why.** JSON in one file is easy to inspect, delete and test with fixtures, and it is read only once, at launch. Power changes on every capture, so saving it every minute would rewrite a few megabytes 1,440 times a day; events are rare and matter more, so they save quickly. Since PR #15, captures while the screens sleep come only on hardware changes and can be hours apart, so any "more than 30 s apart is a gap" rule would throw away a night's plug counts.
+**Why.** JSON in one file is easy to inspect, delete and test with fixtures, and it is read only once, at launch. Power changes on every capture, so saving it every minute would rewrite a few megabytes 1,440 times a day; events are rare and matter more, so they save quickly, but a cable that keeps reconnecting can add events every minute, so they too wait 5 minutes after the last save. Since PR #15, captures while the screens sleep come only on hardware changes and can be hours apart, so any "more than 30 s apart is a gap" rule would throw away a night's plug counts.
 
 **Risks.**
 
 - The file holds display serial numbers and Thunderbolt device UIDs inside event ids, and device names in titles, unredacted, like port names in the preferences. SPEC §6 and the README say so.
 - Without a wake notification (a missed one), counters that moved during sleep would be counted on the day of the wake.
-- A crash loses at most a minute of events and 15 minutes of power.
+- A crash loses at most 5 minutes of events and 15 minutes of power.
 - Rewriting the whole file every 15 minutes while idle costs a few megabytes of writes each time. Not measured over a long run yet.
 
 **Rejected alternatives.**

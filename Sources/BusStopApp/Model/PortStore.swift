@@ -88,7 +88,10 @@ final class PortStore {
     @ObservationIgnored private var lastRecordedAt: Date?
     @ObservationIgnored private var eventsDirty = false
     @ObservationIgnored private var powerDirty = false
-    @ObservationIgnored private var lastSave = Date()
+    @ObservationIgnored private var lastSave = Date.distantPast
+    /// Set when the user turned history off, which deleted the file; turning
+    /// it back on then starts empty instead of writing that history back.
+    @ObservationIgnored private var historyDeletedByUser = false
     @ObservationIgnored private var saveTimer: Timer?
     @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
     @ObservationIgnored private var visibleClients = 0
@@ -99,8 +102,11 @@ final class PortStore {
 
     static let departingLifetime: TimeInterval = 1.5
     /// Power changes on every capture; saving it this rarely keeps disk writes
-    /// small. New events are saved within a minute.
+    /// small.
     static let powerSaveInterval: TimeInterval = 15 * 60
+    /// New events save at the next minute tick, but at most this often, so a
+    /// cable that keeps reconnecting does not rewrite the file every minute.
+    static let eventSaveInterval: TimeInterval = 5 * 60
 
     /// Only the app passes a `historyFile`; without one nothing is read or saved.
     init(settings: AppSettings = .shared, historyFile: HistoryFile? = nil) {
@@ -357,14 +363,21 @@ final class PortStore {
 
     /// Turning history off deletes the file (a newer version's too, since the
     /// user asked); this session's history stays in memory and is not saved.
-    /// Turning it on loads the file if it was not read at launch.
+    /// Turning it on loads the file if it was not read at launch, or starts
+    /// empty if turning it off deleted the file this session.
     func setKeepHistory(_ keep: Bool) {
         settings.keepHistory = keep
         if keep {
-            if !archiveHoldsDemo { loadHistoryIfNeeded() }
+            if historyDeletedByUser {
+                historyDeletedByUser = false
+                clearHistory()
+            } else if !archiveHoldsDemo {
+                loadHistoryIfNeeded()
+            }
         } else {
             historyFile?.delete()
             historyIsReadOnly = false
+            historyDeletedByUser = true
         }
     }
 
@@ -397,10 +410,12 @@ final class PortStore {
         historyFile?.waitForWrites()
     }
 
-    /// The timer's check: new events save within a minute, power alone every
-    /// `powerSaveInterval`.
+    /// The timer's check: new events every `eventSaveInterval`, power alone
+    /// every `powerSaveInterval`.
     func saveHistoryIfDue(now: Date = Date()) {
-        guard eventsDirty || (powerDirty && now.timeIntervalSince(lastSave) >= Self.powerSaveInterval) else { return }
+        let sinceSave = now.timeIntervalSince(lastSave)
+        guard (eventsDirty && sinceSave >= Self.eventSaveInterval)
+                || (powerDirty && sinceSave >= Self.powerSaveInterval) else { return }
         saveHistory(now: now, wait: false)
     }
 

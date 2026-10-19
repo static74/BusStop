@@ -167,6 +167,17 @@ struct HistoryArchiveTests {
         #expect(days(archive).first?.connections == 1)
     }
 
+    @Test func aMissingReadingDropsTheBaseline() {
+        var archive = HistoryArchive()
+        archive.record(capture(0, plugs: 10), afterGap: true)
+        // The first capture after wake has no counters, so the next one must not count across the sleep.
+        archive.record(capture(3_600), afterGap: true)
+        archive.record(capture(3_610, plugs: 13), afterGap: false)
+        #expect(days(archive).isEmpty)
+        archive.record(capture(3_620, plugs: 14), afterGap: false)
+        #expect(days(archive).first?.plugEvents == 1)
+    }
+
     @Test func noDeltasAfterAGap() {
         var archive = HistoryArchive()
         archive.record(capture(0, plugs: 1, overcurrents: 0, liquid: false), afterGap: true)
