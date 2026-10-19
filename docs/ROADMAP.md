@@ -15,7 +15,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## History and health
 
-6. **Persisted history.** Keep the event log, power history and per-port statistics across launches in a local file, with a size cap and a "clear history" button.
 7. **Flaky-connection detector.** Spot repeated connect and disconnect cycles, link speed flapping and devices that fall back to USB 2, and name the likely culprit (cable, port, hub or device).
 8. **Port health statistics.** Per-port counters over time: plug events, connection errors, overcurrent events and liquid detection, with a gentle warning when a port's numbers stand out.
 
@@ -48,3 +47,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A Power mode colours the map's links by watts, with pulses that follow the power.
 - USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.
 - One port can be pinned to the menu bar, so its link speed or watts show next to the icon.
+- The event log, power and per-port counters are saved between launches in a local file with size and age caps, a Clear History button and a switch to stop saving; the Power page charts the last hour, day or week from it.

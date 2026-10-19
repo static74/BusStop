@@ -68,7 +68,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
                                   Exporter: JSON, Markdown, raw capture
 ```
 
-`PortStore` also records each new capture into a `HistoryArchive` and appends new events to it; the app's `HistoryFile` saves it to `~/Library/Application Support/io.github.static74.busstop/history.json` on a background queue. Demo data is kept in a separate archive that is never saved.
+`PortStore` also records each new capture into a `HistoryArchive` and appends new events to it; the app's `HistoryFile` saves it to `~/Library/Application Support/io.github.static74.busstop/history.json` on a background queue. Demo data is kept in a separate archive that is never saved. The Power page charts the live `PowerHistory` for its 10-minute range and `HistoryArchive.powerSamples` (saved minutes, averaged per 10 minutes for 7 days) for the longer ones.
 
 The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or asks a demo scenario), builds, evaluates and prints with `Exporter`. `busstop --watch` keeps the previous snapshot and prints the output of `SnapshotDiffer` for each new one.
 
