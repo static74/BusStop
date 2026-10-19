@@ -394,8 +394,10 @@ enum TopologyWindowDefaults {
     /// Graph zoom from earlier versions, which kept it across launches. The
     /// graph now fits itself to the window until the user zooms.
     static let legacyGraphZoom = "topologyGraphZoom"
+    /// Data or Power, shared by the map and the Mac Outline.
+    static let linkMode = "graphLinkMode"
 
-    static let all = [overviewMode, legacyGraphZoom]
+    static let all = [overviewMode, legacyGraphZoom, linkMode]
 
     static func reset(_ defaults: UserDefaults = .standard) {
         for key in all { defaults.removeObject(forKey: key) }

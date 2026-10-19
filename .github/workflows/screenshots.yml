@@ -103,6 +103,7 @@ jobs:
           for scenario in studioDesk travel dockStation unplugged; do
             capture "$scenario-popover" popover -demoMode YES -demoScenario "$scenario"
             capture "$scenario-topology" topology -demoMode YES -demoScenario "$scenario"
+            capture "$scenario-silhouette" topology:silhouette -demoMode YES -demoScenario "$scenario"
           done
           capture "studioDesk-popover-compact" popover -demoMode YES -demoScenario studioDesk -popoverLayout compact
           capture "live-popover" popover -demoMode NO

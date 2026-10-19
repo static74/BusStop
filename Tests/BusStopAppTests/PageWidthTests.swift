@@ -1,4 +1,5 @@
 import AppKit
+import BusStopCore
 import SwiftUI
 import Testing
 @testable import BusStopApp
@@ -26,6 +27,29 @@ struct PageWidthTests {
         }
     }
 
+    /// The Mac Outline's header, outline, captions and "Not placed" list wrap
+    /// or shrink; the Data/Power controls are laid over it and set no width.
+    @Test(arguments: TextSizeSetting.allCases)
+    func silhouettePageFitsANarrowColumn(_ size: TextSizeSetting) {
+        for scenario in [DemoScenario.dockStation, .studioDesk] {
+            let suite = "BusStopAppTests.SilhouetteWidth.\(size.rawValue).\(scenario.rawValue)"
+            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            let settings = AppSettings(defaults: UserDefaults(suiteName: suite)!)
+            settings.demoMode = true
+            settings.demoScenario = scenario
+            let store = PortStore(settings: settings)
+            store.start()
+            defer { store.stop() }
+            let host = NSHostingController(rootView:
+                MacSilhouettePage(store: store, searchText: "", onSelect: { _ in }).lagoonTextScale(size))
+
+            #expect(host.sizeThatFits(in: CGSize(width: 0, height: 700)).width <= 120, "\(scenario)")
+            for width in [120.0, 250, 338, 438, 478] {
+                #expect(host.sizeThatFits(in: CGSize(width: width, height: 700)).width <= width + 1, "\(scenario)")
+            }
+        }
+    }
+
     /// The Power page's battery card uses `InspectorRow`, so a long value
     /// must wrap rather than set a minimum width.
     @Test func inspectorRowWrapsALongValue() {
@@ -43,20 +67,24 @@ struct PageWidthTests {
 @MainActor
 @Suite("Topology window layout", .serialized)
 struct TopologyWindowLayoutTests {
-    @Test(arguments: [TopologySidebarItem.events, .diagnostics, .power], [900.0, 1000.0])
-    func narrowWindowWithInspectorSettles(page: TopologySidebarItem, width: Double) {
+    /// dockStation is the Mac Outline's two-face desktop layout.
+    @Test(arguments: [
+        (TopologySidebarItem.events, DemoScenario.studioDesk), (.diagnostics, .studioDesk),
+        (.power, .studioDesk), (.silhouette, .studioDesk), (.silhouette, .dockStation),
+    ], [900.0, 1000.0])
+    func narrowWindowWithInspectorSettles(page: (item: TopologySidebarItem, scenario: DemoScenario), width: Double) {
         let suite = "BusStopAppTests.WindowLayout"
         defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
         let settings = AppSettings(defaults: UserDefaults(suiteName: suite)!)
         settings.demoMode = true
-        settings.demoScenario = .studioDesk
+        settings.demoScenario = page.scenario
         let store = PortStore(settings: settings)
         store.start()
         defer { store.stop() }
         // Diagnostics only crashed with a finding to show.
-        #expect(!store.snapshot.diagnostics.isEmpty)
+        if page.item == .diagnostics { #expect(!store.snapshot.diagnostics.isEmpty) }
 
-        let host = NSHostingController(rootView: TopologyWindowView(store: store, page: page, showsInspector: true))
+        let host = NSHostingController(rootView: TopologyWindowView(store: store, page: page.item, showsInspector: true))
         host.sceneBridgingOptions = [.toolbars, .title]
         host.sizingOptions = [.minSize]
         let window = NSWindow(

@@ -20,7 +20,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Views
 
-9. **Mac silhouette view.** An outline of the Mac with each port drawn where it physically is, coloured by what is plugged in and how fast it runs.
 12. **Light theme option.** A light Lagoon theme that keeps the turquoise accent, for people who run macOS in light mode. Dark stays the default.
 
 ## Automation and integrations
@@ -47,4 +46,5 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.
 - One port can be pinned to the menu bar, so its link speed or watts show next to the icon.
 - A compact popover layout shows one line per port, with each port's devices a click away.
+- A Mac Outline page draws the Mac with each port where it physically sits, coloured by what is plugged in and how fast it runs.
 - The event log, power and per-port counters are saved between launches in a local file with size and age caps, a Clear History button and a switch to stop saving; the Power page charts the last hour, day or week from it.

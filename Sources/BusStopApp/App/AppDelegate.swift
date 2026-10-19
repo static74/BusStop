@@ -38,8 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.start()
 
         // With the menu bar item hidden there is no other way in, so open
-        // the topology window.
-        if !settings.showMenuBarItem {
+        // the topology window. Automation opens its own view instead, on the
+        // page it asks for.
+        if !settings.showMenuBarItem && Automation.request == nil {
             WindowManager.shared.showTopology()
         }
 

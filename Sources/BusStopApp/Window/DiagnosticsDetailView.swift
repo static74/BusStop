@@ -78,14 +78,14 @@ struct DiagnosticCard: View {
                 .foregroundStyle(color)
                 .frame(width: 34, height: 34)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(color.opacity(0.12)))
-                .accessibilityLabel(severityName)
+                .accessibilityLabel(Lagoon.severityName(diagnostic.severity))
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(diagnostic.title)
                         .lagoonFont(.headline, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
-                    Text(severityName.uppercased())
+                    Text(Lagoon.severityName(diagnostic.severity).uppercased())
                         .lagoonFont(size: 9, weight: .heavy, design: .rounded)
                         .tracking(0.8)
                         .foregroundStyle(color)
@@ -154,14 +154,6 @@ struct DiagnosticCard: View {
             } label: {
                 Label("Show \(deviceName)", systemImage: "info.circle")
             }
-        }
-    }
-
-    private var severityName: String {
-        switch diagnostic.severity {
-        case .info: return "Note"
-        case .warning: return "Warning"
-        case .critical: return "Critical"
         }
     }
 }

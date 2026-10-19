@@ -21,7 +21,7 @@ struct TopologyGraphView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
     /// Links show data rates or power.
-    @AppStorage("graphLinkMode") private var linkMode: GraphLinkMode = .data
+    @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
 
     /// Zoom chosen with the buttons, the scroll wheel or a pinch.
     static let zoomRange: ClosedRange<Double> = 0.25...2.0
@@ -419,17 +419,7 @@ struct GraphMap: View {
     /// their tooltips do not depend on the map's (see `GraphControlHost`).
     private func controls(zoom: CGFloat) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
-            GraphControlHost {
-                Picker("Links show", selection: $linkMode) {
-                    ForEach(GraphLinkMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .help("Show data rates or power on the links")
-            }
-            .fixedSize()
+            GraphLinkModePicker(linkMode: $linkMode)
             ViewThatFits(in: .horizontal) {
                 switch linkMode {
                 case .data: GraphSpeedLegend()
@@ -453,6 +443,26 @@ struct GraphMap: View {
             .fixedSize()
         }
         .padding(16)
+    }
+}
+
+/// The Data / Power toggle, in its own hosting view (see `GraphControlHost`).
+/// The map and the Mac Outline share it and its saved choice.
+struct GraphLinkModePicker: View {
+    @Binding var linkMode: GraphLinkMode
+
+    var body: some View {
+        GraphControlHost {
+            Picker("Colour by", selection: $linkMode) {
+                ForEach(GraphLinkMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .help("Colour by data rate or by power")
+        }
+        .fixedSize()
     }
 }
 
