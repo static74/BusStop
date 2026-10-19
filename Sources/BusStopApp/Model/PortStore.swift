@@ -189,7 +189,7 @@ final class PortStore {
     }
 
     /// Demo pins live under their own key, because demo scenarios use real model ids.
-    private var pinStorageKey: String { isDemo ? "demo:\(snapshot.machine.model)" : snapshot.machine.model }
+    private var pinStorageKey: String { snapshot.isDemo ? "demo:\(snapshot.machine.model)" : snapshot.machine.model }
 
     /// This Mac model's pinned port, whether or not the port is in the snapshot.
     var pinnedPortKey: PortKey? { settings.menuBarPinnedPorts[pinStorageKey].flatMap { PortKey($0) } }

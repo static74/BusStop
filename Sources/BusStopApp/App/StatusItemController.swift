@@ -310,11 +310,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if let pinned {
             var spoken = [PopoverText.spokenPortTitle(pinned.label)]
             if let rate = PopoverText.spokenRate(pinned.link) { spoken.append(rate) }
-            if let power = pinned.power, let milliwatts = power.milliwatts, milliwatts > 0 {
-                var phrase = (power.isMeasured ? "" : "up to ") + PopoverText.spokenPower(milliwatts: milliwatts)
-                if power.direction == .input { phrase += " in" }
-                spoken.append(phrase)
-            }
+            if let power = PopoverText.spokenPortPower(pinned.power) { spoken.append(power) }
             if spoken.count == 1 { spoken.append(pinned.isConnected ? "connected" : "nothing connected") }
             text += ". Pinned: " + spoken.joined(separator: ", ")
         }

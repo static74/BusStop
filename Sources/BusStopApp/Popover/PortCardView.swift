@@ -231,6 +231,9 @@ extension View {
         }
         .accessibilityActions {
             Button("Rename Port", action: rename)
+            if port.label.source == .user {
+                Button("Restore Default Name") { store.renamePort(port.key, to: nil) }
+            }
             Button(pinTitle, action: togglePin)
             Button("Show in Topology", action: showInTopology)
         }

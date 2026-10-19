@@ -59,7 +59,7 @@ struct MenuBarTitleTests {
         let port = Self.port(link: Self.fortyGig, power: Self.measuredInput)
         #expect(StatusItemController.pinnedSegment(port, value: .speed, precision: .automatic) == "40G")
         #expect(StatusItemController.pinnedSegment(port, value: .both, precision: .automatic) == "40G ↓61W")
-        // A DisplayPort link reports no rate, so only the power is left.
+        // A link with an unknown rate (DisplayPort without a lane count) leaves only the power.
         let display = Self.port(link: LinkInfo(family: .displayPort, generation: "DisplayPort"),
                                 power: Self.measuredInput)
         #expect(StatusItemController.pinnedSegment(display, value: .both, precision: .automatic) == "↓61W")
@@ -137,6 +137,14 @@ struct MenuBarTitleTests {
         #expect(PopoverText.portAccessibilityLabel(port, isPinned: false) == "Left Rear USB-C port, nothing connected")
         #expect(PopoverText.portAccessibilityLabel(port, isPinned: true)
                 == "Left Rear USB-C port, nothing connected, pinned to the menu bar")
+    }
+
+    @Test func cardAndMenuBarSpeakPowerTheSameWay() {
+        let budget = PortPower(direction: .output, milliwatts: 4_500, source: .usbAllocation)
+        #expect(PopoverText.spokenPortPower(budget) == "up to 4.5 watts")
+        #expect(PopoverText.spokenPortPower(Self.measuredInput) == "61 watts in")
+        #expect(PopoverText.spokenPortPower(nil) == nil)
+        #expect(PopoverText.portAccessibilityLabel(Self.port(power: budget), isPinned: false).hasSuffix(", up to 4.5 watts"))
     }
 
     @Test func pinSettingsRoundTripAndReset() {
