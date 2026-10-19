@@ -5,8 +5,9 @@ import Foundation
 /// app without UI scripting. Driven by the `BUSSTOP_AUTOMATION` environment
 /// variable; does nothing when it is unset.
 ///
-/// Values: `popover`, `topology`, `settings`, `settings:<tab>` (a
-/// `SettingsTab` raw value), `about`. Combine with the launch arguments
+/// Values: `popover`, `topology`, `topology:<page>` (`overview`,
+/// `silhouette`, `allPorts`, `devices`, `power`, `events`, `diagnostics`),
+/// `settings`, `settings:<tab>` (a `SettingsTab` raw value), `about`. Combine with the launch arguments
 /// `-demoMode YES -demoScenario studioDesk` to show demo data without
 /// changing saved preferences.
 enum Automation {
@@ -34,14 +35,24 @@ enum Automation {
         case "popover":
             statusItemController?.showPopover()
         case "topology":
-            WindowManager.shared.showTopology()
+            if parts.count == 1 {
+                WindowManager.shared.showTopology()
+            } else if let page = TopologySidebarItem(automationName: parts[1]) {
+                WindowManager.shared.showTopology(page: page)
+            } else {
+                reportUnknown(request)
+            }
         case "settings":
             let tab = parts.count > 1 ? SettingsTab(rawValue: parts[1]) : nil
             WindowManager.shared.showSettings(tab: tab)
         case "about":
             WindowManager.shared.showAbout()
         default:
-            FileHandle.standardError.write(Data("Unknown \(environmentKey) value: \(request)\n".utf8))
+            reportUnknown(request)
         }
+    }
+
+    private static func reportUnknown(_ request: String) {
+        FileHandle.standardError.write(Data("Unknown \(environmentKey) value: \(request)\n".utf8))
     }
 }

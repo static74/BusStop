@@ -2,6 +2,23 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: The Mac Outline draws a desktop's back as seen from behind
+
+**Question.** Roadmap item 9 draws each port where it sits on the Mac. The catalogue says "Rear (left)" for a desktop port. Whose left is that, which way is the outline drawn, and which ports does it show?
+
+**Decision.** A laptop is drawn from above with the hinge at the top, so "Left" is the user's left and "Rear" is up. A desktop's back is drawn as someone standing behind the Mac sees it: "Rear (left)" is on the viewer's left, and the elevation is captioned "Back, seen from behind". The front is drawn as seen from the front. A Mac mini, Mac Studio or Mac Pro gets a front and a back elevation, each only when it has ports, and an iMac only its back. The outlines are generic shapes and paths drawn at their final size, with no drawing group and no scale effect. The page draws `snapshot.ports`, every port, not `visiblePorts`, so "Hide empty ports" never leaves holes in the outline. The page is a separate view (`MacSilhouetteView`) that takes the snapshot, the selected port and the mode, with no store, so the host inspector or an "Identify this port" flow can reuse it. The map's Data / Power choice moved into `TopologyWindowDefaults` under the same key, so both pages share it and Reset All Settings now resets it. A `topology:<page>` Automation value opens the window on a page, for screenshots and visual checks.
+
+**Why.** Someone reaching round the back of a Mac mini to plug in a cable sees the ports that way, and the catalogue's qualifiers read naturally from there. Drawing every port keeps the outline true to the hardware. A port with only a charger, or a display link with no data rate, gets its own colour, because `LinkInfo.tier` calls an unknown rate USB 2 and would paint an HDMI display like a slow USB link.
+
+**Risks.** Whether PortScope's desktop "left" means facing the front or the back has not been checked on hardware; the page says positions are approximate until the hardware check.
+
+**Rejected alternatives.**
+
+- *The back seen from the front, through the case.* It matches a front view's left and right but not what anyone sees while plugging in.
+- *No back view, ports projected onto the front.* Most desktop ports are on the back, so most of the outline would be wrong.
+- *Only the visible ports.* An outline with gaps where empty ports are hidden reads as missing hardware.
+- *A separate Data / Power setting for the outline.* Two toggles for the same question would drift apart.
+
 ## 2026-10-19: The compact popover keeps the card's actions and hides devices behind an arrow
 
 **Question.** Roadmap item 11 asks for a denser popover with one line per port. What goes on the line, what is left out, and how do the card and the line stay in step?

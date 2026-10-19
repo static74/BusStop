@@ -50,10 +50,12 @@ final class WindowManager: NSObject, NSWindowDelegate {
     // MARK: Showing windows
 
     /// Shows the topology window, optionally selecting a port or device first.
-    func showTopology(selecting selection: StoreSelection? = nil) {
+    /// `page` applies only when this creates the window; an open window keeps
+    /// its page. Automation passes one at launch.
+    func showTopology(selecting selection: StoreSelection? = nil, page: TopologySidebarItem = .overview) {
         guard let store else { return }
         if let selection { store.reveal(selection) }
-        let window = topologyWindow ?? makeTopologyWindow(store: store)
+        let window = topologyWindow ?? makeTopologyWindow(store: store, page: page)
         topologyWindow = window
         present(window)
         setTopologyCounted(true)
@@ -131,8 +133,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     // MARK: Window construction
 
-    private func makeTopologyWindow(store: PortStore) -> NSWindow {
-        let host = NSHostingController(rootView: TopologyWindowView(store: store))
+    private func makeTopologyWindow(store: PortStore, page: TopologySidebarItem) -> NSWindow {
+        let host = NSHostingController(rootView: TopologyWindowView(store: store, page: page))
         // The SwiftUI `.toolbar` and `.navigationTitle` drive the window's.
         host.sceneBridgingOptions = [.toolbars, .title]
         // Only a minimum from the content; the window resizes freely above it.
