@@ -665,9 +665,6 @@ final class PortStore {
         guard let previous else { return }
         // A device that became one of a dock's built-in parts has not left.
         let currentIDs = Set(current.allDevices.map(\.device.id)).union(current.internalPartIDs)
-        // Devices that came back are no longer departing.
-        allDeparting.removeAll { currentIDs.contains($0.id) }
-
         // The departed device without any descendant that is still connected
         // somewhere else, so nothing is drawn twice.
         func ghost(of node: DeviceNode) -> DeviceNode {
@@ -675,6 +672,11 @@ final class PortStore {
             copy.children = node.children.filter { !currentIDs.contains($0.id) }.map { ghost(of: $0) }
             return copy
         }
+
+        // Devices that came back are no longer departing, nor drawn inside
+        // the ghost of a device they left with.
+        allDeparting.removeAll { currentIDs.contains($0.id) }
+        for i in allDeparting.indices { allDeparting[i].device = ghost(of: allDeparting[i].device) }
 
         var known = Set(allDeparting.map(\.id))
         func walk(_ nodes: [DeviceNode], parentID: String?, portKey: PortKey?) {

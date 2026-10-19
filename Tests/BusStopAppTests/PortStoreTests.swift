@@ -43,6 +43,38 @@ struct PortStoreTests {
         }
     }
 
+    /// A hub with two children is pulled, then one child is plugged into
+    /// the display's hub on another port while the hub's ghost still fades.
+    /// The child shows once, live, and the hub's ghost keeps only the other.
+    @Test(arguments: [("Keychron K8 Pro", "USB Optical Mouse"), ("USB Optical Mouse", "Keychron K8 Pro")])
+    func aChildRepluggedElsewhereLeavesTheHubsGhost(_ moved: String, _ stayed: String) throws {
+        let hub: Set = ["USB3.1 Hub", "USB2.1 Hub", "Keychron K8 Pro", "USB Optical Mouse"]
+        var plugged = DemoScenario.studioDesk.raw(at: Date(), tick: 0)
+        plugged.usbDevices.removeAll { $0.node.name == "DataTraveler 3.0" }
+        var pulled = plugged
+        pulled.usbDevices.removeAll { hub.contains($0.node.name) }
+        var replugged = pulled
+        var child = try #require(plugged.usbDevices.first { $0.node.name == moved })
+        child.parentDeviceID = plugged.usbDevices.first { $0.node.name == "Studio Display XDR Camera" }?.parentDeviceID
+        replugged.usbDevices.append(child)
+
+        try withSettings("ghosts") { settings in
+            let store = PortStore(settings: settings)
+            store.ingest(plugged)
+            store.ingest(pulled)
+            let ghost = try #require(store.departing.first)
+            #expect(store.departing.count == 1)
+            #expect(Set(ghost.device.children.map(\.name)) == [moved, stayed])
+
+            store.ingest(replugged)
+            let shown = store.snapshot.ports.map(\.key).map(Optional.some) + [nil]
+            let names = shown.flatMap { store.devicesWithGhosts(on: $0) }.flatMap { $0.flattened() }.map(\.device.name)
+            #expect(names.filter { $0 == moved }.count == 1)
+            #expect(store.departing.map(\.id) == [ghost.id])
+            #expect(store.departing.first?.device.children.map(\.name) == [stayed])
+        }
+    }
+
     /// Demo mode was turned off, but the source switches a SwiftUI update
     /// later: a demo capture in between is still demo data.
     @Test func aDemoCaptureAfterTheToggleStaysDemo() {
