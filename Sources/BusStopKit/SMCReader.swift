@@ -57,14 +57,6 @@ final class SMCReader: @unchecked Sendable {
         return (channels, nil)
     }
 
-    /// Closes the connection; the next read reopens it.
-    func close() {
-        lock.lock()
-        defer { lock.unlock() }
-        closeLocked()
-        openFailure = nil
-    }
-
     private func closeLocked() {
         if connection != 0 {
             IOServiceClose(connection)
