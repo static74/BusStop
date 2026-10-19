@@ -426,6 +426,9 @@ final class PortStore {
             if hasLoaded { events = archive.events(model: model) }
         case .newerSchema:
             historyIsReadOnly = true
+        case .unreadable:
+            // A save would replace the only copy; the next load tries again.
+            historyLoaded = false
         case .missing, .movedAside:
             break
         }
