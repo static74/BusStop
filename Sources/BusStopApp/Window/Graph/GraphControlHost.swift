@@ -16,13 +16,16 @@ import SwiftUI
 /// hosting views".
 ///
 /// The hosted content does not inherit the map's environment; the values it
-/// needs (Text Size and the accent tint) are passed on here. It is always
-/// shown at its ideal size, whatever size is proposed, so callers add
-/// `.fixedSize()` and the content never wraps.
+/// needs (Text Size and the accent tint) are passed on here. It is shown at
+/// its ideal size, whatever size is proposed, so callers add `.fixedSize()`
+/// and the content never wraps. With `fills`, it takes the size it is
+/// offered instead, for content the caller sizes (the Mac Outline's faces).
 struct GraphControlHost<Content: View>: NSViewRepresentable {
+    var fills = false
     var content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(fills: Bool = false, @ViewBuilder content: () -> Content) {
+        self.fills = fills
         self.content = content()
     }
 
@@ -37,7 +40,7 @@ struct GraphControlHost<Content: View>: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: GraphControlHostingView, context: Context) -> CGSize? {
-        nsView.fittingSize
+        fills ? proposal.replacingUnspecifiedDimensions() : nsView.fittingSize
     }
 
     private func root(_ environment: EnvironmentValues) -> AnyView {
