@@ -168,7 +168,8 @@ struct ChassisLayoutTests {
         #expect(snapshot.ports.allSatisfy { $0.catalogLocation != nil })
         #expect(Set(layout.slots.compactMap(\.portKey)) == Set(snapshot.ports.map(\.key)))
         let families: [DemoScenario: ChassisFamily] = [.studioDesk: .laptop, .travel: .laptop,
-                                                       .dockStation: .macMini, .unplugged: .laptop]
+                                                       .dockStation: .macMini, .unplugged: .laptop,
+                                                       .flakyCable: .laptop]
         #expect(layout.family == families[scenario])
     }
 

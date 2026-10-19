@@ -18,6 +18,10 @@ public enum DemoScenario: String, Sendable, Hashable, Codable, CaseIterable, Ide
     case dockStation
     /// MacBook Pro with nothing plugged in, on battery.
     case unplugged
+    /// The Travel setup with a worn cable: the iPhone and its cable drop
+    /// out for one tick in every four, so the flaky-connection finding
+    /// appears after about 40 seconds.
+    case flakyCable
 
     public var id: String { rawValue }
 
@@ -27,6 +31,7 @@ public enum DemoScenario: String, Sendable, Hashable, Codable, CaseIterable, Ide
         case .travel: return "Travel"
         case .dockStation: return "Dock station"
         case .unplugged: return "Unplugged"
+        case .flakyCable: return "Flaky cable"
         }
     }
 
@@ -41,6 +46,8 @@ public enum DemoScenario: String, Sendable, Hashable, Codable, CaseIterable, Ide
             return "Mac mini with a Thunderbolt 5 dock, a front SSD and an HDMI display"
         case .unplugged:
             return "MacBook Pro on battery with nothing plugged in"
+        case .flakyCable:
+            return "MacBook Air whose iPhone keeps disconnecting and coming back on a worn cable"
         }
     }
 
@@ -51,19 +58,22 @@ public enum DemoScenario: String, Sendable, Hashable, Codable, CaseIterable, Ide
         case .travel: return DemoTravel.model
         case .dockStation: return DemoDockStation.model
         case .unplugged: return DemoUnplugged.model
+        case .flakyCable: return DemoTravel.model
         }
     }
 
     /// The raw capture for this scenario. `date` stamps `capturedAt`;
     /// `tick` adds small deterministic variation to power readings so the
     /// sparklines move in demo mode. Everything else stays the same from
-    /// tick to tick, and the same tick always gives the same capture.
+    /// tick to tick (except in `flakyCable`, which unplugs the iPhone on a
+    /// fixed pattern), and the same tick always gives the same capture.
     public func raw(at date: Date, tick: Int = 0) -> RawSnapshot {
         switch self {
         case .studioDesk: return DemoStudioDesk.raw(at: date, tick: tick)
         case .travel: return DemoTravel.raw(at: date, tick: tick)
         case .dockStation: return DemoDockStation.raw(at: date, tick: tick)
         case .unplugged: return DemoUnplugged.raw(at: date, tick: tick)
+        case .flakyCable: return DemoTravel.raw(at: date, tick: tick, iPhoneConnected: tick % 4 != 2)
         }
     }
 }

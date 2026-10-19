@@ -79,6 +79,12 @@ public enum DiagnosticKind: String, Sendable, Hashable, Codable, CaseIterable {
     case liquidDetected
     case overcurrent
     case reducedDetail
+    /// A device keeps disconnecting and coming back (`ConnectionHealth`).
+    case flakyConnection
+    /// A link keeps switching between faster and slower.
+    case linkFlapping
+    /// A device runs slower than it has before on the same port.
+    case speedRegression
 }
 
 /// A plain-English finding about the current setup.
