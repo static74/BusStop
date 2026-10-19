@@ -86,6 +86,8 @@ extension Exporter {
             var device = device
             device.node = redactor.node(device.node)
             device.ancestry = device.ancestry.map(redactor.ancestor)
+            // Matched against the port node names, which are scrubbed the same way.
+            device.usbIOPortPath = device.usbIOPortPath.map(redactor.text)
             device.interfaces = device.interfaces.map { interface in
                 var interface = interface
                 interface.name = interface.name.map(redactor.text)
@@ -230,7 +232,11 @@ extension Exporter {
             let tag = bytes[offset]
             let length = Int(bytes[offset + 2])
             let payload = offset + 3
-            guard tag != 0 || length > 0 else { break }
+            guard tag != 0 || length > 0 else {
+                // Zero padding ends the walk; blank it, in case it is not padding.
+                blank(offset..<sectionEnd)
+                break
+            }
             guard payload + length <= sectionEnd else {
                 // A data block that overruns its section: nothing after it can be trusted.
                 blank(offset..<sectionEnd)

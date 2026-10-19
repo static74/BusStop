@@ -410,6 +410,15 @@ struct RedactionTests {
         bytes[136...140] = [1, 2, 3, 4, 5]
         let overrun = [UInt8](Exporter.redactedEDID(Data(bytes)))
         #expect(overrun[133..<153].allSatisfy { $0 == 0 })
+        // Zeros in the middle of a section end the walk; what follows is blanked too.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 20
+        bytes[136...138] = [0x20, 0, 9]
+        bytes[144...147] = [0xDE, 0xAD, 0xBE, 0xEF]
+        let padded = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(padded[133..<153].allSatisfy { $0 == 0 })
     }
 
     // MARK: Markdown
