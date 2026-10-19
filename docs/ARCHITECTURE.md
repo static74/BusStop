@@ -15,7 +15,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 
 | Target | Product | Platforms | Responsibility |
 |---|---|---|---|
-| `BusStopCore` | library | macOS | No IOKit, AppKit or SwiftUI. Raw capture model, output model, topology builder, port labels and catalogue, formatting, diagnostics, event diffing, power history, export, demo scenarios, version. |
+| `BusStopCore` | library | macOS | No IOKit, AppKit or SwiftUI. Raw capture model, output model, topology builder, port labels and catalogue, formatting, diagnostics, event diffing, power history, the saved history's format, export, demo scenarios, version. |
 | `BusStopKit` | library | macOS | IOKit capture (`RegistryCapture`), live monitoring (`LiveMonitor`), the SMC power channel reader, power-source and display readers. |
 | `BusStopApp` | `BusStopApp` executable, renamed `BusStop` in the bundle | macOS | AppKit status item and popover, SwiftUI windows and settings, notifications, launch at login, export. |
 | `BusStopCLI` | `busstop` executable | macOS | The command-line tool. |
@@ -30,10 +30,10 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `Raw/` | `PlistValue` (a `Sendable`, `Codable` mirror of CoreFoundation property-list values), `PropertyBag` (forgiving typed accessors), `RawSnapshot` and its records (`RawNode`, `RawUSBDevice`, `RawThunderboltSwitch`, `SMCChannel`, `RawDisplay`). |
 | `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. |
 | `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, a dock's built-in USB parts (`DockParts`), link decoding, power, displays, device classification. |
-| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, generic name), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
+| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, capability heuristic, generic name), `ChassisLayout` (where each port sits on the Mac's outline), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
 | `Events/` | `SnapshotDiffer`, which turns two snapshots into `ConnectionEvent`s. |
-| `History/` | `PowerHistory`, the in-memory samples behind the sparklines. |
+| `History/` | `PowerHistory`, the in-memory samples behind the sparklines. `HistoryArchive`, what is saved between launches (SPEC §5.6): the event log, power per minute and per-port counter increases per day, one section per Mac model, with its caps and a decoder that drops a bad entry instead of the whole file. |
 | `Export/` | `Exporter`: JSON, Markdown, raw capture JSON, the CLI text tree, redaction. |
 | `Demo/` | `DemoScenario`, which builds realistic `RawSnapshot`s. |
 | `Formatting/` | `Format`: locale-independent units ("10 Gb/s", "4.5 W", "20 V × 4.7 A") and the menu bar's short forms ("40G", "38W"). |
@@ -68,6 +68,8 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
                                   Exporter: JSON, Markdown, raw capture
 ```
 
+`PortStore` also records each new capture into a `HistoryArchive` and appends new events to it; the app's `HistoryFile` saves it to `~/Library/Application Support/io.github.static74.busstop/history.json` on a background queue. Demo data is kept in a separate archive that is never saved.
+
 The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or asks a demo scenario), builds, evaluates and prints with `Exporter`. `busstop --watch` keeps the previous snapshot and prints the output of `SnapshotDiffer` for each new one.
 
 ### Why a raw snapshot
@@ -86,6 +88,7 @@ The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or a
 |---|---|
 | `LiveMonitor`'s private serial queue | IOKit matching and interest notifications (`IONotificationPortSetDispatchQueue`), the power-source notification, the polling timer, the 250 ms debounce, and every capture. Captures never overlap. |
 | Main thread / main actor | Display reconfiguration callbacks (they only post work to the monitor's queue), snapshot delivery, `PortStore`, all AppKit and SwiftUI code. The app target uses `.defaultIsolation(MainActor.self)`. |
+| `HistoryFile`'s serial queue | Encoding and writing `history.json`. The class is `nonisolated` and `Sendable`; the store hands it a copy of the archive. Will-sleep and quit wait for the write. |
 | Anywhere | `BusStopCore` functions. Every core type is a `Sendable` value type and every core function is pure, so they need no isolation. |
 
 `LiveMonitor.start(onSnapshot:)` takes a `@MainActor @Sendable` closure. The monitor captures on its queue and hops to the main actor to deliver. A delivery gate drops snapshots from a run that was stopped, so a late capture never reaches a store that has moved on (for example to demo mode).
@@ -122,7 +125,10 @@ Labels resolve in this order (SPEC §5.4):
 1. the user's own name for the port,
 2. a catalogue entry for this `hw.model` with the same connector and number,
 3. a catalogue entry by rank among ports of the same connector (for non-contiguous numbering such as 1, 2, 4),
-4. a generic name such as "USB-C 2".
+4. "Rear" or "Front" from the port's Thunderbolt capability, on a Mac mini, a Mac Studio or a model whose rows mix Thunderbolt and plain USB-C,
+5. a generic name such as "USB-C 2".
+
+The catalogue location is also stored as `PhysicalPort.catalogLocation`, which survives a rename; `ChassisLayout` places ports on the Mac's outline from it.
 
 A Mac missing from the catalogue still works; it just shows generic names until someone adds it.
 

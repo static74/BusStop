@@ -21,6 +21,41 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *A one-line banner and Displays section too.* Findings need their explanation, and both are usually short already.
 - *A third rename editor for the row.* The card's field moved into `PortRenameField`, which seeds its draft and takes focus when it appears.
 
+## 2026-10-19: History is a local JSON file
+
+**Question.** Roadmap item 6 asks for the event log, power history and per-port statistics to survive a relaunch, with a size cap and a way to clear it. Where and how is it stored, how often is it written, and how does it stay away from demo data?
+
+**Decision.**
+
+- **Format.** One JSON file, `~/Library/Application Support/io.github.static74.busstop/history.json`, folder 0700 and file 0600. The folder name is hard-coded, because `Bundle.main.bundleIdentifier` is nil under `swift run`. The format is `HistoryArchive` in `BusStopCore`, with a `schemaVersion` and one section per `hw.model`. Inside a section, ports are keyed by `PortKey.description`, not by `"<hw.model>#<PortKey>"`: the section already separates models.
+- **Contents and caps.** Events, newest 5,000 and at most 30 days old. Power as one average per minute (system input, battery, system load, each port) for 7 days, without minimum and maximum, since nothing would read them. Per-port increases in the three hardware counters, and liquid detections, per local calendar day for 90 days, so "the last 7 days" means the user's days. About 5 MB at most, by dropping the oldest entries. `PowerSample` gains `systemLoadMilliwatts`.
+- **Dates** use `JSONEncoder`'s default (seconds as a number), which keeps the milliseconds that event ids carry.
+- **Decoding.** Lists are decoded entry by entry, so one event of a kind this version does not know drops only that event. A file that does not parse is renamed `history-corrupt-<ms>.json`. A file with a newer `schemaVersion` is never overwritten; Settings says so.
+- **Gaps are signalled by the app, not inferred from timestamps.** The first capture after launch, `NSWorkspace.didWakeNotification`, a change of source, or a capture dated before the last one counts no deltas. There are no stored gap markers; a missing power minute is the gap.
+- **Saves.** At most every 5 minutes when there are new events (checked once a minute, so the first event after a quiet spell saves within a minute), every 15 minutes when only power changed, and synchronously at `willSleepNotification` and quit, on a serial utility queue with an atomic write. Re-ingesting the same capture (a setting change, a port rename) records nothing.
+- **Demo mode.** Launching in demo never reads the file. Entering demo saves the live archive and holds it aside; leaving restores it. Demo captures go into their own archive, which is never saved and starts over at each scenario change, so two scenarios with the same Mac model never mix.
+- **Settings.** A History section in Settings › Advanced rather than a new tab, which would change the Automation values and the screenshots. Turning "Keep history between launches" off deletes the file after a confirmation; turning it back on in the same session starts empty, so the deleted history is never written back.
+- **Delivery.** Roadmap items 6 to 8 ship as four pull requests instead of the eight steps first planned: this file and its store (with the Events page that now reads a multi-session log), the Power page ranges, the flaky-connection detector, and port health. The archive already records what the later ones read (system load, per-port days, the last overcurrent).
+- **Roadmap.** Shipped items are deleted from `docs/ROADMAP.md` without renumbering the rest. Markdown renders an ordered list from its first number, so the gaps do not show, and renumbering in every PR of four parallel lanes would conflict each time.
+
+**Why.** JSON in one file is easy to inspect, delete and test with fixtures, and it is read only once, at launch. Power changes on every capture, so saving it every minute would rewrite a few megabytes 1,440 times a day; events are rare and matter more, so they save quickly, but a cable that keeps reconnecting can add events every minute, so they too wait 5 minutes after the last save. Since PR #15, captures while the screens sleep come only on hardware changes and can be hours apart, so any "more than 30 s apart is a gap" rule would throw away a night's plug counts.
+
+**Risks.**
+
+- The file holds display serial numbers and Thunderbolt device UIDs inside event ids, and device names in titles, unredacted, like port names in the preferences. SPEC §6 and the README say so.
+- Without a wake notification (a missed one), counters that moved during sleep would be counted on the day of the wake.
+- A crash loses at most 5 minutes of events and 15 minutes of power.
+- Rewriting the whole file every 15 minutes while idle costs a few megabytes of writes each time. Not measured over a long run yet.
+
+**Rejected alternatives.**
+
+- *UserDefaults.* Not meant for megabytes, and it is rewritten as a whole on every change anyway.
+- *SQLite, Core Data or SwiftData.* Incremental writes would be cheaper, but they bring a schema and migrations, and the archive would stop being a plain value type that the Core tests build and check without a store. Not worth it at a few megabytes.
+- *ISO 8601 dates.* They drop fractional seconds and so change event ids on a round trip.
+- *Gaps from timestamps.* Wrong while the screens sleep (above).
+- *Saving everything every 30 to 60 seconds,* as first planned: several gigabytes of writes a day.
+- *Feeding saved samples through `PowerHistory`.* Its window is measured from the newest sample and it clears itself when the clock goes back; the popover's 10-minute buffer stays as it is.
+
 ## 2026-10-19: A pinned port shows speed and watts in short form
 
 **Question.** Roadmap item 10 lets one port's watts or link speed sit next to the menu bar icon. What does the segment look like, where is the pin stored, and what happens to a pin made in demo mode?
@@ -42,6 +77,28 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *Polling faster while a port is pinned.* It undoes the energy saving of power-only polls for one figure the user can refresh by opening the popover.
 - *One global pin.* Wrong on a second Mac or after migration, where port keys mean different ports.
 - *The title builder and the pinned-value enum in Core.* `MenuBarTextMode` and `PowerPrecision` already live in the app and `menuBarText` was already a pure static function there, so only the unit formatting moved to Core. The roadmap plan's separate Core formatting PR was folded into this one for the same reason.
+
+## 2026-10-19: Port positions on the Mac outline come from the catalogue's location text
+
+**Question.** The planned Mac outline page has to put each port where it sits on the chassis. The port's label cannot be used, because `label.location` becomes the user's name once a port is renamed. Where does the position come from?
+
+**Decision.** `PortLabeler.label` also returns the catalogue location it used ("Left Front", "Rear (left)", or only "Rear" from the capability heuristic), and `TopologyBuilder` stores it as `PhysicalPort.catalogLocation`, which a rename leaves alone. `ChassisLayout.resolve` (Core) turns the text into slots:
+
+1. A live port goes where its `catalogLocation` says. It sorts at its catalogue row, found by connector and location; a port placed only by area sorts with the first row of its connector on that face, ties by port number.
+2. Catalogue rows become passive slots only when no live port has their connector (Ethernet, the power inlet, an SD slot macOS does not report). A connector with live ports never draws its rows a second time, even when the labeler placed those ports by area.
+3. Laptop sides sort rear, center, front, then catalogue order. Desktop faces sort by connector (first catalogue row on that face), then qualifier ("leftmost" to "rightmost"), then catalogue order. Slot `i` of `n` sits at `(i + 1) / (n + 1)`, so no two slots share a place.
+4. A port with no location, or one the parser cannot read, is unplaced.
+
+The chassis family (laptop, Mac mini, Mac Studio, Mac Pro, iMac, or another desktop) comes from the machine name, which is the catalogue's marketing name or the name guessed from the model prefix, and falls back to a laptop when the Mac has a battery.
+
+**Why.** The catalogue already carries the position, as text in a few fixed forms, and every one of the 326 rows parses. Desktop qualifiers are relative within one connector, not absolute: the Mac Studio lists USB-C and USB-A both at "Rear (left)", and the 27-inch iMac has USB-C at "Rear (left)" and USB-A at "Rear (leftmost)". So desktop faces group by connector before the qualifier. Connector and location are unique within every model, so the layout finds a port's row itself and the port needs no stored index. `HostSnapshot.worstSeverity(on:)` sits in Core next to it, so the outline's badge and the popover can share it.
+
+**Rejected alternatives.**
+
+- *Store the catalogue row index on `PhysicalPort`.* Redundant while connector and location are unique, which a test checks, and it would tie saved snapshots to the generated file's row order.
+- *Match the catalogue again inside the layout.* It would lose the builder's evidence (the Thunderbolt sockets and sibling capabilities) that decides when a row is rejected.
+- *Hand-edit `PortLocationCatalog+Data.swift` to add coordinates.* The file is generated from PortScope's data and is never edited by hand.
+- *Generic laptop and desktop fallbacks as separate families.* An unknown Mac with a battery already draws as a laptop; one `other` case covers the rest.
 
 ## 2026-10-19: Background polls read power only, and stop while the screens sleep
 

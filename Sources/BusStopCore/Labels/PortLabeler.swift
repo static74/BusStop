@@ -38,35 +38,38 @@ public enum PortLabeler {
     ///     ports of this kind whose support is known (the port itself
     ///     included). Used to tell whether the Mac follows the catalogue's
     ///     numbering for this connector.
-    /// - Returns: the label, and the catalogue's capability text for the port
-    ///   ("Thunderbolt 5") when the catalogue describes it. A user-named port
-    ///   keeps the catalogue capability.
+    /// - Returns: the label; the catalogue's capability text for the port
+    ///   ("Thunderbolt 5") when the catalogue describes it; and where the
+    ///   catalogue places it ("Left Front", or only "Rear" from step 4), for
+    ///   `PhysicalPort.catalogLocation`. A user-named port keeps both.
     public static func label(kind: PortKind, number: Int, key: PortKey, siblings: [Int], model: String,
                              userNames: [String: String], supportsThunderbolt: Bool? = nil,
-                             siblingCapabilities: [Int: Bool] = [:]) -> (label: PortLabel, capability: String?) {
+                             siblingCapabilities: [Int: Bool] = [:])
+        -> (label: PortLabel, capability: String?, location: String?) {
         let connector = kind.displayName
         let match = acceptedMatch(kind: kind, number: number, siblings: siblings, model: model,
                                   supportsThunderbolt: supportsThunderbolt, siblingCapabilities: siblingCapabilities)
         let guess = match == nil
             ? capabilityLocation(kind: kind, model: model, supportsThunderbolt: supportsThunderbolt)
             : nil
+        let location = match?.row.location ?? guess?.location
 
         if let name = userNames[key.description]?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
             let label = PortLabel(location: name, source: .user, connector: connector, number: number)
-            return (label, match?.row.capability ?? guess?.capability)
+            return (label, match?.row.capability ?? guess?.capability, location)
         }
         if let match {
             let label = PortLabel(location: match.row.location, source: match.isExact ? .catalog : .catalogRank,
                                   connector: connector, number: number)
-            return (label, match.row.capability)
+            return (label, match.row.capability, location)
         }
         if let guess {
             // An inference from the catalogue and the port's capability, so it
             // reports the weaker of the two catalogue sources.
             let label = PortLabel(location: guess.location, source: .catalogRank, connector: connector, number: number)
-            return (label, guess.capability)
+            return (label, guess.capability, location)
         }
-        return (PortLabel(location: nil, source: .generic, connector: connector, number: number), nil)
+        return (PortLabel(location: nil, source: .generic, connector: connector, number: number), nil, nil)
     }
 
     /// Physical sort order for ports on a model.

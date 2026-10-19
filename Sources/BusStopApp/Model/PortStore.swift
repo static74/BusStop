@@ -33,13 +33,21 @@ struct DepartingDevice: Identifiable, Hashable {
 }
 
 /// The app's single source of truth: the latest snapshot, event log and power
-/// history. Owns the live monitor (or the demo ticker).
+/// history. Owns the live monitor (or the demo ticker) and the saved history
+/// (SPEC §5.6).
 @Observable
 final class PortStore {
     private(set) var snapshot: HostSnapshot = .placeholder()
     private(set) var raw: RawSnapshot?
-    /// Newest first, capped at `maxEvents`.
+    /// This Mac model's event log from the history archive, newest first.
+    /// Filled by the first capture after a start.
     private(set) var events: [ConnectionEvent] = []
+    /// What Settings shows about the saved history. Refreshed on load, save and clear.
+    private(set) var historySummary = HistoryArchive.Summary()
+    /// The saved file was written by a newer Bus Stop, so it is never overwritten.
+    private(set) var historyIsReadOnly = false
+    /// The sidebar badge counts events since this moment.
+    let launchDate = Date()
     private(set) var history = PowerHistory()
     private(set) var lastUpdated: Date?
     private(set) var hasLoaded = false
@@ -63,8 +71,28 @@ final class PortStore {
     /// The scenario the demo capture currently comes from; nil when no demo
     /// capture has been taken since the last start.
     @ObservationIgnored private var runningScenario: DemoScenario?
-    /// The live event log, kept aside while demo mode is on.
-    @ObservationIgnored private var liveEventsDuringDemo: [ConnectionEvent] = []
+    @ObservationIgnored let historyFile: HistoryFile?
+    /// Changes on every capture, so no view observes it.
+    @ObservationIgnored private(set) var archive = HistoryArchive()
+    /// True while `archive` holds demo data, which is never saved.
+    @ObservationIgnored private var archiveHoldsDemo = false
+    /// The live archive, kept aside while demo mode is on.
+    @ObservationIgnored private var heldLiveArchive: HistoryArchive?
+    /// Set once the file has been read (or found missing), so a save never
+    /// replaces a file that was not loaded.
+    @ObservationIgnored private var historyLoaded = false
+    /// The next capture follows launch, wake or a change of source, so the
+    /// archive counts nothing across it.
+    @ObservationIgnored private var nextCaptureAfterGap = true
+    /// Settings changes re-ingest the same capture; it is recorded once.
+    @ObservationIgnored private var lastRecordedAt: Date?
+    @ObservationIgnored private var eventsDirty = false
+    @ObservationIgnored private var powerDirty = false
+    @ObservationIgnored private var lastSave = Date.distantPast
+    /// Set when the user turned history off, which deleted the file; turning
+    /// it back on then starts empty instead of writing that history back.
+    @ObservationIgnored private var historyDeletedByUser = false
+    @ObservationIgnored private var saveTimer: Timer?
     @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
     @ObservationIgnored private var visibleClients = 0
     @ObservationIgnored private var isRunning = false
@@ -72,11 +100,18 @@ final class PortStore {
     @ObservationIgnored private var sessionInactive = false
     @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
 
-    static let maxEvents = 500
     static let departingLifetime: TimeInterval = 1.5
+    /// Power changes on every capture; saving it this rarely keeps disk writes
+    /// small.
+    static let powerSaveInterval: TimeInterval = 15 * 60
+    /// New events save at the next minute tick, but at most this often, so a
+    /// cable that keeps reconnecting does not rewrite the file every minute.
+    static let eventSaveInterval: TimeInterval = 5 * 60
 
-    init(settings: AppSettings = .shared) {
+    /// Only the app passes a `historyFile`; without one nothing is read or saved.
+    init(settings: AppSettings = .shared, historyFile: HistoryFile? = nil) {
         self.settings = settings
+        self.historyFile = historyFile
         observeScreenSleep()
     }
 
@@ -99,6 +134,9 @@ final class PortStore {
         // Fast user switching: another user has the screen.
         observe(NSWorkspace.sessionDidResignActiveNotification) { $0.sessionInactive = true }
         observe(NSWorkspace.sessionDidBecomeActiveNotification) { $0.sessionInactive = false }
+        // Counters may move while the Mac sleeps; count nothing across it.
+        observe(NSWorkspace.didWakeNotification) { $0.nextCaptureAfterGap = true }
+        observe(NSWorkspace.willSleepNotification) { $0.flushHistory() }
     }
 
     var isDemo: Bool { settings.demoMode }
@@ -119,6 +157,8 @@ final class PortStore {
         isRunning = false
         monitor?.stop()
         monitor = nil
+        saveTimer?.invalidate()
+        saveTimer = nil
         demoTimer?.invalidate()
         demoTimer = nil
         runningScenario = nil
@@ -131,22 +171,15 @@ final class PortStore {
     /// Switching between live data and demo mode, or between demo scenarios,
     /// is a change of source. The new source starts from scratch, with no
     /// connect or disconnect events, no notifications, no ghosts and a fresh
-    /// power history. The event log never mixes sources: demo events are
-    /// dropped when the source changes, and the live log is set aside while
-    /// demo mode is on and comes back when it ends.
+    /// power history. The history never mixes sources: demo history is
+    /// dropped when the source changes, and the live archive is saved and set
+    /// aside while demo mode is on and comes back when it ends.
     func applySettings() {
         let wantsDemo = settings.demoMode
         let isDemoRunning = demoTimer != nil
         if isRunning && wantsDemo != isDemoRunning {
             stop()
-            if wantsDemo {
-                liveEventsDuringDemo = events
-                resetForSourceChange()
-            } else {
-                resetForSourceChange()
-                events = liveEventsDuringDemo
-                liveEventsDuringDemo = []
-            }
+            switchSource(toDemo: wantsDemo)
             start()
             return
         }
@@ -156,6 +189,22 @@ final class PortStore {
         } else {
             monitor?.update(configuration: monitorConfiguration)
             if let raw { ingest(raw) }
+        }
+    }
+
+    /// Entering demo mode saves the live history and sets it aside; leaving
+    /// brings it back. Either way the store starts over (`resetForSourceChange`).
+    func switchSource(toDemo: Bool) {
+        if toDemo {
+            flushHistory()
+            heldLiveArchive = archive
+            archiveHoldsDemo = true
+            resetForSourceChange()
+        } else {
+            resetForSourceChange()
+            archive = heldLiveArchive ?? HistoryArchive()
+            heldLiveArchive = nil
+            archiveHoldsDemo = false
         }
     }
 
@@ -289,9 +338,100 @@ final class PortStore {
         return merged(live, ghosts: topLevel)
     }
 
-    // MARK: Events
+    // MARK: Events and history
 
-    func clearEvents() { events.removeAll() }
+    /// Clears this Mac model's event log, saved copy included.
+    func clearEvents() {
+        archive.clearEvents(model: snapshot.machine.model)
+        events = []
+        if !archiveHoldsDemo { eventsDirty = true }
+    }
+
+    /// Forgets every saved event, power minute and port counter, for every
+    /// Mac model, and deletes the file. In demo mode it clears the demo
+    /// history too, and the live history stays cleared when demo mode ends.
+    func clearHistory() {
+        archive = HistoryArchive()
+        if heldLiveArchive != nil { heldLiveArchive = HistoryArchive() }
+        events = []
+        historyFile?.delete()
+        historyIsReadOnly = false
+        eventsDirty = false
+        powerDirty = false
+        refreshHistorySummary()
+    }
+
+    /// Turning history off deletes the file (a newer version's too, since the
+    /// user asked); this session's history stays in memory and is not saved.
+    /// Turning it on loads the file if it was not read at launch, or starts
+    /// empty if turning it off deleted the file this session.
+    func setKeepHistory(_ keep: Bool) {
+        settings.keepHistory = keep
+        if keep {
+            if historyDeletedByUser {
+                historyDeletedByUser = false
+                clearHistory()
+            } else if !archiveHoldsDemo {
+                loadHistoryIfNeeded()
+            }
+        } else {
+            historyFile?.delete()
+            historyIsReadOnly = false
+            historyDeletedByUser = true
+        }
+    }
+
+    /// Reads the saved history once, straight into the archive: restored
+    /// events never go through `ingest`, so they raise no notifications.
+    func loadHistoryIfNeeded() {
+        guard !historyLoaded, let historyFile, settings.keepHistory else { return }
+        historyLoaded = true
+        switch historyFile.load() {
+        case .loaded(var saved):
+            // Turned on mid-session: keep this session's events, and count no
+            // port counters between the file's last capture and now.
+            let model = snapshot.machine.model
+            saved.append(archive.events(model: model).reversed(), model: model)
+            archive = saved
+            nextCaptureAfterGap = true
+            if hasLoaded { events = archive.events(model: model) }
+        case .newerSchema:
+            historyIsReadOnly = true
+        case .missing, .movedAside:
+            break
+        }
+        refreshHistorySummary()
+    }
+
+    /// Saves now if anything changed, for will-sleep and quit, and waits for
+    /// a save the timer already queued.
+    func flushHistory() {
+        if eventsDirty || powerDirty { saveHistory(now: Date(), wait: true) }
+        historyFile?.waitForWrites()
+    }
+
+    /// The timer's check: new events every `eventSaveInterval`, power alone
+    /// every `powerSaveInterval`.
+    func saveHistoryIfDue(now: Date = Date()) {
+        let sinceSave = now.timeIntervalSince(lastSave)
+        guard (eventsDirty && sinceSave >= Self.eventSaveInterval)
+                || (powerDirty && sinceSave >= Self.powerSaveInterval) else { return }
+        saveHistory(now: now, wait: false)
+    }
+
+    private func saveHistory(now: Date, wait: Bool) {
+        guard let historyFile, historyLoaded, !archiveHoldsDemo, settings.keepHistory, !historyIsReadOnly else { return }
+        archive.trim(now: now)
+        if wait { historyFile.saveNow(archive) } else { historyFile.save(archive) }
+        eventsDirty = false
+        powerDirty = false
+        lastSave = now
+        refreshHistorySummary()
+    }
+
+    private func refreshHistorySummary() {
+        historySummary = (archiveHoldsDemo ? heldLiveArchive : archive)?.summary ?? HistoryArchive.Summary()
+    }
 
     // MARK: Export
 
@@ -314,6 +454,14 @@ final class PortStore {
     }
 
     private func startLive() {
+        loadHistoryIfNeeded()
+        if historyFile != nil {
+            let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.saveHistoryIfDue() }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            saveTimer = timer
+        }
         let monitor = LiveMonitor(configuration: monitorConfiguration)
         self.monitor = monitor
         monitor.setUIVisible(visibleClients > 0)
@@ -324,6 +472,8 @@ final class PortStore {
     }
 
     private func startDemo() {
+        // Launching straight into demo mode never reads or writes the file.
+        archiveHoldsDemo = true
         demoTick = 0
         ingestDemo()
         let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
@@ -352,7 +502,9 @@ final class PortStore {
     }
 
     /// Forgets everything that came from the previous source. The next
-    /// capture is treated as the first one, so it raises no events.
+    /// capture is treated as the first one, so it raises no events. The live
+    /// archive keeps one section per Mac model, so it stays; a demo archive
+    /// starts over, so two scenarios of the same model never mix.
     private func resetForSourceChange() {
         snapshot = .placeholder()
         raw = nil
@@ -362,6 +514,9 @@ final class PortStore {
         events.removeAll()
         hasLoaded = false
         selection = .host
+        lastRecordedAt = nil
+        nextCaptureAfterGap = true
+        if archiveHoldsDemo { archive = HistoryArchive() }
     }
 
     private func userPortNames(for model: String) -> [String: String] {
@@ -373,7 +528,7 @@ final class PortStore {
         return result
     }
 
-    private func ingest(_ raw: RawSnapshot) {
+    func ingest(_ raw: RawSnapshot) {
         // A capture of a different Mac model cannot be a hardware change on
         // this one, so treat it as a new source instead of diffing two Macs.
         if hasLoaded && raw.machine.model != snapshot.machine.model {
@@ -386,6 +541,13 @@ final class PortStore {
         )
         var built = TopologyBuilder.build(raw, options: options)
 
+        if raw.capturedAt != lastRecordedAt {
+            archive.record(built, afterGap: nextCaptureAfterGap)
+            nextCaptureAfterGap = false
+            lastRecordedAt = raw.capturedAt
+            if !built.isDemo { powerDirty = true }
+        }
+
         if overcurrentBaseline.isEmpty {
             for port in built.ports {
                 if let count = port.statistics?.overcurrentCount { overcurrentBaseline[port.id] = count }
@@ -393,6 +555,7 @@ final class PortStore {
         }
         built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline)
 
+        let isFirstCapture = !hasLoaded
         let previous = hasLoaded ? snapshot : nil
         let newEvents = SnapshotDiffer.events(from: previous, to: built, at: built.capturedAt)
 
@@ -405,10 +568,16 @@ final class PortStore {
         hasLoaded = true
 
         if !newEvents.isEmpty {
-            events.insert(contentsOf: newEvents.reversed(), at: 0)
-            if events.count > Self.maxEvents { events.removeLast(events.count - Self.maxEvents) }
-            // Demo data never raises system notifications.
-            if !built.isDemo { onEvents?(newEvents) }
+            archive.append(newEvents, model: built.machine.model)
+            // Demo data is never saved and never raises system notifications.
+            if !built.isDemo {
+                eventsDirty = true
+                onEvents?(newEvents)
+            }
+        }
+        // A count change means `record` dropped events past the age limit.
+        if isFirstCapture || !newEvents.isEmpty || events.count != archive.events(model: built.machine.model).count {
+            events = archive.events(model: built.machine.model)
         }
 
         if let selection, !Self.exists(selection, in: built) {

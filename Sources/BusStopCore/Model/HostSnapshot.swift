@@ -207,4 +207,12 @@ public struct HostSnapshot: Sendable, Hashable, Codable {
 
     /// The most severe diagnostic, if any.
     public var worstSeverity: DiagnosticSeverity? { diagnostics.map(\.severity).max() }
+
+    /// The most severe diagnostic about a port or a device on it, if any.
+    public func worstSeverity(on key: PortKey) -> DiagnosticSeverity? {
+        let deviceIDs = Set(port(key)?.allDevices.map(\.device.id) ?? [])
+        return diagnostics.filter { diagnostic in
+            diagnostic.portKey == key || diagnostic.deviceID.map(deviceIDs.contains) == true
+        }.map(\.severity).max()
+    }
 }

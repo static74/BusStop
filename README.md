@@ -15,7 +15,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Hubs, docks and daisy chains.** USB hub trees and Thunderbolt / USB4 chains, with device counts and power rolled up to each hub and to the Mac.
 - **Power.** Watts in and out per port, a charger card with the active USB-PD contract ("20 V × 4.7 A") and every profile the charger offers, battery state, and a sparkline of the last few minutes.
 - **Real port names.** "Left Front · USB-C" instead of "Port 2", from a per-model catalogue. You can rename any port.
-- **Instant change detection.** Plug and unplug events show up at once, with an event timeline and optional notifications for connections, disconnections and link downgrades.
+- **Instant change detection.** Plug and unplug events show up at once, with an event timeline kept between launches and optional notifications for connections, disconnections and link downgrades.
 - **Topology window.** A graph of host, ports and devices with links drawn by speed, sortable port and device tables, power charts, the event log, diagnostics and an inspector with the raw IORegistry keys.
 - **Diagnostics in plain English.** A USB 3 device stuck at USB 2 speed, a Thunderbolt link slowed by its cable, a charger too weak for the Mac, a battery not charging, a bus-powered hub over its power budget, a very deep chain, liquid detected in a port.
 - **Cable details** when the port reports them: active or passive, optical.
@@ -109,7 +109,7 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% ·
 
 - No network code, no analytics, no crash reporting, no accounts. The app does not ask for network access.
 - Bus Stop only reads: IORegistry properties, the power-source API and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
-- Settings and port names are stored in the app's preferences. The event log and power history stay in memory. Nothing is written anywhere else unless you export.
+- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. Nothing is written anywhere else unless you export.
 - Exports and `busstop --watch` redact serial numbers and the computer name by default.
 
 ## How it works

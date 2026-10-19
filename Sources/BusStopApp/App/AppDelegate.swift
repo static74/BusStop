@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = AppSettings.shared
-        let store = PortStore(settings: settings)
+        let store = PortStore(settings: settings, historyFile: HistoryFile(directory: HistoryFile.standardDirectory))
         self.store = store
         WindowManager.shared.store = store
 
@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        store?.flushHistory()
         store?.stop()
     }
 

@@ -341,6 +341,10 @@ public struct PhysicalPort: Sendable, Hashable, Codable, Identifiable {
     public var label: PortLabel
     /// Catalogue capability text, e.g. "Thunderbolt 5", "USB 3 (10 Gb/s)".
     public var capabilityDescription: String?
+    /// Where the catalogue puts the port ("Left Front", "Rear (left)", or
+    /// only "Rear" when the capability heuristic placed it). Unlike
+    /// `label.location` it survives a rename, so `ChassisLayout` places by it.
+    public var catalogLocation: String?
     /// `TransportsSupported`, minus CC.
     public var supportedTransports: [TransportKind]
     /// Active, non-tunnelled transports, fastest first. CC is omitted.
@@ -367,7 +371,7 @@ public struct PhysicalPort: Sendable, Hashable, Codable, Identifiable {
                 activeTransports: [TransportInfo] = [], isConnected: Bool = false, link: LinkInfo? = nil,
                 power: PortPower? = nil, charger: ChargerInfo? = nil, cable: CableInfo? = nil,
                 devices: [DeviceNode] = [], statistics: PortStatistics? = nil, liquidDetected: Bool = false,
-                properties: PropertyBag? = nil) {
+                properties: PropertyBag? = nil, catalogLocation: String? = nil) {
         self.key = key
         self.kind = kind
         self.number = number
@@ -385,6 +389,7 @@ public struct PhysicalPort: Sendable, Hashable, Codable, Identifiable {
         self.statistics = statistics
         self.liquidDetected = liquidDetected
         self.properties = properties
+        self.catalogLocation = catalogLocation
     }
 
     /// Every device on this port, depth-first, with its depth (0 = root).
