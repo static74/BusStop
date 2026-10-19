@@ -73,6 +73,11 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A corrupt power reading at the bottom of the 64-bit range is dropped instead of crashing the app when it formats power.
 - The port number of a `usb-drd` USB controller is read only from the controller itself, never from a node below it, which could place its devices on the wrong port.
 
+### Security
+
+- Redacted exports no longer leak a serial number that a device puts in its own name. A known serial is removed wherever it appears as a whole word: device, display and charger names, diagnostic text, every string of a raw capture (registry entry names included), `busstop --watch` lines and Copy Details. The CLI's default text tree is now redacted too; `--no-redact` keeps everything as before.
+- Redacted exports drop EDID data whose serial fields cannot be found (shorter than one block, or bytes after the last whole block), and blank a DisplayID block that cannot be walked, instead of passing it through unchanged.
+
 ## [1.0.0] - 2026-10-12
 
 The first release.
