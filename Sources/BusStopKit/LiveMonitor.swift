@@ -301,15 +301,13 @@ public final class LiveMonitor: @unchecked Sendable {
               registrations.interest[id] == nil else { return }
         var notification: io_object_t = 0
         let refcon = Unmanaged.passUnretained(registrations.box).toOpaque()
-        let result = powerOnly
-            ? IOServiceAddInterestNotification(
-                port, entry.raw, kIOGeneralInterest,
-                { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: true) }, refcon, &notification
-            )
-            : IOServiceAddInterestNotification(
-                port, entry.raw, kIOGeneralInterest,
-                { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: false) }, refcon, &notification
-            )
+        // A C callback cannot capture `powerOnly`, so pick one of two literals.
+        let callback: IOServiceInterestCallback = powerOnly
+            ? { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: true) }
+            : { refcon, _, _, _ in LiveMonitor.interestCallback(refcon, powerOnly: false) }
+        let result = IOServiceAddInterestNotification(
+            port, entry.raw, kIOGeneralInterest, callback, refcon, &notification
+        )
         guard let handle = IOObjectHandle(adopting: notification), result == KERN_SUCCESS else { return }
         registrations.interest[id] = handle
     }
