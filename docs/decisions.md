@@ -139,6 +139,8 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Risks.** Whether PortScope's desktop "left" means facing the front or the back has not been checked on hardware; the page says positions are approximate until the hardware check.
 
+**Departures from the plan.** `PhysicalPort` carries `catalogLocation` but no catalogue index: `ChassisLayout` finds a port's catalogue row by connector and location and orders slots by catalogue rows. The outline's key says "No rate" rather than the plan's "Connected", because every lit port is connected and the key only needs to explain the accent colour.
+
 **Rejected alternatives.**
 
 - *The back seen from the front, through the case.* It matches a front view's left and right but not what anyone sees while plugging in.
