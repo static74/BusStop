@@ -197,25 +197,23 @@ extension Exporter {
             for index in (offset + 5)..<(offset + 18) { bytes[index] = 0x20 }
         }
         setChecksum(&bytes, block: 0)
-        let extensions = Int(bytes[126])
-        if extensions > 0 {
-            for block in 1...extensions where (block + 1) * 128 <= bytes.count && bytes[block * 128] == 0x70 {
-                if redactDisplayID(&bytes, start: block * 128) { setChecksum(&bytes, block: block) }
-            }
+        // Every whole block, not only the extension count in byte 126, which can be wrong.
+        for block in 1..<(bytes.count / 128) where bytes[block * 128] == 0x70 {
+            if redactDisplayID(&bytes, start: block * 128) { setChecksum(&bytes, block: block) }
         }
         return Data(bytes)
     }
 
     /// Blanks the identifying fields of a DisplayID extension block that
-    /// starts at `start`, fixing the section checksum. Returns true when
-    /// anything changed.
+    /// starts at `start`, fixing the section checksum. A block whose section
+    /// or data blocks cannot be walked is blanked whole, since its serials
+    /// cannot be found. Returns true when anything changed.
     ///
     /// Layout: tag 0x70, version, section length N, product type, extension
     /// count, N bytes of data blocks, section checksum. Each data block is a
     /// tag, a revision, a payload length and the payload.
     private static func redactDisplayID(_ bytes: inout [UInt8], start: Int) -> Bool {
         let sectionEnd = start + 5 + Int(bytes[start + 2])
-        guard sectionEnd < start + 127 else { return false }
         var changed = false
         func blank(_ range: Range<Int>) {
             for index in range where bytes[index] != 0 {
@@ -223,12 +221,21 @@ extension Exporter {
                 changed = true
             }
         }
+        guard sectionEnd < start + 127 else {
+            blank((start + 1)..<(start + 127))
+            return changed
+        }
         var offset = start + 5
         while offset + 3 <= sectionEnd {
             let tag = bytes[offset]
             let length = Int(bytes[offset + 2])
             let payload = offset + 3
-            guard payload + length <= sectionEnd, tag != 0 || length > 0 else { break }
+            guard tag != 0 || length > 0 else { break }
+            guard payload + length <= sectionEnd else {
+                // A data block that overruns its section: nothing after it can be trusted.
+                blank(offset..<sectionEnd)
+                break
+            }
             switch tag {
             case 0x00, 0x20:
                 // Product identification: OUI (3), product code (2), serial (4).

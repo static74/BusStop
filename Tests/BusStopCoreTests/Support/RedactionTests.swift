@@ -392,6 +392,26 @@ struct RedactionTests {
         #expect(redacted[12..<16].allSatisfy { $0 == 0 })
     }
 
+    @Test func displayIDBlocksThatCannotBeWalkedAreBlanked() {
+        // Byte 126 says no extensions, block 1 is DisplayID with a section length past its end.
+        var bytes = [UInt8](repeating: 0, count: 256)
+        bytes[128] = 0x70
+        bytes[130] = 0xFF
+        bytes[140...143] = [0x12, 0x34, 0x56, 0x78]
+        let redacted = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(redacted[129..<255].allSatisfy { $0 == 0 })
+        #expect(redacted[128..<256].reduce(0) { ($0 + Int($1)) & 0xFF } == 0)
+        // A data block that overruns its section blanks the rest of the section.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 20
+        bytes[133...135] = [0x20, 0, 40]
+        bytes[136...140] = [1, 2, 3, 4, 5]
+        let overrun = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(overrun[133..<153].allSatisfy { $0 == 0 })
+    }
+
     // MARK: Markdown
 
     @Test func markdownStripsControlCharacters() {
