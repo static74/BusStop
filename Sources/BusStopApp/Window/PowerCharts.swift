@@ -12,6 +12,9 @@ nonisolated struct PowerChartPoint: Identifiable, Sendable {
     var date: Date
     var watts: Double
     var series: String
+    /// Points of one series in different segments are not joined, so a line
+    /// breaks across a gap such as sleep.
+    var segment = 0
 }
 
 /// The values under the pointer, for the tooltip.
@@ -37,6 +40,7 @@ struct PowerLineChart: View {
     /// Series drawn with a soft area fill under its line.
     var areaSeries: String?
     var showsZeroLine: Bool = false
+    var range: PowerRange = .tenMinutes
 
     @State private var hoverDate: Date?
 
@@ -47,7 +51,8 @@ struct PowerLineChart: View {
         let zeroLines: [Double] = showsZeroLine ? [0] : []
         Chart {
             ForEach(areaPoints) { point in
-                AreaMark(x: .value("Time", point.date), y: .value("Watts", point.watts))
+                AreaMark(x: .value("Time", point.date), y: .value("Watts", point.watts),
+                         series: .value("Segment", point.segment), stacking: .unstacked)
                     .interpolationMethod(.monotone)
                     .foregroundStyle(
                         LinearGradient(colors: [areaColor.opacity(0.32), areaColor.opacity(0.0)],
@@ -63,7 +68,7 @@ struct PowerLineChart: View {
                 LineMark(
                     x: .value("Time", point.date),
                     y: .value("Watts", point.watts),
-                    series: .value("Series", point.series)
+                    series: .value("Series", "\(point.series)#\(point.segment)")
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(by: .value("Series", point.series))
@@ -78,7 +83,7 @@ struct PowerLineChart: View {
                         spacing: 4,
                         overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
                     ) {
-                        PowerChartTooltip(hover: item, colorFor: colorFor)
+                        PowerChartTooltip(hover: item, format: range.tooltipFormat, colorFor: colorFor)
                     }
             }
         }
@@ -88,7 +93,7 @@ struct PowerLineChart: View {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                     .foregroundStyle(Lagoon.stroke)
-                AxisValueLabel(format: .dateTime.hour().minute().second())
+                AxisValueLabel(format: range.axisFormat)
                     .foregroundStyle(Lagoon.textTertiary)
             }
         }
@@ -145,11 +150,12 @@ struct PowerLineChart: View {
 /// Tooltip shown at the crosshair: the time and each series' value.
 struct PowerChartTooltip: View {
     var hover: PowerChartHover
+    var format: Date.FormatStyle
     var colorFor: (String?) -> Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(hover.date, format: .dateTime.hour().minute().second())
+            Text(hover.date, format: format)
                 .lagoonFont(.caption2, weight: .semibold)
                 .foregroundStyle(Lagoon.textSecondary)
             ForEach(hover.entries) { entry in
@@ -173,7 +179,66 @@ struct PowerChartTooltip: View {
     }
 }
 
-/// Builds chart series from the power history.
+/// How far back the Power page's charts reach. Ten minutes is the live
+/// buffer; the longer ranges read the saved history.
+enum PowerRange: CaseIterable, Identifiable {
+    case tenMinutes, hour, day, week
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .tenMinutes: "10 min"
+        case .hour: "1 h"
+        case .day: "24 h"
+        case .week: "7 d"
+        }
+    }
+
+    var spanText: String {
+        switch self {
+        case .tenMinutes: "Last 10 minutes"
+        case .hour: "Last hour"
+        case .day: "Last 24 hours"
+        case .week: "Last 7 days"
+        }
+    }
+
+    var span: TimeInterval {
+        switch self {
+        case .tenMinutes: 600
+        case .hour: 3_600
+        case .day: 86_400
+        case .week: 7 * 86_400
+        }
+    }
+
+    /// Seconds averaged into one point of the saved history; a week of
+    /// minutes would be 10,080 points per series.
+    var step: TimeInterval { self == .week ? 600 : 60 }
+
+    /// A longer silence than this breaks the lines. Live power arrives every
+    /// 2 to 10 s while the screens are on; saved points are `step` apart.
+    var maxGap: TimeInterval { self == .tenMinutes ? 30 : step * 2.5 }
+
+    var axisFormat: Date.FormatStyle {
+        switch self {
+        case .tenMinutes: .dateTime.hour().minute().second()
+        case .hour, .day: .dateTime.hour().minute()
+        case .week: .dateTime.weekday(.abbreviated).day()
+        }
+    }
+
+    var tooltipFormat: Date.FormatStyle {
+        switch self {
+        case .tenMinutes: .dateTime.hour().minute().second()
+        case .hour: .dateTime.hour().minute()
+        case .day, .week: .dateTime.weekday(.abbreviated).hour().minute()
+        }
+    }
+}
+
+/// Builds chart series from power samples, oldest first.
 enum PowerChartData {
     static let inputName = "System input"
     static let batteryName = "Battery"
@@ -181,17 +246,20 @@ enum PowerChartData {
     static let otherPortsName = "Other ports"
 
     /// System input, battery and system load, in legend order.
-    static func systemPoints(_ history: PowerHistory, load: [(date: Date, watts: Double)]) -> [PowerChartPoint] {
-        let input = history.systemInputSeries.enumerated().map { index, sample in
-            PowerChartPoint(id: "in#\(index)", date: sample.date, watts: sample.watts, series: inputName)
+    static func systemPoints(_ samples: [PowerSample], maxGap: TimeInterval) -> [PowerChartPoint] {
+        points(samples.systemInputSeries, series: inputName, id: "in", maxGap: maxGap)
+            + points(samples.batterySeries, series: batteryName, id: "bat", maxGap: maxGap)
+            + points(samples.systemLoadSeries, series: loadName, id: "load", maxGap: maxGap)
+    }
+
+    /// One series' points, split into segments at gaps longer than `maxGap`.
+    static func points(_ values: [(date: Date, watts: Double)], series: String, id: String,
+                       maxGap: TimeInterval) -> [PowerChartPoint] {
+        let segments = PowerSample.segments(values.map(\.date), maxGap: maxGap)
+        return values.enumerated().map { index, value in
+            PowerChartPoint(id: "\(id)#\(index)", date: value.date, watts: value.watts, series: series,
+                            segment: segments[index])
         }
-        let battery = history.batterySeries.enumerated().map { index, sample in
-            PowerChartPoint(id: "bat#\(index)", date: sample.date, watts: sample.watts, series: batteryName)
-        }
-        let systemLoad = load.enumerated().map { index, sample in
-            PowerChartPoint(id: "load#\(index)", date: sample.date, watts: sample.watts, series: loadName)
-        }
-        return input + battery + systemLoad
     }
 
     static func systemColor(_ series: String) -> Color {
@@ -204,14 +272,14 @@ enum PowerChartData {
 
     /// Per-port series: the busiest ports get their own colour, the rest are
     /// summed into "Other ports".
-    static func portSeries(_ history: PowerHistory, title: (PortKey) -> String)
+    static func portSeries(_ samples: [PowerSample], title: (PortKey) -> String, maxGap: TimeInterval)
         -> (points: [PowerChartPoint], domain: [String], colors: [Color]) {
-        let keys = history.portKeys
+        let keys = samples.portKeys
         guard !keys.isEmpty else { return ([], [], []) }
 
         var peaks: [PortKey: Double] = [:]
         for key in keys {
-            peaks[key] = history.series(for: key).map { abs($0.watts) }.max() ?? 0
+            peaks[key] = samples.series(for: key).map { abs($0.watts) }.max() ?? 0
         }
         // Busiest first; ties keep physical order.
         let ranked = keys.enumerated().sorted { lhs, rhs in
@@ -232,87 +300,18 @@ enum PowerChartData {
             if domain.contains(name) { name += " (\(key))" }
             domain.append(name)
             colors.append(palette[ownSeries.firstIndex(of: key) ?? 0])
-            for (index, sample) in history.series(for: key).enumerated() {
-                points.append(PowerChartPoint(id: "\(key)#\(index)", date: sample.date, watts: sample.watts, series: name))
-            }
+            points += Self.points(samples.series(for: key), series: name, id: "\(key)", maxGap: maxGap)
         }
         if !folded.isEmpty {
             var sums: [Date: Double] = [:]
             for key in folded {
-                for sample in history.series(for: key) { sums[sample.date, default: 0] += sample.watts }
+                for sample in samples.series(for: key) { sums[sample.date, default: 0] += sample.watts }
             }
             domain.append(otherPortsName)
             colors.append(PowerChartPalette.otherPorts)
-            for (index, date) in sums.keys.sorted().enumerated() {
-                points.append(PowerChartPoint(id: "other#\(index)", date: date, watts: sums[date] ?? 0,
-                                              series: otherPortsName))
-            }
+            let other = sums.keys.sorted().map { (date: $0, watts: sums[$0] ?? 0) }
+            points += Self.points(other, series: otherPortsName, id: "other", maxGap: maxGap)
         }
         return (points, domain, colors)
-    }
-}
-
-// MARK: - System load history
-
-/// The Mac's own power use over time.
-///
-/// `PortStore.history` (`PowerSample`) keeps system input, battery and port
-/// power but not system load, so the Power page records load here, from the
-/// same snapshots and over the same span. Recording starts when the topology
-/// window first opens.
-final class SystemLoadRecorder {
-    static let shared = SystemLoadRecorder()
-
-    struct Sample {
-        var date: Date
-        var milliwatts: Int
-    }
-
-    private(set) var samples: [Sample] = []
-    private var observation: ObservationLoop?
-    /// Matches `PowerHistory`'s defaults.
-    private let window: TimeInterval = 600
-    private let capacity = 600
-
-    /// Starts following the store's snapshots (once).
-    func start(store: PortStore) {
-        guard observation == nil else { return }
-        observation = ObservationLoop { [weak self, weak store] in
-            guard let self, let store else { return }
-            self.record(store.snapshot)
-        }
-    }
-
-    /// Adds the snapshot's load, with the same rules as `PowerHistory.append`:
-    /// samples under 0.5 s apart replace each other and a clock that goes
-    /// backwards starts over.
-    func record(_ snapshot: HostSnapshot) {
-        guard let load = snapshot.power.systemLoadMilliwatts else { return }
-        let date = snapshot.capturedAt
-        if let last = samples.last {
-            if date < last.date {
-                samples.removeAll()
-            } else if date.timeIntervalSince(last.date) < 0.5 {
-                samples.removeLast()
-            }
-        }
-        samples.append(Sample(date: date, milliwatts: load))
-        let cutoff = date.addingTimeInterval(-window)
-        samples.removeAll { $0.date < cutoff }
-        if samples.count > capacity { samples.removeFirst(samples.count - capacity) }
-    }
-
-    /// Load in watts over the span `history` covers, ending with `current`
-    /// even if its sample has not been recorded yet.
-    func series(for history: PowerHistory, current: HostSnapshot) -> [(date: Date, watts: Double)] {
-        guard let start = history.samples.first?.date else { return [] }
-        var result = samples.filter { $0.date >= start }.map { (date: $0.date, watts: Double($0.milliwatts) / 1000) }
-        if let load = current.power.systemLoadMilliwatts, current.capturedAt >= start {
-            if let last = result.last, current.capturedAt.timeIntervalSince(last.date) < 0.5 {
-                result.removeLast()
-            }
-            result.append((date: current.capturedAt, watts: Double(load) / 1000))
-        }
-        return result
     }
 }

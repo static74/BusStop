@@ -33,7 +33,7 @@ struct PowerStripView: View {
     private func chargerCard(_ charger: ChargerInfo, power: PowerSummary) -> some View {
         let measuredInput = power.systemInputMilliwatts.flatMap { $0 > 0 ? $0 : nil }
         let inputMilliwatts = measuredInput ?? charger.contractMilliwatts
-        let series = store.history.systemInputSeries.suffix(Self.sparklinePoints).map { $0.watts }
+        let series = store.history.samples.systemInputSeries.suffix(Self.sparklinePoints).map { $0.watts }
 
         return HStack(alignment: .center, spacing: 12) {
             PowerTile(systemName: "bolt.fill", color: Lagoon.powerIn)

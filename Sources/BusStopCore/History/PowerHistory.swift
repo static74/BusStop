@@ -40,6 +40,65 @@ public struct PowerSample: Sendable, Hashable, Codable {
     }
 }
 
+extension PowerSample {
+    /// A minute (or longer window) of saved power, dated at its start.
+    public init(_ bucket: HistoryArchive.PowerBucket) {
+        self.init(date: bucket.start, systemInputMilliwatts: bucket.systemInputMilliwatts,
+                  batteryMilliwatts: bucket.batteryMilliwatts, systemLoadMilliwatts: bucket.systemLoadMilliwatts,
+                  portMilliwatts: bucket.portMilliwatts)
+    }
+
+    /// A line segment number for each date (oldest first): a new segment
+    /// starts after a gap longer than `maxGap`, so a chart does not draw a
+    /// line across sleep or the time Bus Stop was not running.
+    public static func segments(_ dates: [Date], maxGap: TimeInterval) -> [Int] {
+        var segment = 0
+        return dates.indices.map { index in
+            if index > 0, dates[index].timeIntervalSince(dates[index - 1]) > maxGap { segment += 1 }
+            return segment
+        }
+    }
+}
+
+/// Chart series from a run of samples, oldest first: the live buffer's or
+/// the saved history's.
+extension Collection where Element == PowerSample {
+    /// System input series as (date, watts) pairs.
+    public var systemInputSeries: [(date: Date, watts: Double)] {
+        compactMap { sample in
+            sample.systemInputMilliwatts.map { (sample.date, Double($0) / 1000) }
+        }
+    }
+
+    /// Battery series as (date, watts) pairs; positive while charging.
+    public var batterySeries: [(date: Date, watts: Double)] {
+        compactMap { sample in
+            sample.batteryMilliwatts.map { (sample.date, Double($0) / 1000) }
+        }
+    }
+
+    /// System load series as (date, watts) pairs.
+    public var systemLoadSeries: [(date: Date, watts: Double)] {
+        compactMap { sample in
+            sample.systemLoadMilliwatts.map { (sample.date, Double($0) / 1000) }
+        }
+    }
+
+    /// Series for one port as (date, watts); absent samples are skipped.
+    /// Positive values are power out of the Mac, negative values power in.
+    public func series(for key: PortKey) -> [(date: Date, watts: Double)] {
+        let id = key.description
+        return compactMap { sample in
+            sample.portMilliwatts[id].map { (sample.date, Double($0) / 1000) }
+        }
+    }
+
+    /// Keys of every port that appears in the history.
+    public var portKeys: [PortKey] {
+        Set(flatMap(\.portMilliwatts.keys)).compactMap(PortKey.init).sorted()
+    }
+}
+
 /// A fixed-window ring buffer of power samples.
 public struct PowerHistory: Sendable, Hashable {
     /// Samples older than this (relative to the newest) are dropped.
@@ -77,34 +136,6 @@ public struct PowerHistory: Sendable, Hashable {
         if samples.count > capacity {
             samples.removeFirst(samples.count - capacity)
         }
-    }
-
-    /// System input series as (date, watts) pairs.
-    public var systemInputSeries: [(date: Date, watts: Double)] {
-        samples.compactMap { sample in
-            sample.systemInputMilliwatts.map { (sample.date, Double($0) / 1000) }
-        }
-    }
-
-    /// Battery series as (date, watts) pairs; positive while charging.
-    public var batterySeries: [(date: Date, watts: Double)] {
-        samples.compactMap { sample in
-            sample.batteryMilliwatts.map { (sample.date, Double($0) / 1000) }
-        }
-    }
-
-    /// Series for one port as (date, watts); absent samples are skipped.
-    /// Positive values are power out of the Mac, negative values power in.
-    public func series(for key: PortKey) -> [(date: Date, watts: Double)] {
-        let id = key.description
-        return samples.compactMap { sample in
-            sample.portMilliwatts[id].map { (sample.date, Double($0) / 1000) }
-        }
-    }
-
-    /// Keys of every port that appears in the history.
-    public var portKeys: [PortKey] {
-        Set(samples.flatMap(\.portMilliwatts.keys)).compactMap(PortKey.init).sorted()
     }
 
     public mutating func removeAll() { samples.removeAll() }

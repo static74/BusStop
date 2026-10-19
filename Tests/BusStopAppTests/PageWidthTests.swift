@@ -43,7 +43,7 @@ struct PageWidthTests {
 @MainActor
 @Suite("Topology window layout", .serialized)
 struct TopologyWindowLayoutTests {
-    @Test(arguments: [TopologySidebarItem.events, .diagnostics], [900.0, 1000.0])
+    @Test(arguments: [TopologySidebarItem.events, .diagnostics, .power], [900.0, 1000.0])
     func narrowWindowWithInspectorSettles(page: TopologySidebarItem, width: Double) {
         let suite = "BusStopAppTests.WindowLayout"
         defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
