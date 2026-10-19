@@ -31,11 +31,27 @@ enum Lagoon {
     static let warning = Color(hex: 0xFFC266)
     static let critical = Color(hex: 0xFF6B7A)
 
+    // MARK: Text and effects on other colours
+
+    /// Text and icons on an accent fill (the DEMO badge, the active PDO, the Open Topology button).
+    static let onAccent = Color(hex: 0x000000)
+    /// What hovered strokes and power pulses are mixed toward to stand out from the background.
+    static let highlight = Color(hex: 0xFFFFFF)
+    /// Drop shadow under floating bubbles such as map tooltips.
+    static let shadow = Color(hex: 0x000000, opacity: 0.5)
+    /// A faint fill that sets a small preview apart from its card (menu bar icon tiles).
+    static let well = Color(hex: 0xFFFFFF, opacity: 0.06)
+
+    // MARK: Menu bar preview (Settings › Menu Bar)
+
+    /// Stand-in for the macOS menu bar, leading to trailing.
+    static let menuBarBackdrop = [Color(hex: 0x1B2A3A), Color(hex: 0x0E1A1C)]
+    /// The pressed-item highlight behind Bus Stop's item in the preview.
+    static let menuBarItemHighlight = Color(hex: 0xFFFFFF, opacity: 0.14)
+
     // MARK: AppKit equivalents
 
-    static let nsAccent = NSColor(hex: 0x3EE6D4)
     static let nsBackground = NSColor(hex: 0x000000)
-    static let nsSurface = NSColor(hex: 0x070D0E)
 
     // MARK: Geometry
 
@@ -152,6 +168,20 @@ enum Lagoon {
     static let valueFont = Font.system(.body, design: .default).monospacedDigit()
     static let chipFont = Font.system(.caption, design: .rounded).weight(.semibold)
     static let captionFont = Font.system(.caption, design: .default)
+}
+
+/// Series colours, checked with the dataviz palette validator against the
+/// card surface (dark mode): every adjacent pair is distinguishable with and
+/// without colour-vision deficiency. Teal comes first so a single series stays
+/// on brand; amber and coral are left for warnings.
+enum PowerChartPalette {
+    static let systemInput = Color(hex: 0x0FA396)
+    static let battery = Color(hex: 0x5E7CE2)
+    /// Third in the system chart, after battery, as in the validated port order.
+    static let systemLoad = Color(hex: 0x45A86A)
+    static let ports: [Color] = [systemInput, battery, systemLoad, Color(hex: 0xA56BD8)]
+    /// Ports beyond the palette are summed into one neutral series.
+    static let otherPorts = Color(hex: 0x7A8A88)
 }
 
 // MARK: - Scalable fonts

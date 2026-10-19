@@ -27,25 +27,6 @@ nonisolated struct PowerChartHover: Identifiable, Sendable {
     var id: Date { date }
 }
 
-/// Series colours, checked with the dataviz palette validator against the
-/// card surface (dark mode): every adjacent pair is distinguishable with and
-/// without colour-vision deficiency. Teal comes first so a single series stays
-/// on brand; amber and coral are left for warnings.
-enum PowerChartPalette {
-    static let systemInput = Color(hex: 0x0FA396)
-    static let battery = Color(hex: 0x5E7CE2)
-    /// Third in the system chart, after battery, as in the validated port order.
-    static let systemLoad = Color(hex: 0x45A86A)
-    static let ports: [Color] = [
-        Color(hex: 0x0FA396),
-        Color(hex: 0x5E7CE2),
-        Color(hex: 0x45A86A),
-        Color(hex: 0xA56BD8),
-    ]
-    /// Ports beyond the palette are summed into one neutral series.
-    static let otherPorts = Color(hex: 0x7A8A88)
-}
-
 /// A line chart of watts over time with an optional filled series, a zero
 /// line and a hover crosshair with a tooltip.
 struct PowerLineChart: View {

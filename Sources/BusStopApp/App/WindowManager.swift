@@ -188,7 +188,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private func configureCommon(_ window: NSWindow) {
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = .black
+        window.backgroundColor = Lagoon.nsBackground
         window.tabbingMode = .disallowed
         window.delegate = self
     }

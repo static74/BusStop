@@ -91,7 +91,7 @@ struct MenuBarIconTile: View {
                     .frame(height: 34)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(Lagoon.well)
                     )
                 Text(style.title)
                     .lagoonFont(.caption)
@@ -142,7 +142,7 @@ struct MenuBarMockup: View {
             .foregroundStyle(Lagoon.textPrimary)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(0.14)))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Lagoon.menuBarItemHighlight))
             Text("Sun 9:41")
                 .foregroundStyle(Lagoon.textTertiary)
         }
@@ -151,7 +151,7 @@ struct MenuBarMockup: View {
         .frame(height: 26)
         .background(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: 0x1B2A3A), Color(hex: 0x0E1A1C)],
+                .fill(LinearGradient(colors: Lagoon.menuBarBackdrop,
                                      startPoint: .leading, endPoint: .trailing))
         )
         .accessibilityElement(children: .ignore)

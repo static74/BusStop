@@ -172,6 +172,8 @@ busstop --version
 | `warning` | `#FFC266` | Warnings |
 | `critical` | `#FF6B7A` | Errors |
 
+Every colour in the app comes from `Theme.swift` (`Lagoon` and `PowerChartPalette`). The only literals elsewhere are the wallpaper in the Appearance preview and the menu bar icon's template ink.
+
 Link-speed ramp (colour and stroke width of topology links): USB 1/2 `#3C5E5A` 1.5 pt; 5 Gb/s `#22A69B` 2 pt; 10 Gb/s `#3EE6D4` 2.5 pt; 20 Gb/s `#5FF0E0` 3 pt; 40 Gb/s `#8AFFF3` 3.5 pt; 80 Gb/s and faster `#C9FFF9` 4 pt with glow.
 
 ### 4.3 Typography
