@@ -12,9 +12,6 @@ struct AdvancedSettingsPane: View {
     /// (or a reset that changes several at once) applies exactly once.
     @State private var appliedCollection: CollectionSettings?
 
-    /// The project page. A literal, so it always parses.
-    private static let projectURL = URL(string: "https://github.com/static74/BusStop")!
-
     var body: some View {
         @Bindable var settings = store.settings
         Form {
@@ -63,7 +60,7 @@ struct AdvancedSettingsPane: View {
             }
 
             Section("About") {
-                Link(destination: Self.projectURL) {
+                Link(destination: URL(string: BusStopVersion.projectURL)!) {
                     Label("Project page on GitHub", systemImage: "arrow.up.right.square")
                 }
                 Button("About Bus Stop") {
@@ -135,7 +132,6 @@ struct AdvancedSettingsPane: View {
         store.applySettings()
         // Loads the file if history was off at launch, so saving starts.
         store.setKeepHistory(store.settings.keepHistory)
-        WindowManager.shared.refreshActivationPolicy()
     }
 }
 

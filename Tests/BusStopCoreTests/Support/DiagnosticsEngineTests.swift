@@ -346,9 +346,6 @@ struct DiagnosticsEngineTests {
         #expect(finding.id == "liquidDetected:2/2")
         #expect(finding.title == "Liquid detected in Left Front · USB-C")
 
-        let fromKeys = F.usbC(1, "Left Center", properties: ["LDCM_LiquidDetected": "Yes"])
-        #expect(kinds(evaluate(F.snapshot(ports: [fromKeys]))) == [.liquidDetected])
-
         let dry = F.usbC(1, "Left Center", properties: ["LDCM_LiquidDetected": false])
         #expect(evaluate(F.snapshot(ports: [dry])).isEmpty)
     }

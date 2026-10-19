@@ -56,8 +56,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     // MARK: Popover
 
-    var isPopoverShown: Bool { popover.isShown }
-
     /// Shows the popover under the menu bar item and activates the app so the
     /// popover takes keyboard focus. Falls back to the topology window when
     /// the menu bar item is hidden.

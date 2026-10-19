@@ -73,11 +73,6 @@ public struct PropertyBag: Sendable, Hashable, Codable, ExpressibleByDictionaryL
         return nil
     }
 
-    /// Keeps only the given keys. Used to keep exports and snapshots small.
-    public func filtered(_ keep: Set<String>) -> PropertyBag {
-        PropertyBag(values.filter { keep.contains($0.key) })
-    }
-
     /// Removes keys that are noise for users (driver plumbing, match metadata).
     public func withoutPlumbing() -> PropertyBag {
         PropertyBag(values.filter { !PropertyBag.plumbingKeys.contains($0.key) && !$0.key.hasPrefix("IOFunctionParent") })

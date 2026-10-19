@@ -52,16 +52,6 @@ final class NotificationManager {
         return await Self.requestAuthorizationIfNeeded()
     }
 
-    /// "Allowed", "Denied", "Not requested".
-    func authorizationStatusDescription() async -> String {
-        guard isAvailable else { return "Unavailable outside the app bundle" }
-        switch await Self.currentAuthorization() {
-        case .allowed: return "Allowed"
-        case .denied: return "Denied"
-        case .notDetermined: return "Not requested"
-        }
-    }
-
     /// Adds the events the user opted into to the current burst; they are
     /// posted when the burst ends.
     ///
@@ -321,7 +311,9 @@ final class NotificationManager {
         case notDetermined
     }
 
-    nonisolated private static func currentAuthorization() async -> Authorization {
+    /// The authorization state, read off the main actor; only the Sendable
+    /// result crosses back. The Notifications settings pane reads it too.
+    nonisolated static func currentAuthorization() async -> Authorization {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
         case .notDetermined: return .notDetermined
