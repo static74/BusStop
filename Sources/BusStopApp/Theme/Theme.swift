@@ -2,56 +2,86 @@ import AppKit
 import BusStopCore
 import SwiftUI
 
-/// The "Lagoon" design tokens: turquoise on true black. See docs/SPEC.md §4.
+/// The "Lagoon" design tokens: turquoise on black in Dark, on near-white in
+/// Light. Every colour follows the appearance it is drawn in. See docs/SPEC.md §4.
 enum Lagoon {
     // MARK: Surfaces
 
-    static let background = Color(hex: 0x000000)
-    static let surface = Color(hex: 0x070D0E)
-    static let surfaceRaised = Color(hex: 0x0D1719)
-    static let stroke = Color(hex: 0x3EE6D4, opacity: 0.16)
-    static let strokeStrong = Color(hex: 0x3EE6D4, opacity: 0.34)
+    static let background = Color(nsColor: nsBackground)
+    static let surface = themed(0x070D0E, 0xFFFFFF)
+    static let surfaceRaised = themed(0x0D1719, 0xE9F2F1)
+    static let stroke = themed(0x3EE6D4, 0x096D68, opacity: 0.16, lightOpacity: 0.18)
+    static let strokeStrong = themed(0x3EE6D4, 0x096D68, opacity: 0.34, lightOpacity: 0.40)
 
     // MARK: Accent
 
-    static let accent = Color(hex: 0x3EE6D4)
-    static let accentDeep = Color(hex: 0x0FA3A0)
-    static let accentGlow = Color(hex: 0x8AFFF3)
-    static let accentMuted = Color(hex: 0x1C5F5A)
+    static let accent = themed(0x3EE6D4, 0x096D68)
+    static let accentDeep = themed(0x0FA3A0, 0x08635E)
+    static let accentGlow = themed(0x8AFFF3, 0x0A8F86)
+    static let accentMuted = themed(0x1C5F5A, 0x5E9E97)
 
     // MARK: Text
 
-    static let textPrimary = Color(hex: 0xEAFBF8)
-    static let textSecondary = Color(hex: 0x9BBAB5)
-    static let textTertiary = Color(hex: 0x5E7B77)
+    static let textPrimary = themed(0xEAFBF8, 0x0B1F1D)
+    static let textSecondary = themed(0x9BBAB5, 0x3D5A56)
+    static let textTertiary = themed(0x5E7B77, 0x4D6763)
 
     // MARK: Status
 
-    static let powerIn = Color(hex: 0x7BF5B0)
-    static let warning = Color(hex: 0xFFC266)
-    static let critical = Color(hex: 0xFF6B7A)
+    static let powerIn = themed(0x7BF5B0, 0x166E3D)
+    static let warning = themed(0xFFC266, 0x8F5300)
+    static let critical = themed(0xFF6B7A, 0xB22436)
 
     // MARK: Text and effects on other colours
 
     /// Text and icons on an accent fill (the DEMO badge, the active PDO, the Open Topology button).
-    static let onAccent = Color(hex: 0x000000)
-    /// What hovered strokes and power pulses are mixed toward to stand out from the background.
-    static let highlight = Color(hex: 0xFFFFFF)
+    static let onAccent = themed(0x000000, 0xFFFFFF)
+    /// What a hovered or selected link's core is mixed toward to stand out:
+    /// white makes it brighter in Dark, black makes it darker in Light.
+    static let linkHighlightMix = themed(0xFFFFFF, 0x000000)
+    /// What power pulses are mixed toward, so the dots read as light on the link.
+    static let pulseMix = themed(0xFFFFFF, 0xFFFFFF)
     /// Drop shadow under floating bubbles such as map tooltips.
-    static let shadow = Color(hex: 0x000000, opacity: 0.5)
+    static let shadow = themed(0x000000, 0x000000, opacity: 0.5, lightOpacity: 0.15)
     /// A faint fill that sets a small preview apart from its card (menu bar icon tiles).
-    static let well = Color(hex: 0xFFFFFF, opacity: 0.06)
+    static let well = themed(0xFFFFFF, 0x0B1F1D, opacity: 0.06)
 
     // MARK: Menu bar preview (Settings › Menu Bar)
 
     /// Stand-in for the macOS menu bar, leading to trailing.
-    static let menuBarBackdrop = [Color(hex: 0x1B2A3A), Color(hex: 0x0E1A1C)]
+    static let menuBarBackdrop = [themed(0x1B2A3A, 0xE4ECEB), themed(0x0E1A1C, 0xF2F6F5)]
     /// The pressed-item highlight behind Bus Stop's item in the preview.
-    static let menuBarItemHighlight = Color(hex: 0xFFFFFF, opacity: 0.14)
+    static let menuBarItemHighlight = themed(0xFFFFFF, 0x0B1F1D, opacity: 0.14)
 
     // MARK: AppKit equivalents
 
-    static let nsBackground = NSColor(hex: 0x000000)
+    static let nsBackground = themedNS(0x000000, 0xF6FAF9)
+
+    // MARK: Theme helpers
+
+    /// A colour that follows the appearance it is drawn in: `dark` under Dark
+    /// Aqua (and its high-contrast variant), `light` under Aqua.
+    nonisolated static func themed(_ dark: UInt32, _ light: UInt32, opacity: CGFloat = 1,
+                                   lightOpacity: CGFloat? = nil) -> Color {
+        Color(nsColor: themedNS(dark, light, opacity: opacity, lightOpacity: lightOpacity))
+    }
+
+    /// AppKit resolves dynamic colours on any thread, so the provider must not
+    /// inherit the main actor (see `StatusIcon.drawSign`).
+    nonisolated static func themedNS(_ dark: UInt32, _ light: UInt32, opacity: CGFloat = 1,
+                                     lightOpacity: CGFloat? = nil) -> NSColor {
+        NSColor(name: nil) { @Sendable appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .aqua
+                ? NSColor(hex: light, alpha: lightOpacity ?? opacity)
+                : NSColor(hex: dark, alpha: opacity)
+        }
+    }
+
+    /// Opacity for softened text: Dark keeps the softer look, Light draws the
+    /// text at full ink, because faded dark text on white falls below 4.5:1.
+    nonisolated static func textFade(_ opacity: Double, _ scheme: ColorScheme) -> Double {
+        scheme == .dark ? opacity : 1
+    }
 
     // MARK: Geometry
 
@@ -62,14 +92,16 @@ enum Lagoon {
 
     // MARK: Link-speed ramp
 
+    /// Link-stroke colour: brighter as speed rises in Dark, darker in Light,
+    /// so faster links always carry more contrast.
     static func linkColor(_ tier: SpeedTier) -> Color {
         switch tier {
-        case .legacy: return Color(hex: 0x3C5E5A)
-        case .gbps5: return Color(hex: 0x22A69B)
-        case .gbps10: return Color(hex: 0x3EE6D4)
-        case .gbps20: return Color(hex: 0x5FF0E0)
-        case .gbps40: return Color(hex: 0x8AFFF3)
-        case .gbps80: return Color(hex: 0xC9FFF9)
+        case .legacy: return themed(0x3C5E5A, 0x7A9592)
+        case .gbps5: return themed(0x22A69B, 0x0B6961)
+        case .gbps10: return themed(0x3EE6D4, 0x005A52)
+        case .gbps20: return themed(0x5FF0E0, 0x004B44)
+        case .gbps40: return themed(0x8AFFF3, 0x003C37)
+        case .gbps80: return themed(0xC9FFF9, 0x002E2A)
         }
     }
 
@@ -84,29 +116,31 @@ enum Lagoon {
         }
     }
 
-    /// Fastest links get a soft glow in the graph.
+    /// Fastest links get a soft glow in the graph (Dark only; Light draws no glows).
     static func linkGlows(_ tier: SpeedTier) -> Bool { tier >= .gbps40 }
 
     /// Colour for text labelled with a speed tier, such as speed chips. The
     /// USB 1/2 ramp colour is meant for link strokes and is too dark for small
     /// text (about 2.7:1 on a card), so that tier uses secondary text; from
-    /// 5 Gb/s up the ramp colour itself reads at 5:1 or better.
+    /// 5 Gb/s up the ramp colour itself reads at 5:1 or better. The light ramp
+    /// was chosen so the same rule holds in both themes (`ThemeContrastTests`).
     static func linkTextColor(_ tier: SpeedTier) -> Color {
         tier == .legacy ? textSecondary : linkColor(tier)
     }
 
-    /// Power-mode link colour: a heat ramp that gets brighter as watts rise,
-    /// from grey (no power) through deep red, orange and amber to gold. Each
-    /// step is at least 3.4:1 on the map's black and rises in OKLCH
-    /// lightness (0.52, 0.64, 0.76, 0.88), so more power always reads as
-    /// brighter.
+    /// Power-mode link colour: a heat ramp that gets brighter as watts rise
+    /// in Dark, from grey (no power) through deep red, orange and amber to
+    /// gold, each step at least 3.4:1 on the map's black and rising in OKLCH
+    /// lightness (0.52, 0.64, 0.76, 0.88). In Light it gets darker instead,
+    /// from gold to deep red (OKLCH lightness falling from 0.62 to 0.40), so
+    /// more power always means more ink.
     static func powerColor(_ tier: PowerTier) -> Color {
         switch tier {
-        case .none: return Color(hex: 0x636363)
-        case .under5: return Color(hex: 0xB6322D)
-        case .under15: return Color(hex: 0xDE6129)
-        case .under45: return Color(hex: 0xEF9D32)
-        case .high: return Color(hex: 0xF6D653)
+        case .none: return themed(0x636363, 0x858585)
+        case .under5: return themed(0xB6322D, 0x9B7300)
+        case .under15: return themed(0xDE6129, 0x994A00)
+        case .under45: return themed(0xEF9D32, 0x9A2B16)
+        case .high: return themed(0xF6D653, 0x831922)
         }
     }
 
@@ -120,11 +154,11 @@ enum Lagoon {
         }
     }
 
-    /// The two strongest power tiers glow, like the fastest links.
+    /// The two strongest power tiers glow, like the fastest links (Dark only).
     static func powerGlows(_ tier: PowerTier) -> Bool { tier >= .under45 }
 
-    /// Text in a power tier's colour. Grey and deep red are too dark for
-    /// small text, so those use secondary text.
+    /// Text in a power tier's colour. The two lowest tiers are too faint for
+    /// small text in either theme, so those use secondary text.
     static func powerTextColor(_ tier: PowerTier) -> Color {
         tier <= .under5 ? textSecondary : powerColor(tier)
     }
@@ -180,17 +214,18 @@ enum Lagoon {
 }
 
 /// Series colours, checked with the dataviz palette validator against the
-/// card surface (dark mode): every adjacent pair is distinguishable with and
-/// without colour-vision deficiency. Teal comes first so a single series stays
-/// on brand; amber and coral are left for warnings.
+/// card surfaces of each theme: every adjacent pair is distinguishable with
+/// and without colour-vision deficiency. Only the deliberately neutral
+/// `otherPorts` is below the chroma floor. Teal comes first so a single
+/// series stays on brand; amber and coral are left for warnings.
 enum PowerChartPalette {
-    static let systemInput = Color(hex: 0x0FA396)
-    static let battery = Color(hex: 0x5E7CE2)
+    static let systemInput = Lagoon.themed(0x0FA396, 0x00887B)
+    static let battery = Lagoon.themed(0x5E7CE2, 0x4A66CC)
     /// Third in the system chart, after battery, as in the validated port order.
-    static let systemLoad = Color(hex: 0x45A86A)
-    static let ports: [Color] = [systemInput, battery, systemLoad, Color(hex: 0xA56BD8)]
+    static let systemLoad = Lagoon.themed(0x45A86A, 0x2F8A50)
+    static let ports: [Color] = [systemInput, battery, systemLoad, Lagoon.themed(0xA56BD8, 0x8E52C2)]
     /// Ports beyond the palette are summed into one neutral series.
-    static let otherPorts = Color(hex: 0x7A8A88)
+    static let otherPorts = Lagoon.themed(0x7A8A88, 0x6B7A78)
 }
 
 // MARK: - Scalable fonts
@@ -291,7 +326,7 @@ extension Color {
 }
 
 extension NSColor {
-    convenience init(hex: UInt32, alpha: CGFloat = 1) {
+    nonisolated convenience init(hex: UInt32, alpha: CGFloat = 1) {
         self.init(
             srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
             green: CGFloat((hex >> 8) & 0xFF) / 255,

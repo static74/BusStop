@@ -2,12 +2,12 @@ import BusStopCore
 import SwiftUI
 
 // Shared building blocks for the popover, the topology window and settings.
-// Content cards are solid near-black surfaces; Liquid Glass is reserved for
+// Content cards are solid Lagoon surfaces; Liquid Glass is reserved for
 // controls (see docs/SPEC.md §4.1).
 
 // MARK: - Backgrounds and cards
 
-/// True-black backing at the user's chosen opacity. Under Reduce Transparency
+/// The Lagoon background at the user's chosen opacity. Under Reduce Transparency
 /// it is always fully opaque.
 struct LagoonBackground: View {
     var opacity: Double
@@ -39,7 +39,7 @@ struct LagoonCardModifier: ViewModifier {
 }
 
 extension View {
-    /// Solid near-black card with a thin turquoise hairline.
+    /// Solid Lagoon card with a thin turquoise hairline.
     func lagoonCard(highlighted: Bool = false, padding: CGFloat = 12) -> some View {
         modifier(LagoonCardModifier(isHighlighted: highlighted, padding: padding))
     }
@@ -144,6 +144,7 @@ struct TransportChip: View {
     var transport: TransportInfo
 
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let tier = transport.link?.tier
@@ -156,7 +157,7 @@ struct TransportChip: View {
         HStack(spacing: 4) {
             Text(transport.kind.displayName)
             if let rate = transport.link?.rateLabel {
-                Text(rate).foregroundStyle(textColor.opacity(rateOpacity))
+                Text(rate).foregroundStyle(textColor.opacity(Lagoon.textFade(rateOpacity, colorScheme)))
             }
         }
         .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
@@ -180,8 +181,11 @@ struct TransportChip: View {
 struct PowerBadge: View {
     var milliwatts: Int
     var direction: PowerDirection
-    /// Budgets and contracts are shown slightly dimmer than measurements.
+    /// Budgets and contracts are shown slightly dimmer than measurements
+    /// (Dark only; in Light the help text tells them apart).
     var isMeasured: Bool = true
+
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let color = Lagoon.powerColor(direction)
@@ -191,7 +195,7 @@ struct PowerBadge: View {
             Text(Format.power(milliwatts: milliwatts))
         }
         .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
-        .foregroundStyle(color.opacity(isMeasured ? 1 : 0.75))
+        .foregroundStyle(color.opacity(Lagoon.textFade(isMeasured ? 1 : 0.75, colorScheme)))
         .padding(.horizontal, 7)
         .padding(.vertical, 2.5)
         .background(Capsule().fill(color.opacity(0.10)))
@@ -251,7 +255,7 @@ extension View {
     }
 }
 
-/// Ring that glows turquoise when something is connected.
+/// Ring that glows turquoise when something is connected (the glow is Dark only).
 struct StatusRing: View {
     var isActive: Bool
     var size: CGFloat = 12
@@ -267,8 +271,27 @@ struct StatusRing: View {
             }
         }
         .frame(width: size, height: size)
-        .shadow(color: isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
+        .lagoonGlow(isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
         .accessibilityHidden(true)
+    }
+}
+
+/// A soft coloured shadow in Dark; nothing in Light, where blur reads as
+/// smudge (docs/decisions.md).
+struct LagoonGlowModifier: ViewModifier {
+    var color: Color
+    var radius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.shadow(color: colorScheme == .dark ? color : .clear, radius: colorScheme == .dark ? radius : 0)
+    }
+}
+
+extension View {
+    /// `.shadow(color:radius:)` drawn in Dark only.
+    func lagoonGlow(_ color: Color, radius: CGFloat) -> some View {
+        modifier(LagoonGlowModifier(color: color, radius: radius))
     }
 }
 

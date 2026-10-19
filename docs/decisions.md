@@ -2,6 +2,35 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: A light Lagoon palette
+
+**Question.** Roadmap item 12 asks for a light theme. How does Lagoon look on white without losing what its colours mean: faster links and more power read as stronger, turquoise is the brand, and every text and stroke stays legible?
+
+**Decision.**
+
+- **Every token has a Dark and a Light value.** `Lagoon.themed(dark, light)` wraps an `NSColor(name:dynamicProvider:)`, so a colour resolves in whatever appearance it is drawn in. The provider is `nonisolated` and `@Sendable`, because AppKit resolves colours off the main thread. Three tokens also differ in opacity (`stroke` 16 % / 18 %, `strokeStrong` 34 % / 40 %, `shadow` 50 % / 15 %). The palette is in SPEC §4.2.
+- **The Dark values are frozen.** `ThemeContrastTests.darkTokensMatchTodaysHex` pins every Dark value to today's hex. The contrast targets are enforced in Light only, because the Dark palette misses some of them (`textTertiary` on `surfaceRaised` is 3.97, USB 2 links 2.55–2.94) and changing Dark was not in scope.
+- **Light targets**, on `background`, `surface` and `surfaceRaised`: `textPrimary` 12:1, `textSecondary` 6:1, `textTertiary`, `accent` and status text 4.5:1, chip text on its own 10–14 % fill 4.5:1, links, power strokes, `accentGlow` and chart series 3:1. The deliberately dim tiers (`accentMuted`, USB 2 links, no power) must read at least as well as they do in Dark, surface for surface. Card hairlines are exempt in both themes.
+- **The link ramp darkens as speed rises** in Light (OKLCH lightness 0.65 down to 0.27), the mirror of Dark's brightening.
+- **The power ramp's hues flip** in Light: dark gold for under 5 W, then amber, rust and deep red for 45 W and more. In Dark, gold is the brightest step; on white it is the faintest, so keeping Dark's hue order would make more power read as less ink. The legends' spoken text follows the theme.
+- **No glows or blur in Light.** `lagoonGlow` replaces `.shadow` at the five glow sites (status ring, About icon, selected map card, both legends' swatches), and the map draws its link glows and highlight halo in Dark only. On white, blur reads as a smudge. Hover darkens a link's core in Light (`linkHighlightMix` is black) instead of brightening it; power pulses still mix toward white (`pulseMix`). The map's dot grid is stronger and its host tint weaker in Light.
+- **One `accent`, no `accentBrand`.** `accent` turns darker in Light (#096D68) and keeps the turquoise hue, so no call site changes.
+- **Text colour thresholds are shared.** `linkTextColor` and `powerTextColor` keep their rules (USB 2 and under 5 W use `textSecondary`), because the light ramps were chosen so the same thresholds hold; a test checks it.
+- **Faded text is drawn at full ink in Light** (`Lagoon.textFade`): the TransportChip rate, PowerBadge budgets and the inspector's raw-key names. Faded dark text on white falls below 4.5:1. Budgets stay apart from measurements through their help text and the menu bar's "≤".
+- **Chart series** were run through the dataviz palette validator on each light surface. The designed light teal (#0B8579) was just under the chroma floor, so it became #00887B. Only the deliberately neutral "other ports" series is below the floor, as in Dark.
+- **The plan's D1 and D2 ship as one PR.** Both change nothing while the app is forced dark: the Dark values are pinned by a test and the rendering changes only touch Light. Each half alone would give a reviewer nothing to check. The theme setting that makes Light reachable lands separately.
+- **Departure from the lane design.** The design assumed the token-prep PR would add `linkHighlightMix` and `pulseMix`; it merged with one `highlight` token, so this PR splits it.
+
+**Why.** The ratios above, measured with the WCAG 2 formula and enforced by `ThemeContrastTests`. The brand turquoise #3EE6D4 measures about 1.6:1 on white, so it fails 3:1 as a fill, ring, badge or outline; in Light the only place it could still add something is a glow, and Light has none.
+
+**Rejected alternatives.**
+
+- *A separate `accentBrand` kept at #3EE6D4 in both themes.* It fails 3:1 on white wherever it would be used.
+- *Theme-aware `linkTextColor` and `powerTextColor`.* More code for the same result: the light ramps already meet the shared thresholds.
+- *Keeping glows in Light.* A turquoise or amber blur on white looks like a smudge and adds no contrast.
+- *Enforcing the targets in Dark too.* That would change Dark's hex values, which this work promised to keep.
+- *Exempting the dim tiers in Light.* The first light values for USB 2 links and "no power" measured about 2:1, well under Dark's; the dim tiers still have to be seen.
+
 ## 2026-10-19: Port health counts the last 7 local days from the saved history
 
 **Question.** Roadmap item 8 asks for per-port counters over time (plug events, connection errors, overcurrents, liquid detection) and a gentle warning when a port's numbers stand out. Which numbers are "over time", what counts as a connection error, when does a port stand out, and how long does an overcurrent warning last now that the counters are saved?

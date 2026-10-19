@@ -9,6 +9,7 @@ struct MacSilhouettePage: View {
     var searchText: String
     var onSelect: (StoreSelection) -> Void
     @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let snapshot = store.snapshot
@@ -45,7 +46,7 @@ struct MacSilhouettePage: View {
                 }
                 // The speed or power key explains most of the colours, so it
                 // outlasts the state key, and then speaks for both.
-                modeLegend.accessibilityLabel(SilhouetteStateLegend.spokenText(linkMode))
+                modeLegend.accessibilityLabel(SilhouetteStateLegend.spokenText(linkMode, colorScheme))
                 SilhouetteStateLegend(mode: linkMode)
                 Color.clear.frame(width: 0, height: 0)
             }
@@ -435,6 +436,7 @@ nonisolated struct ChassisShape: Shape {
 struct SilhouetteStateLegend: View {
     var mode: GraphLinkMode
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let swatches: [(String, SilhouettePaint)] = mode == .data
@@ -458,12 +460,15 @@ struct SilhouetteStateLegend: View {
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
         .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Self.spokenText(mode))
+        .accessibilityLabel(Self.spokenText(mode, colorScheme))
     }
 
-    static func spokenText(_ mode: GraphLinkMode) -> String {
-        mode == .data
-            ? "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
-            : "Port colours by power: dim for empty, then deep red, orange, amber and gold as watts rise"
+    /// The legend's spoken text. The power ramp runs the other way in Light.
+    static func spokenText(_ mode: GraphLinkMode, _ scheme: ColorScheme) -> String {
+        if mode == .data {
+            return "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
+        }
+        let ramp = scheme == .dark ? "deep red, orange, amber and gold" : "dark gold, amber, rust and deep red"
+        return "Port colours by power: dim for empty, then \(ramp) as watts rise"
     }
 }
