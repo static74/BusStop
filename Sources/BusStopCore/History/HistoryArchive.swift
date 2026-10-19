@@ -10,6 +10,9 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public static let eventAge: TimeInterval = 30 * 86_400
     public static let powerAge: TimeInterval = 7 * 86_400
     public static let portDayAge: TimeInterval = 90 * 86_400
+    /// After the clock steps forward by more than this, age trims wait until
+    /// it has held this long, so a clock set wrongly ahead cannot wipe the history.
+    public static let clockTrust: TimeInterval = 86_400
     public static let maxBytes = 5_000_000
 
     public var schemaVersion: Int
@@ -32,6 +35,8 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
         /// `PortKey.description` → the capture that saw the last overcurrent increase.
         public var lastOvercurrentAt: [String: Date] = [:]
         public var lastCaptureAt: Date?
+        /// The capture that stepped the clock forward by more than `clockTrust`, while age trims wait.
+        public var clockJumpedAt: Date?
 
         public init() {}
     }
@@ -118,8 +123,9 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     /// change of source: nothing is counted across it, since the counters may
     /// have moved while Bus Stop was not watching. A counter that goes down
     /// starts a new epoch and counts nothing. A capture dated before the last
-    /// one (the clock was set back) counts as after a gap and its power sample
-    /// is dropped; nothing else is lost. Pass each capture once.
+    /// one (the clock was set back) counts as after a gap, and the power dated
+    /// after it is dropped. A step forward of more than `clockTrust` holds off
+    /// the age trims until the clock has held that long. Pass each capture once.
     public mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar = .current) {
         // Mutated in place, so the section's long lists are not copied on every capture.
         sections[snapshot.machine.model, default: Section()].record(snapshot, afterGap: afterGap, calendar: calendar)
@@ -231,6 +237,7 @@ extension HistoryArchive.Section {
     /// Keys spelled out so `init(from:)` can decode lists entry by entry.
     enum CodingKeys: String, CodingKey {
         case events, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt, lastCaptureAt
+        case clockJumpedAt
     }
 
     public init(from decoder: any Decoder) throws {
@@ -244,11 +251,21 @@ extension HistoryArchive.Section {
         lastLiquid = try c.decodeIfPresent([String: Bool].self, forKey: .lastLiquid) ?? [:]
         lastOvercurrentAt = try c.decodeIfPresent([String: Date].self, forKey: .lastOvercurrentAt) ?? [:]
         lastCaptureAt = try c.decodeIfPresent(Date.self, forKey: .lastCaptureAt)
+        clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
         let date = snapshot.capturedAt
-        let gap = afterGap || date < (lastCaptureAt ?? .distantPast)
+        let clockBack = date < (lastCaptureAt ?? .distantPast)
+        let gap = afterGap || clockBack
+        if clockBack {
+            // What is dated after this capture is in the future now; start the power over from here.
+            power.removeAll { $0.start > date }
+            pendingPower.removeAll { $0.date > date }
+            clockJumpedAt = nil
+        } else if let lastCaptureAt, date.timeIntervalSince(lastCaptureAt) > HistoryArchive.clockTrust {
+            clockJumpedAt = date
+        }
         lastCaptureAt = date
 
         addPower(PowerSample(snapshot))
@@ -314,7 +331,15 @@ extension HistoryArchive.Section {
     }
 
     /// Drops what is older than the caps allow, and events beyond the count cap.
+    /// Ages are not trimmed while the clock is in doubt after a step forward.
     mutating func trim(now: Date) {
+        if let jumped = clockJumpedAt {
+            guard now >= jumped.addingTimeInterval(HistoryArchive.clockTrust) else {
+                trimCount()
+                return
+            }
+            clockJumpedAt = nil
+        }
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
         if let oldest = events.last, oldest.date < eventCutoff { events.removeAll { $0.date < eventCutoff } }
         trimCount()
