@@ -6,6 +6,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Added
 
+- Bus Stop keeps its history between launches: the event log (up to 5,000 events or 30 days, was 500 events in memory), power averaged per minute for 7 days, and each port's plug, connection, overcurrent and liquid counts per day for 90 days. It is saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account, with one section per Mac model. Settings › Advanced › History shows its size, oldest entry and event count, clears it, or turns saving off (which deletes the file). Demo mode never reads or writes it, and `busstop --watch` still keeps nothing. The Events page shows the saved log and when it starts, and its Clear removes the saved events too; the sidebar badge counts events since launch.
 - Topology map: drag to pan like a web map, and zoom around the pointer with a mouse scroll wheel. Trackpads still pan with two fingers and zoom with a pinch. Zoom now runs from 25 % to 200 %.
 - Click a link in the map to inspect it: the negotiated speed, the power across it and, for the cable in one of the Mac's own ports, what its e-marker chip says it is rated for (speed, power, current, voltage, EPR), with a note when the cable or the device is what limits the link. Hovering a link highlights it.
 - A Cables section in the window's sidebar lists every link below each port as "parent → child" with its speed. Clicking one opens it in the inspector and moves the map to it.

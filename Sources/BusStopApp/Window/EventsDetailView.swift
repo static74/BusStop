@@ -12,6 +12,44 @@ struct EventDayGroup: Identifiable {
     var day: Date
     var events: [ConnectionEvent]
     var id: Date { day }
+
+    /// The events that pass the filter and the search, by day, newest first.
+    static func groups(_ events: [ConnectionEvent], filter: EventsFilter, query: String,
+                       calendar: Calendar = .current) -> [EventDayGroup] {
+        let filtered = events.filter { event in
+            if case .kind(let kind) = filter, event.kind != kind { return false }
+            guard !query.isEmpty else { return true }
+            return event.title.localizedCaseInsensitiveContains(query)
+                || event.detail.localizedCaseInsensitiveContains(query)
+        }
+        let byDay = Dictionary(grouping: filtered) { calendar.startOfDay(for: $0.date) }
+        return byDay.keys.sorted(by: >).map { day in
+            EventDayGroup(day: day, events: (byDay[day] ?? []).sorted { $0.date > $1.date })
+        }
+    }
+}
+
+/// The last grouping, so the saved log (up to 5,000 events) is not grouped
+/// again each time `body` runs, which is on every capture.
+final class EventGroupCache {
+    private struct Key: Equatable {
+        var newestID: String?
+        var count: Int
+        var filter: EventsFilter
+        var query: String
+    }
+
+    private var key: Key?
+    private var groups: [EventDayGroup] = []
+
+    func groups(_ events: [ConnectionEvent], filter: EventsFilter, query: String) -> [EventDayGroup] {
+        let key = Key(newestID: events.first?.id, count: events.count, filter: filter, query: query)
+        if key != self.key {
+            self.key = key
+            groups = EventDayGroup.groups(events, filter: filter, query: query)
+        }
+        return groups
+    }
 }
 
 /// The Events page: a reverse-chronological timeline grouped by day, with a
@@ -26,9 +64,10 @@ struct EventsDetailView: View {
     @State private var filter: EventsFilter = .all
     /// The event last clicked, drawn as selected while it still points at the selection.
     @State private var selectedEventID: ConnectionEvent.ID?
+    @State private var groupCache = EventGroupCache()
 
     var body: some View {
-        let groups = makeGroups()
+        let groups = groupCache.groups(store.events, filter: filter, query: TopologySearch.normalized(searchText))
         VStack(alignment: .leading, spacing: 14) {
             header
                 .padding(.horizontal, 24)
@@ -68,12 +107,14 @@ struct EventsDetailView: View {
                 withAnimation(.snappy) { store.clearEvents() }
             }
             .disabled(store.events.isEmpty)
-            .help("Remove every event from the timeline")
+            .help("Remove every event from the timeline and from saved history")
         }
     }
 
     private var subtitle: String {
-        WindowText.count(store.events.count, "event", "events") + " since Bus Stop started"
+        let count = WindowText.count(store.events.count, "event", "events")
+        guard let oldest = store.events.last?.date else { return count }
+        return count + " since " + oldest.formatted(.dateTime.month(.abbreviated).day().hour().minute())
     }
 
     private var filterMenu: some View {
@@ -116,21 +157,6 @@ struct EventsDetailView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
             }
-        }
-    }
-
-    private func makeGroups() -> [EventDayGroup] {
-        let query = TopologySearch.normalized(searchText)
-        let filtered = store.events.filter { event in
-            if case .kind(let kind) = filter, event.kind != kind { return false }
-            guard !query.isEmpty else { return true }
-            return event.title.localizedCaseInsensitiveContains(query)
-                || event.detail.localizedCaseInsensitiveContains(query)
-        }
-        let calendar = Calendar.current
-        let byDay = Dictionary(grouping: filtered) { calendar.startOfDay(for: $0.date) }
-        return byDay.keys.sorted(by: >).map { day in
-            EventDayGroup(day: day, events: (byDay[day] ?? []).sorted { $0.date > $1.date })
         }
     }
 

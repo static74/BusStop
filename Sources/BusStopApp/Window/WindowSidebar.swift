@@ -119,8 +119,10 @@ struct WindowSidebar: View {
         HStack {
             Label("Events", systemImage: "clock.arrow.circlepath")
             Spacer(minLength: 4)
-            if !store.events.isEmpty {
-                WindowCountBadge(count: store.events.count, color: Lagoon.textSecondary)
+            // Events since launch; the saved log can hold thousands.
+            let recent = store.events.prefix { $0.date >= store.launchDate }.count
+            if recent > 0 {
+                WindowCountBadge(count: recent, color: Lagoon.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)
