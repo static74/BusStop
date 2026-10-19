@@ -325,6 +325,9 @@ struct RedactionTests {
         values["USB Product Name"] = .string("Drive \(serial)")
         values["kUSBProductString"] = .string("Drive \(serial)")
         raw.usbDevices[index].node.properties = PropertyBag(values)
+        // The registry entry, and an interface, are named after the product too.
+        raw.usbDevices[index].node.name = "Drive \(serial)"
+        if !raw.usbDevices[index].interfaces.isEmpty { raw.usbDevices[index].interfaces[0].name = "Drive \(serial)" }
         return raw
     }
 
@@ -347,6 +350,15 @@ struct RedactionTests {
         // The redacted capture still builds the same topology.
         let rebuilt = TopologyBuilder.build(try Exporter.decodeRaw(Exporter.rawJSON(raw, redact: true)))
         #expect(rebuilt.allDevices.count == snapshot.allDevices.count)
+    }
+
+    @Test func displaySerialInARawDisplayNameIsRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        let serial = String(try #require(raw.displays[index].serialNumber))
+        raw.displays[index].name = "Studio Display \(serial)"
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains(serial))
+        #expect(text(try Exporter.rawJSON(raw, redact: false)).contains(serial))
     }
 
     @Test func serialsInNamesAreRedactedFromEvents() throws {

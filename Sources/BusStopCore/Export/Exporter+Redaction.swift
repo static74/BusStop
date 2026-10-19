@@ -85,12 +85,19 @@ extension Exporter {
         copy.usbDevices = raw.usbDevices.map { device in
             var device = device
             device.node = redactor.node(device.node)
+            device.ancestry = device.ancestry.map(redactor.ancestor)
+            device.interfaces = device.interfaces.map { interface in
+                var interface = interface
+                interface.name = interface.name.map(redactor.text)
+                return interface
+            }
             return device
         }
         copy.thunderboltSwitches = raw.thunderboltSwitches.map { sw in
             var sw = sw
             sw.node = redactor.node(sw.node)
             sw.ports = sw.ports.map(redactor.node)
+            sw.ancestry = sw.ancestry.map(redactor.ancestor)
             return sw
         }
         copy.battery = raw.battery.map(redactor.bag)
@@ -103,6 +110,7 @@ extension Exporter {
         copy.displays = raw.displays.map { display in
             var display = display
             display.serialNumber = nil
+            display.name = display.name.map(redactor.text)
             return display
         }
         return copy
@@ -422,8 +430,16 @@ private final class Redactor {
 
     func node(_ node: RawNode) -> RawNode {
         var node = node
+        // A USB device's registry entry is named after its product string.
+        node.name = text(node.name)
         node.properties = bag(node.properties)
         return node
+    }
+
+    func ancestor(_ ancestor: RawAncestor) -> RawAncestor {
+        var ancestor = ancestor
+        ancestor.name = text(ancestor.name)
+        return ancestor
     }
 
     func bag(_ bag: PropertyBag) -> PropertyBag {
