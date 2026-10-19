@@ -199,7 +199,7 @@ enum DemoPower {
         ])
     }
 
-    /// An SMC power channel (`DxUI`, `DxJV`, `DxJI`, `DxPR`, `DxMP`). The
+    /// An SMC power channel (`DxUI`, `DxJV`, `DxJI`, `DxPR`, plus `DxMP`, which live captures no longer read). The
     /// UUID is the HPM controller's, without dashes, in lowercase.
     static func channel(_ index: Int, uuid: String, volts: Double, amps: Double,
                         contractMilliwatts: Int? = nil) -> SMCChannel {
