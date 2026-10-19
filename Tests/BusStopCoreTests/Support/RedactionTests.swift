@@ -419,6 +419,16 @@ struct RedactionTests {
         bytes[144...147] = [0xDE, 0xAD, 0xBE, 0xEF]
         let padded = [UInt8](Exporter.redactedEDID(Data(bytes)))
         #expect(padded[133..<153].allSatisfy { $0 == 0 })
+        // A data block whose serial lies past the end of its section.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 5
+        bytes[133...135] = [0x20, 0, 12]
+        bytes[141...144] = [0xDE, 0xAD, 0xBE, 0xEF]
+        let past = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(past[141..<145].allSatisfy { $0 == 0 })
+        #expect(past[128..<256].reduce(0) { ($0 + Int($1)) & 0xFF } == 0)
     }
 
     // MARK: Markdown

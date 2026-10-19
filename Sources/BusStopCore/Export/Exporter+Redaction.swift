@@ -257,6 +257,8 @@ extension Exporter {
             }
             offset = payload + length
         }
+        // Past the section checksum is fill; nothing there belongs to a walked data block.
+        blank((sectionEnd + 1)..<(start + 127))
         if changed {
             let sum = bytes[(start + 1)..<sectionEnd].reduce(0) { ($0 + Int($1)) & 0xFF }
             bytes[sectionEnd] = UInt8((256 - sum) & 0xFF)
