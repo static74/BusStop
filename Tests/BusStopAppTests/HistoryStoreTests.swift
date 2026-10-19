@@ -70,6 +70,23 @@ struct HistoryStoreTests {
         #expect(relaunched.events == first.events)
     }
 
+    @Test func savedOvercurrentWarnsAfterARelaunch() throws {
+        let sandbox = Sandbox()
+        let raw = capture(3_600)
+        let port = try #require(TopologyBuilder.build(raw, options: BuildOptions()).ports.first)
+        var archive = HistoryArchive()
+        archive.sections[raw.machine.model, default: HistoryArchive.Section()].lastOvercurrentAt[port.id] = start
+        sandbox.file.saveNow(archive)
+
+        let relaunched = sandbox.store()
+        var raised: [ConnectionEvent] = []
+        relaunched.onEvents = { raised += $0 }
+        relaunched.loadHistoryIfNeeded()
+        relaunched.ingest(raw)
+        #expect(relaunched.snapshot.diagnostics.map(\.id).contains("overcurrent:\(port.id)"))
+        #expect(raised.isEmpty)
+    }
+
     @Test func restoredEventsDoNotNotify() {
         let sandbox = Sandbox()
         _ = storeWithSavedEvents(sandbox)

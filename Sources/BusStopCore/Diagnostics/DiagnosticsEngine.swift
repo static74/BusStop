@@ -554,8 +554,8 @@ public enum DiagnosticsEngine {
     static let standsOutMinimumSiblings = 2
 
     /// Ports with at least `standsOutRatio` times the connection errors per
-    /// connection of the median of the Mac's other ports of the same kind,
-    /// all over the same 7 days. Info only: a gentle note, never an alert.
+    /// connection of the median of the Mac's other used ports of the same
+    /// kind, all over the same 7 days. Info only: a gentle note, never an alert.
     /// Overcurrents are not errors, so they are never reported twice.
     static func portsStandingOut(_ snapshot: HostSnapshot, ports: [PortKey: PortHealth]) -> [Diagnostic] {
         func rate(_ health: PortHealth?) -> Double {
@@ -565,7 +565,11 @@ public enum DiagnosticsEngine {
         return snapshot.ports.compactMap { port in
             guard let health = ports[port.key], health.connections >= standsOutMinimumConnections,
                   health.errors >= standsOutMinimumErrors else { return nil }
-            let siblings = snapshot.ports.filter { $0.key != port.key && $0.kind == port.kind }
+            // A sibling nobody uses has no rate to compare with.
+            let siblings = snapshot.ports.filter {
+                $0.key != port.key && $0.kind == port.kind
+                    && (ports[$0.key]?.connections ?? 0) >= standsOutMinimumConnections
+            }
             guard siblings.count >= standsOutMinimumSiblings else { return nil }
             let rates = siblings.map { rate(ports[$0.key]) }.sorted()
             let middle = rates.count / 2

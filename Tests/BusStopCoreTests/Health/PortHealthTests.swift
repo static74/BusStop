@@ -10,6 +10,7 @@ struct PortHealthTests {
     private let model = "Mac17,9"
     private let key1 = PortKey(type: PortKey.usbCType, number: 1)
     private let key2 = PortKey(type: PortKey.usbCType, number: 2)
+    private let key3 = PortKey(type: PortKey.usbCType, number: 3)
     /// A fixed zone, so local days do not depend on the machine running the tests.
     private let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -123,23 +124,31 @@ struct PortHealthTests {
         // The same stick falling back again on later plug-ins is the same cable, not new errors.
         events.append(event(.diagnosticRaised, "usb2Fallback:usb:stick", 130, port: key2, device: "usb:stick"))
         events.append(event(.diagnosticRaised, "usb2Fallback:usb:stick", 140, port: key2, device: "usb:stick"))
+        // A display that retrains to a slower DisplayPort rate is not a connection error.
+        events.append(event(.linkChanged, "display:10ac:a0c4:1", 150, port: key2, downgrade: true))
         // Eight days ago: outside the window.
         events += visit("usb:old", -8 * 86_400, after: 1, port: key1)
+        // Connected 3 seconds before the window starts, left 2 seconds into it: an error inside the window.
+        let windowStart = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: start))!
+        events += visit("usb:edge", windowStart.timeIntervalSince(start) - 3, after: 5, port: key1)
         archive.append(events.sorted { $0.date < $1.date }, model: model)
+        // The clock was set back a minute while the reader was plugged in: logged in this order, not a short connection.
+        archive.append([event(.deviceConnected, "usb:reader", 170, port: key1),
+                        event(.deviceDisconnected, "usb:reader", 110, port: key1)], model: model)
 
         let ports = archive.portHealth(model: model, now: start.addingTimeInterval(200), calendar: calendar)
-        #expect(ports[key1]?.errors == 2)
+        #expect(ports[key1]?.errors == 3)
         #expect(ports[key2]?.errors == 3)
     }
 
     // MARK: Stands out
 
     @Test func portStandsOutAgainstItsSiblingsMedian() throws {
-        let key3 = PortKey(type: PortKey.usbCType, number: 3)
         // Siblings at 0.1 and 0 errors per connection: the median floor of 0.05 applies.
         #expect(standsOut([key1: health(10, 5), key2: health(10, 1), key3: health(10, 0)]) == ["portStandsOut:2/1"])
         let finding = try #require(DiagnosticsEngine.evaluate(capture(0), raw: nil,
-                                                              ports: [key1: health(10, 5)]).first)
+                                                              ports: [key1: health(10, 5), key2: health(10, 0),
+                                                                      key3: health(10, 0)]).first)
         #expect(finding.severity == .info)
         #expect(finding.portKey == key1)
         #expect(finding.detail.contains("5 connection problems over 10 connections"))
@@ -172,9 +181,16 @@ struct PortHealthTests {
     }
 
     @Test func fewConnectionsNeverStandOut() {
-        #expect(standsOut([key1: health(4, 4)]).isEmpty)
-        #expect(standsOut([key1: health(5, 2)]).isEmpty)
-        #expect(standsOut([key1: health(5, 3)]) == ["portStandsOut:2/1"])
+        let siblings = [key2: health(5, 0), key3: health(5, 0)]
+        #expect(standsOut(siblings.merging([key1: health(4, 4)]) { $1 }).isEmpty)
+        #expect(standsOut(siblings.merging([key1: health(5, 2)]) { $1 }).isEmpty)
+        #expect(standsOut(siblings.merging([key1: health(5, 3)]) { $1 }) == ["portStandsOut:2/1"])
+    }
+
+    @Test func unusedSiblingsAreNotCompared() {
+        // The other two ports were barely used: nothing to compare port 1 with.
+        #expect(standsOut([key1: health(5, 3)]).isEmpty)
+        #expect(standsOut([key1: health(5, 3), key2: health(5, 0), key3: health(4, 0)]).isEmpty)
     }
 
     @Test func differentPortKindsAreNotCompared() {

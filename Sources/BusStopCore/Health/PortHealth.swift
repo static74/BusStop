@@ -9,7 +9,7 @@ public struct PortHealth: Sendable, Hashable {
     public var overcurrents = 0
     public var liquidDetections = 0
     /// Connections that ended within `shortConnection` on the port they
-    /// started on, slower links and USB 2 fallbacks in the event log. A
+    /// started on, slower USB and Thunderbolt links and USB 2 fallbacks in the event log. A
     /// slowdown and the USB 2 fallback it raises in the same capture count
     /// once, and a device's fallback counts once per port, since it comes back
     /// on every plug-in when the cable is the cause.
@@ -50,18 +50,24 @@ extension HistoryArchive {
         var slowdowns = Set<String>()
         var fallbacks = Set<String>()
         let fallbackPrefix = "\(DiagnosticKind.usb2Fallback.rawValue):"
-        for event in section.events.reversed() where event.date >= start {
+        // A connect just before the window still makes a short connection that ends inside it.
+        let connectStart = start.addingTimeInterval(-PortHealth.shortConnection)
+        for event in section.events.reversed()
+        where event.date >= start || (event.kind == .deviceConnected && event.date >= connectStart) {
             let subject = event.subjectID ?? event.deviceID ?? event.id
             switch event.kind {
             case .deviceConnected:
                 if let port = event.portKey { connectedAt[subject] = (event.date, port) }
             case .deviceDisconnected:
                 // A device that moved ports raised no events, so the disconnect can be on another port.
+                // A negative time means the clock was set back in between, not a short connection.
                 if let connect = connectedAt.removeValue(forKey: subject), event.portKey == connect.port,
-                   event.date.timeIntervalSince(connect.date) < PortHealth.shortConnection {
+                   (0..<PortHealth.shortConnection).contains(event.date.timeIntervalSince(connect.date)) {
                     result[connect.port, default: PortHealth()].errors += 1
                 }
             case .linkChanged, .diagnosticRaised:
+                // DisplayPort retrains on mode changes and wake, as in `ConnectionHealth`.
+                guard !subject.hasPrefix("display:") else { break }
                 let isFallback = event.kind == .diagnosticRaised && subject.hasPrefix(fallbackPrefix)
                 guard event.kind == .linkChanged ? event.isDowngrade : isFallback, let port = event.portKey
                 else { break }
