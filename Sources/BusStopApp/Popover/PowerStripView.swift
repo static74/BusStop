@@ -7,8 +7,12 @@ import SwiftUI
 ///   of system input power, battery state and a power-in badge.
 /// - On a laptop without a charger: battery state and how fast it drains.
 /// - On a desktop: how much the accessories draw from the ports.
+///
+/// The compact popover layout shows one line instead: a symbol, the charger
+/// name, battery state or "Accessories", and a power badge, with no sparkline.
 struct PowerStripView: View {
     var store: PortStore
+    var isCompact = false
 
     /// Number of history samples in the sparkline.
     static let sparklinePoints = 60
@@ -17,7 +21,9 @@ struct PowerStripView: View {
         let snapshot = store.snapshot
         let power = snapshot.power
         Group {
-            if let charger = power.charger {
+            if isCompact {
+                compactLine(snapshot)
+            } else if let charger = power.charger {
                 chargerCard(charger, power: power)
             } else if power.hasBattery || snapshot.machine.isLaptop {
                 batteryCard(snapshot)
@@ -30,9 +36,16 @@ struct PowerStripView: View {
 
     // MARK: Charger
 
+    /// Measured system input when known, otherwise the charger's contract.
+    private static func chargerInput(_ charger: ChargerInfo,
+                                     power: PowerSummary) -> (milliwatts: Int?, isMeasured: Bool) {
+        let measured = power.systemInputMilliwatts.flatMap { $0 > 0 ? $0 : nil }
+        return (measured ?? charger.contractMilliwatts, measured != nil)
+    }
+
     private func chargerCard(_ charger: ChargerInfo, power: PowerSummary) -> some View {
-        let measuredInput = power.systemInputMilliwatts.flatMap { $0 > 0 ? $0 : nil }
-        let inputMilliwatts = measuredInput ?? charger.contractMilliwatts
+        let input = Self.chargerInput(charger, power: power)
+        let inputMilliwatts = input.milliwatts
         let series = store.history.systemInputSeries.suffix(Self.sparklinePoints).map { $0.watts }
 
         return HStack(alignment: .center, spacing: 12) {
@@ -60,7 +73,7 @@ struct PowerStripView: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 5) {
                 if let inputMilliwatts, inputMilliwatts > 0 {
-                    PowerBadge(milliwatts: inputMilliwatts, direction: .input, isMeasured: measuredInput != nil)
+                    PowerBadge(milliwatts: inputMilliwatts, direction: .input, isMeasured: input.isMeasured)
                 }
                 if series.count >= 2 {
                     Sparkline(values: series, color: Lagoon.powerIn)
@@ -90,6 +103,59 @@ struct PowerStripView: View {
         if let input, input > 0 { parts.append(PopoverText.spokenPower(milliwatts: input) + " in") }
         if let battery = power.battery { parts.append(battery.statusText) }
         return parts.joined(separator: ", ")
+    }
+
+    // MARK: Compact
+
+    private func compactLine(_ snapshot: HostSnapshot) -> some View {
+        let power = snapshot.power
+        let symbol: String
+        let title: String
+        let color: Color
+        let badge: (milliwatts: Int, direction: PowerDirection, isMeasured: Bool)
+        let label: String
+        if let charger = power.charger {
+            let input = Self.chargerInput(charger, power: power)
+            symbol = "bolt.fill"
+            title = charger.displayName
+            color = Lagoon.powerIn
+            badge = (input.milliwatts ?? 0, .input, input.isMeasured)
+            label = Self.chargerAccessibilityLabel(charger, power: power, input: input.milliwatts)
+        } else {
+            let accessories = Self.accessoryDraw(snapshot)
+            if power.hasBattery || snapshot.machine.isLaptop {
+                symbol = power.battery.map { BatteryStatusLabel.symbolName(for: $0) } ?? "battery.75percent"
+                title = power.battery?.statusText ?? "On battery"
+            } else {
+                symbol = "powerplug.fill"
+                title = accessories.milliwatts > 0 ? "Accessories" : "No accessory power draw"
+            }
+            color = Lagoon.accent
+            badge = (accessories.milliwatts, .output, accessories.isMeasured)
+            label = accessories.milliwatts > 0
+                ? title + ", " + PowerBadge.helpText(milliwatts: accessories.milliwatts, direction: .output,
+                                                     isMeasured: accessories.isMeasured)
+                : title
+        }
+
+        return HStack(alignment: .center, spacing: 8) {
+            Image(systemName: symbol)
+                .lagoonFont(.callout, weight: .semibold)
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
+            Text(title)
+                .lagoonFont(.callout, weight: .semibold, monospacedDigits: true)
+                .foregroundStyle(Lagoon.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 8)
+            if badge.milliwatts > 0 {
+                PowerBadge(milliwatts: badge.milliwatts, direction: badge.direction, isMeasured: badge.isMeasured)
+                    .fixedSize()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
     }
 
     // MARK: Battery

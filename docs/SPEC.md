@@ -99,6 +99,8 @@ From top to bottom:
    - The port pinned to the menu bar has a pin after its title. The card's context menu and VoiceOver actions offer Rename Port, Restore Default Name (when renamed), Pin to Menu Bar or Unpin from Menu Bar, and Show in Topology.
 5. **Footer.** "Updated just now" and the button "Open Topology". (In demo mode a DEMO badge sits on the header's summary line.)
 
+**Compact layout** (Settings › General › Ports › Popover layout; cards are the default). The port list becomes one card with one line per port, separated by hairlines: an arrow (when devices are connected), the connector icon, the port's short name and a pin when it is pinned, then what is connected ("Samsung T9", "3 devices" counting every level, the charger's name, "Connected" or "Nothing connected"; a device that just left keeps its name while its ghost is shown), then the speed chip and power badge. The arrow, or the Show Devices VoiceOver action, reveals the same device tree as the card, so nothing is lost; every arrow is closed again when the popover next opens. Each line has the card's context menu, VoiceOver label and actions, and renames in place the same way; its VoiceOver label also says the port's link speed, which the card's transport chips say on their own. The power strip becomes one line: a symbol, the charger's name, the battery state or "Accessories", and a power badge, with no sparkline. The diagnostics banner, Other devices and Displays are unchanged. Hide empty ports and port order apply as with cards.
+
 ### 3.3 Topology window
 
 An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never smaller than 900 × 600), resizable, remembers its frame. The graph fits the window width on open and keeps fitting until the user zooms. `NavigationSplitView` with:
@@ -120,7 +122,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
 
 Tabs:
 
-- **General**: Launch at login (SMAppService, with status and an "Open Login Items" fallback), show menu bar item, show Dock icon while a window is open, hide empty ports, port order (physical / connected first).
+- **General**: Launch at login (SMAppService, with status and an "Open Login Items" fallback), show menu bar item, show Dock icon while a window is open, popover layout (cards / compact), hide empty ports, port order (physical / connected first).
 - **Menu Bar**: icon style, text content, power units precision, pinned port (None or one of this Mac's ports) and what it shows (power, link speed, or both).
 - **Appearance**: background opacity slider (60–100%, default 88%), glass tint strength, text size (S/M/L/XL), Reduce Motion override for link animation.
 - **Notifications**: toggles for device connected, device disconnected, link downgraded, charger connected/disconnected, diagnostics.

@@ -104,6 +104,7 @@ jobs:
             capture "$scenario-popover" popover -demoMode YES -demoScenario "$scenario"
             capture "$scenario-topology" topology -demoMode YES -demoScenario "$scenario"
           done
+          capture "studioDesk-popover-compact" popover -demoMode YES -demoScenario studioDesk -popoverLayout compact
           capture "live-popover" popover -demoMode NO
           capture "live-topology" topology -demoMode NO
           for tab in general menuBar appearance notifications ports advanced; do

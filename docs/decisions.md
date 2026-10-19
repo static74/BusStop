@@ -2,6 +2,25 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: The compact popover keeps the card's actions and hides devices behind an arrow
+
+**Question.** Roadmap item 11 asks for a denser popover with one line per port. What goes on the line, what is left out, and how do the card and the line stay in step?
+
+**Decision.** A Popover layout setting (`popoverLayout`, cards or compact; cards by default) in Settings › General › Ports. In compact, `CompactPortList` puts every visible port in one card, one `CompactPortRow` each: arrow, icon, short name, pin, a one-line summary (`PopoverText.compactSummary`), speed chip and power badge. A single device is named even when it is a hub or dock with devices behind it; several trees show "N devices" counted at every level. The arrow starts closed each time the popover opens and reveals `PortDeviceTree`, the same tree the card draws; the popover's hosting controller is reused, so closing it bumps `PopoverView.closeCount`, which resets the rows. Each row is one VoiceOver element whose label adds the port's link speed, since its speed chip is not read on its own. The rename field (`PortRenameField`) and the device tree were moved out of `PortCardView` so both layouts use them, and both use `portActions`, so the context menu and VoiceOver actions cannot drift apart. The power card becomes one line with the charger name, battery state or "Accessories" and a power badge. The diagnostics banner, Other devices and Displays stay as they are.
+
+**Why.** The item is about density for people with many devices, not about showing less: every device is still one click away, and the port's speed and power stay on its line. Sharing the field, tree and actions keeps one copy of each behaviour.
+
+**Risks.**
+
+- In compact mode the battery percentage and the input sparkline are not shown while a charger is connected; VoiceOver still reads the battery state. Switch to cards for them.
+- Whether a port's devices are shown is not remembered between popover openings.
+
+**Rejected alternatives.**
+
+- *Remembering each port's arrow.* More state to persist and clean up for ports that come and go; the tree is one click away.
+- *A one-line banner and Displays section too.* Findings need their explanation, and both are usually short already.
+- *A third rename editor for the row.* The card's field moved into `PortRenameField`, which seeds its draft and takes focus when it appears.
+
 ## 2026-10-19: History is a local JSON file
 
 **Question.** Roadmap item 6 asks for the event log, power history and per-port statistics to survive a relaunch, with a size cap and a way to clear it. Where and how is it stored, how often is it written, and how does it stay away from demo data?

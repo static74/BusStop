@@ -28,6 +28,12 @@ struct GeneralSettingsPane: View {
             }
 
             Section("Ports") {
+                Picker("Popover layout", selection: $settings.popoverLayout) {
+                    ForEach(PopoverLayout.allCases) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                SettingsCaption("Compact shows one line per port; click a port's arrow to see its devices.")
                 Toggle("Hide empty ports", isOn: $settings.hideEmptyPorts)
                 Picker("Port order", selection: $settings.portOrder) {
                     ForEach(PortOrder.allCases) { order in
