@@ -53,7 +53,7 @@ enum TopologyOverviewMode: String, CaseIterable, Identifiable {
 struct WindowSidebar: View {
     var store: PortStore
     @Binding var selection: TopologySidebarItem?
-    @AppStorage("sidebarCablesExpanded") private var cablesExpanded = true
+    @AppStorage(TopologyWindowDefaults.cablesExpanded) private var cablesExpanded = true
 
     var body: some View {
         List(selection: $selection) {

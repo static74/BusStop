@@ -396,8 +396,10 @@ enum TopologyWindowDefaults {
     static let legacyGraphZoom = "topologyGraphZoom"
     /// Data or Power, shared by the map and the Mac Outline.
     static let linkMode = "graphLinkMode"
+    /// Whether the sidebar's Cables section is expanded.
+    static let cablesExpanded = "sidebarCablesExpanded"
 
-    static let all = [overviewMode, legacyGraphZoom, linkMode]
+    static let all = [overviewMode, legacyGraphZoom, linkMode, cablesExpanded]
 
     static func reset(_ defaults: UserDefaults = .standard) {
         for key in all { defaults.removeObject(forKey: key) }
