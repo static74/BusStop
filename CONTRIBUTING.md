@@ -100,6 +100,7 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 - **Avoid Foundation's type names** for new types: `Port`, `Process`, `Host`, `Thread`, `Timer` and the like collide on macOS (Foundation's `NSPort` is imported as `Port`).
 - **Document types and non-obvious members** with `///` comments, including the reason behind anything surprising.
 - **Plain, direct English** in comments and user-facing text. No emoji.
+- **Colours come from the `Lagoon` tokens in `Theme.swift`.** Do not write `Color(hex:)`, `.white` or `.black` in a view; add a token instead (the Appearance preview wallpaper and the status icon's template ink are the only exceptions).
 - Four-space indentation, lines up to about 120 characters, one type per file where practical.
 - Guard APIs newer than macOS 26 with `#available(macOS 27, *)`, and code that needs the macOS 27 SDK with `#if compiler(>=6.4)`, so the project still builds with Xcode 26.6.
 

@@ -365,7 +365,7 @@ struct PowerProfilesGrid: View {
                     if profile.isActive {
                         Text("Active")
                             .lagoonFont(.caption, weight: .semibold, design: .rounded)
-                            .foregroundStyle(Lagoon.background)
+                            .foregroundStyle(Lagoon.onAccent)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1.5)
                             .background(Capsule().fill(Lagoon.accent))
