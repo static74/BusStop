@@ -52,6 +52,23 @@ enum MenuBarTextMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// What a pinned port shows in the menu bar.
+enum PinnedPortValue: String, CaseIterable, Identifiable {
+    case power
+    case speed
+    case both
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .power: return "Power"
+        case .speed: return "Link speed"
+        case .both: return "Speed and power"
+        }
+    }
+}
+
 enum PortOrder: String, CaseIterable, Identifiable {
     case physical
     case connectedFirst
@@ -160,6 +177,14 @@ final class AppSettings {
     var menuBarPowerPrecision: PowerPrecision {
         didSet { defaults.set(menuBarPowerPrecision.rawValue, forKey: Key.menuBarPowerPrecision) }
     }
+    /// `hw.model` (or `"demo:<hw.model>"` in demo mode) → `PortKey.description` of the
+    /// port pinned to the menu bar. Use `PortStore.pinPort` rather than writing this directly.
+    var menuBarPinnedPorts: [String: String] {
+        didSet { defaults.set(menuBarPinnedPorts, forKey: Key.menuBarPinnedPorts) }
+    }
+    var menuBarPinnedValue: PinnedPortValue {
+        didSet { defaults.set(menuBarPinnedValue.rawValue, forKey: Key.menuBarPinnedValue) }
+    }
 
     // MARK: Appearance
 
@@ -211,6 +236,8 @@ final class AppSettings {
         menuBarIcon = string(Key.menuBarIcon).flatMap(MenuBarIconStyle.init(rawValue:)) ?? .busStop
         menuBarText = string(Key.menuBarText).flatMap(MenuBarTextMode.init(rawValue:)) ?? .power
         menuBarPowerPrecision = string(Key.menuBarPowerPrecision).flatMap(PowerPrecision.init(rawValue:)) ?? .automatic
+        menuBarPinnedPorts = (defaults.dictionary(forKey: Key.menuBarPinnedPorts) as? [String: String]) ?? [:]
+        menuBarPinnedValue = string(Key.menuBarPinnedValue).flatMap(PinnedPortValue.init(rawValue:)) ?? .both
         backgroundOpacity = min(max(double(Key.backgroundOpacity, 0.88), 0.6), 1)
         glassTint = min(max(double(Key.glassTint, 0.22), 0), 0.5)
         textSize = string(Key.textSize).flatMap(TextSizeSetting.init(rawValue:)) ?? .medium
@@ -229,7 +256,7 @@ final class AppSettings {
         portNames = (defaults.dictionary(forKey: Key.portNames) as? [String: String]) ?? [:]
     }
 
-    /// Restores every setting to its default (port names included).
+    /// Restores every setting to its default (port names and menu bar pins included).
     func resetAll() {
         for key in Key.all { defaults.removeObject(forKey: key) }
         let fresh = AppSettings(defaults: defaults)
@@ -240,6 +267,8 @@ final class AppSettings {
         menuBarIcon = fresh.menuBarIcon
         menuBarText = fresh.menuBarText
         menuBarPowerPrecision = fresh.menuBarPowerPrecision
+        menuBarPinnedPorts = fresh.menuBarPinnedPorts
+        menuBarPinnedValue = fresh.menuBarPinnedValue
         backgroundOpacity = fresh.backgroundOpacity
         glassTint = fresh.glassTint
         textSize = fresh.textSize
@@ -266,6 +295,8 @@ final class AppSettings {
         static let menuBarIcon = "menuBarIcon"
         static let menuBarText = "menuBarText"
         static let menuBarPowerPrecision = "menuBarPowerPrecision"
+        static let menuBarPinnedPorts = "menuBarPinnedPorts"
+        static let menuBarPinnedValue = "menuBarPinnedValue"
         static let backgroundOpacity = "backgroundOpacity"
         static let glassTint = "glassTint"
         static let textSize = "textSize"
@@ -285,7 +316,7 @@ final class AppSettings {
 
         static let all = [
             showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, menuBarIcon, menuBarText,
-            menuBarPowerPrecision,
+            menuBarPowerPrecision, menuBarPinnedPorts, menuBarPinnedValue,
             backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
             notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
             demoScenario, portNames,

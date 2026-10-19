@@ -2,8 +2,8 @@ import AppKit
 import BusStopCore
 import SwiftUI
 
-/// Menu Bar: icon style with live previews, what text sits next to it and
-/// how precisely power is shown.
+/// Menu Bar: icon style with live previews, what text sits next to it, how
+/// precisely power is shown and which port is pinned next to the icon.
 struct MenuBarSettingsPane: View {
     var store: PortStore
 
@@ -33,35 +33,55 @@ struct MenuBarSettingsPane: View {
                         Text(precision.title).tag(precision)
                     }
                 }
-                .disabled(!showsPower(settings.menuBarText))
+                .disabled(!showsPower(settings))
                 LabeledContent("Example") {
                     MenuBarMockup(icon: settings.menuBarIcon, text: exampleText(settings))
                 }
                 SettingsCaption("Automatic shows one decimal below 10 W (4.5W) and whole watts above (38W). Numbers use monospaced digits so the menu bar does not shift as they change.")
             }
+
+            Section("Pinned port") {
+                Picker("Port", selection: pinnedPort) {
+                    Text("None").tag(PortKey?.none)
+                    ForEach(store.snapshot.ports) { port in
+                        Text(port.label.title).tag(PortKey?.some(port.key))
+                    }
+                }
+                Picker("Show", selection: $settings.menuBarPinnedValue) {
+                    ForEach(PinnedPortValue.allCases) { value in
+                        Text(value.title).tag(value)
+                    }
+                }
+                .disabled(pinnedPort.wrappedValue == nil)
+                SettingsCaption("Shows the port's speed (40G) or power (\u{2193}61W in, \u{2191}4.5W out) after the text above; its name is in the tooltip. \u{2264} marks a USB power budget or charger contract, not a measurement. Speed updates as soon as the hardware changes. Measured watts refresh about every 10 seconds while the popover is closed; figures marked \u{2264} refresh when the hardware changes, or within a minute. A port card's context menu in the popover pins it too.")
+            }
         }
         .settingsPaneStyle()
     }
 
-    private func showsPower(_ mode: MenuBarTextMode) -> Bool {
-        mode == .power || mode == .both
+    /// The pinned port, or nil when none is pinned or the pinned port is not
+    /// on this Mac. Such a pin shows as None but stays stored.
+    private var pinnedPort: Binding<PortKey?> {
+        Binding(
+            get: { store.pinnedPortKey.flatMap { store.snapshot.port($0) != nil ? $0 : nil } },
+            set: { store.pinPort($0) }
+        )
     }
 
-    /// The text the menu bar item shows, formatted the same way: live numbers
+    private func showsPower(_ settings: AppSettings) -> Bool {
+        settings.menuBarText == .power || settings.menuBarText == .both
+            || (pinnedPort.wrappedValue != nil && settings.menuBarPinnedValue != .speed)
+    }
+
+    /// The text the menu bar item shows, from the same builder: live numbers
     /// once the first capture is in, otherwise 5 devices and 38 W.
     private func exampleText(_ settings: AppSettings) -> String {
-        let snapshot = store.snapshot
-        let devices = store.hasLoaded ? snapshot.deviceCount : 5
-        let milliwatts = store.hasLoaded ? snapshot.power.headlineMilliwatts : 38_000
-        let power = milliwatts.map {
-            Format.compactPower(milliwatts: $0, decimals: settings.menuBarPowerPrecision.decimals)
+        guard store.hasLoaded else {
+            return StatusItemController.menuBarText(mode: settings.menuBarText, deviceCount: 5, milliwatts: 38_000,
+                                                    precision: settings.menuBarPowerPrecision)
         }
-        switch settings.menuBarText {
-        case .none: return ""
-        case .power: return power ?? ""
-        case .devices: return "\(devices)"
-        case .both: return power.map { "\(devices) \u{00B7} \($0)" } ?? "\(devices)"
-        }
+        return StatusItemController.menuBarTitle(snapshot: store.snapshot, settings: settings,
+                                                 pinnedKey: store.pinnedPortKey)
     }
 }
 

@@ -198,8 +198,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func updateStatusItem() {
         let wantsVisible = settings.showMenuBarItem
         let iconStyle = settings.menuBarIcon
-        let textMode = settings.menuBarText
-        let precision = settings.menuBarPowerPrecision
         let snapshot = store.snapshot
         let hasLoaded = store.hasLoaded
 
@@ -215,11 +213,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             currentIconStyle = iconStyle
         }
 
-        let deviceCount = snapshot.deviceCount
-        let headline = PopoverText.headlineMilliwatts(for: snapshot)
-        let title = hasLoaded
-            ? Self.menuBarText(mode: textMode, deviceCount: deviceCount, milliwatts: headline, precision: precision)
-            : ""
+        // Read inside the observation, so pinning or unpinning updates the item.
+        let pinnedKey = store.pinnedPortKey
+        let title = hasLoaded ? Self.menuBarTitle(snapshot: snapshot, settings: settings, pinnedKey: pinnedKey) : ""
         if title != currentTitle {
             currentTitle = title
             if title.isEmpty {
@@ -231,15 +227,53 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             }
         }
 
-        let description = Self.accessibilityDescription(hasLoaded: hasLoaded, deviceCount: deviceCount,
-                                                        milliwatts: headline)
+        let description = Self.accessibilityDescription(
+            hasLoaded: hasLoaded, deviceCount: snapshot.deviceCount,
+            milliwatts: PopoverText.headlineMilliwatts(for: snapshot),
+            pinned: pinnedKey.flatMap { snapshot.port($0) })
         button.setAccessibilityLabel(description)
         button.toolTip = description
     }
 
-    /// "5 · 38W", "38W", "5" or "" depending on the text setting, with the
-    /// power rounded as the precision setting asks ("38W", "38.2W"). The
-    /// Menu Bar settings preview uses this too, so both always match.
+    /// The whole menu bar title: the text setting's part, then the pinned
+    /// port's segment, joined with " · " ("5 · 38W · 40G ↓61W"). The item and
+    /// the Menu Bar settings preview both call this, so they always match.
+    /// A pinned key that is not on this Mac adds nothing.
+    static func menuBarTitle(snapshot: HostSnapshot, settings: AppSettings, pinnedKey: PortKey?) -> String {
+        let precision = settings.menuBarPowerPrecision
+        let text = menuBarText(mode: settings.menuBarText, deviceCount: snapshot.deviceCount,
+                               milliwatts: PopoverText.headlineMilliwatts(for: snapshot), precision: precision)
+        let pin = pinnedKey.flatMap { snapshot.port($0) }
+            .map { pinnedSegment($0, value: settings.menuBarPinnedValue, precision: precision) } ?? ""
+        return [text, pin].filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
+    }
+
+    /// A pinned port in short form: "40G", "↓61W", "40G ↓61W", "↑≤4.5W".
+    /// "≤" marks a USB power budget or PD contract rather than a measurement.
+    /// A half with nothing to show drops out; with neither, "–".
+    static func pinnedSegment(_ port: PhysicalPort, value: PinnedPortValue, precision: PowerPrecision) -> String {
+        let speed = port.link?.bitsPerSecond.map { Format.compactDataRate(bitsPerSecond: $0) }
+        let power = port.power.flatMap { power -> String? in
+            guard let milliwatts = power.milliwatts, milliwatts > 0 else { return nil }
+            let arrow = switch power.direction {
+            case .input: "\u{2193}"
+            case .output: "\u{2191}"
+            case .none: ""
+            }
+            return arrow + (power.isMeasured ? "" : "\u{2264}")
+                + Format.compactPower(milliwatts: milliwatts, decimals: precision.decimals)
+        }
+        let parts: [String?] = switch value {
+        case .speed: [speed]
+        case .power: [power]
+        case .both: [speed, power]
+        }
+        let text = parts.compactMap { $0 }.joined(separator: " ")
+        return text.isEmpty ? "\u{2013}" : text
+    }
+
+    /// The text setting's part of the title: "5 · 38W", "38W", "5" or "",
+    /// with the power rounded as the precision setting asks ("38W", "38.2W").
     static func menuBarText(mode: MenuBarTextMode, deviceCount: Int, milliwatts: Int?,
                             precision: PowerPrecision = .automatic) -> String {
         let power = milliwatts.map { Format.compactPower(milliwatts: $0, decimals: precision.decimals) }
@@ -264,12 +298,23 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         return NSAttributedString(string: " " + text, attributes: [.font: font])
     }
 
-    /// "Bus Stop: 5 devices, 38 W".
-    private static func accessibilityDescription(hasLoaded: Bool, deviceCount: Int, milliwatts: Int?) -> String {
+    /// "Bus Stop: 5 devices, 38 W", then the pinned port by name:
+    /// ". Pinned: Left USB-C, 40 gigabits per second, 61 watts in". Used for
+    /// the tooltip too, which is where the pinned port's name shows.
+    static func accessibilityDescription(hasLoaded: Bool, deviceCount: Int, milliwatts: Int?,
+                                         pinned: PhysicalPort?) -> String {
         guard hasLoaded else { return "Bus Stop: reading ports" }
         var parts = [deviceCount == 1 ? "1 device" : "\(deviceCount) devices"]
         if let milliwatts { parts.append(Format.power(milliwatts: milliwatts)) }
-        return "Bus Stop: " + parts.joined(separator: ", ")
+        var text = "Bus Stop: " + parts.joined(separator: ", ")
+        if let pinned {
+            var spoken = [PopoverText.spokenPortTitle(pinned.label)]
+            if let rate = PopoverText.spokenRate(pinned.link) { spoken.append(rate) }
+            if let power = PopoverText.spokenPortPower(pinned.power) { spoken.append(power) }
+            if spoken.count == 1 { spoken.append(pinned.isConnected ? "connected" : "nothing connected") }
+            text += ". Pinned: " + spoken.joined(separator: ", ")
+        }
+        return text
     }
 
     // MARK: Re-anchoring

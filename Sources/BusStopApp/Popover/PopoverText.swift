@@ -84,8 +84,17 @@ enum PopoverText {
         return text
     }
 
-    /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts".
-    static func portAccessibilityLabel(_ port: PhysicalPort) -> String {
+    /// "61 watts in", "up to 4.5 watts" (a budget or contract, not a measurement),
+    /// or nil when the port draws or gives nothing.
+    static func spokenPortPower(_ power: PortPower?) -> String? {
+        guard let power, let milliwatts = power.milliwatts, milliwatts > 0 else { return nil }
+        let phrase = (power.isMeasured ? "" : "up to ") + spokenPower(milliwatts: milliwatts)
+        return power.direction == .input ? phrase + " in" : phrase
+    }
+
+    /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts",
+    /// then ", pinned to the menu bar" when `isPinned`.
+    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool) -> String {
         var parts = ["\(spokenPortTitle(port.label)) port"]
         if port.devices.count == 1, let device = port.devices.first {
             var phrase = "\(device.name) connected"
@@ -103,11 +112,8 @@ enum PopoverText {
         } else {
             parts.append("nothing connected")
         }
-        if let power = port.power, let milliwatts = power.milliwatts, milliwatts > 0 {
-            var phrase = spokenPower(milliwatts: milliwatts)
-            if power.direction == .input { phrase += " in" }
-            parts.append(phrase)
-        }
+        if let power = spokenPortPower(port.power) { parts.append(power) }
+        if isPinned { parts.append("pinned to the menu bar") }
         return parts.joined(separator: ", ")
     }
 
