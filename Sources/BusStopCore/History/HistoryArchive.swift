@@ -126,8 +126,8 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     /// change of source: nothing is counted across it, since the counters may
     /// have moved while Bus Stop was not watching. A counter that goes down
     /// counts nothing and keeps its old baseline. A capture dated before the last
-    /// one (the clock was set back) counts as after a gap, and the power dated
-    /// after it is dropped. After a step forward of more than `clockTrust`,
+    /// one (the clock was set back) counts as after a gap, and the power and
+    /// port days dated after it are dropped. After a step forward of more than `clockTrust`,
     /// ages are trimmed against the capture before the step until the clock
     /// has held that long. Pass each capture once.
     public mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar = .current) {
@@ -274,10 +274,15 @@ extension HistoryArchive.Section {
         let date = snapshot.capturedAt
         let clockBack = date < (lastCaptureAt ?? .distantPast)
         let gap = afterGap || clockBack
+        let day = calendar.startOfDay(for: date)
         if clockBack {
-            // What is dated after this capture is in the future now; start the power over from here.
+            // What is dated after this capture is in the future now; start power and port days over from here.
             power.removeAll { $0.start > date }
             pendingPower.removeAll { $0.date > date }
+            portDays = portDays.compactMapValues { days in
+                let kept = days.filter { $0.day <= day }
+                return kept.isEmpty ? nil : kept
+            }
             clockJumpedAt = nil
             trustedAt = nil
         } else if let lastCaptureAt, date.timeIntervalSince(lastCaptureAt) > HistoryArchive.clockTrust {
@@ -288,7 +293,6 @@ extension HistoryArchive.Section {
 
         addPower(PowerSample(snapshot))
 
-        let day = calendar.startOfDay(for: date)
         // Rebuilt every capture: a port or reading that is missing loses its
         // baseline, so counts only ever span back-to-back readings.
         var counters: [String: PortStatistics] = [:]

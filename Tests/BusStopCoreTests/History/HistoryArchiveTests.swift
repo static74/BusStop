@@ -174,18 +174,18 @@ struct HistoryArchiveTests {
         archive.record(capture(0, plugs: 1, inputMilliwatts: 10), afterGap: true)
         archive.record(capture(70, plugs: 2, inputMilliwatts: 20), afterGap: false)
         // The clock is a year ahead for two captures and a save.
-        archive.record(capture(year, plugs: 2, inputMilliwatts: 98), afterGap: false)
-        archive.record(capture(year + 10, plugs: 2, inputMilliwatts: 99), afterGap: false)
+        archive.record(capture(year, plugs: 3, inputMilliwatts: 98), afterGap: false)
+        archive.record(capture(year + 10, plugs: 3, inputMilliwatts: 99), afterGap: false)
         archive.trim(now: start.addingTimeInterval(year + 20))
         #expect(archive.events(model: model).count == 1)
         // Another Mac model's section never saw the step, and is kept too.
         #expect(archive.events(model: "Mac16,1").count == 1)
         #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [10, 20])
-        #expect(days(archive).map(\.plugEvents) == [1])
+        #expect(days(archive).map(\.plugEvents) == [1, 1])
 
-        // Put right: the samples from the future go, and new ones record again.
-        archive.record(capture(130, plugs: 3, inputMilliwatts: 30), afterGap: false)
-        archive.record(capture(200, plugs: 4, inputMilliwatts: 40), afterGap: false)
+        // Put right: the samples and the port day from the future go, and new ones record again.
+        archive.record(capture(130, plugs: 4, inputMilliwatts: 30), afterGap: false)
+        archive.record(capture(200, plugs: 5, inputMilliwatts: 40), afterGap: false)
         let section = archive.sections[model]
         #expect(archive.events(model: model).count == 1)
         #expect(section?.power.map(\.systemInputMilliwatts) == [10, 20, 30])
