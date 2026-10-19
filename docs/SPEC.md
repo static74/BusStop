@@ -38,7 +38,7 @@ Public description of ViewPorts (search snippets of viewports.app; the site itse
 
 | ViewPorts feature | Bus Stop implementation |
 |---|---|
-| Live port data in the menu bar | Status item with icon plus optional live text (total watts, device count, or both) |
+| Live port data in the menu bar | Status item with icon plus optional live text (total watts, device count, or both), and one pinned port's speed or watts |
 | Maps every port, device and power draw | Port roster from IOKit port controllers, USB and Thunderbolt device trees, power telemetry |
 | Live topology | Topology window: host, ports, devices drawn as a connected graph with animated links |
 | Hub and daisy-chain support | USB hub trees; Thunderbolt / USB4 switch chains (Route String / Depth) |
@@ -78,6 +78,7 @@ These close gaps users reported against similar tools (WhatCable, WhatPort and P
 
 - `NSStatusItem` with a template icon. Icon choices: Bus Stop sign (default), cable connector, bolt, ports grid.
 - Optional text next to the icon, monospaced digits, compact to save menu bar space: none, total power ("38W"), device count ("5"), or both ("5 · 38W"). Power precision is automatic (one decimal below 10 W), whole watts, or one decimal.
+- One port can be pinned, per Mac model, from Settings › Menu Bar or a port card's context menu. Its segment follows the text after " · ": link speed ("40G"), power ("↓61W" in, "↑4.5W" out), or both ("40G ↓61W", the default). "≤" marks a USB power budget or PD contract rather than a measurement ("↑≤4.5W"). A half with nothing to show drops out; an empty port shows "–". The port's name is not in the title; it is in the tooltip and the VoiceOver label ("Pinned: Left Rear USB-C, 40 gigabits per second, 61 watts in"). A pin for a port this Mac does not have adds nothing and stays stored. Demo pins are kept apart from live ones.
 - Left click toggles the popover. Right click opens a menu: Open Topology, Refresh, Export submenu, Settings, About Bus Stop, Quit.
 - Relaunching the app while it is running opens the popover.
 - The item can be hidden from Settings; when hidden, launching the app opens the topology window.
@@ -95,6 +96,7 @@ From top to bottom:
    - Chips: active transports with speed ("USB 3 · 10 Gb/s", "DisplayPort", "Thunderbolt · 40 Gb/s"), power badge ("↓ 61 W" in, "↑ 4.5 W" out).
    - Nested device tree with indentation guides. Each device shows name, kind icon, speed and allocated power. Hubs show "3 devices · 7.5 W" roll-ups and can collapse.
    - Empty ports are shown dimmed, or hidden with the "Hide empty ports" setting.
+   - The port pinned to the menu bar has a pin after its title. The card's context menu and VoiceOver actions offer Rename Port, Restore Default Name (when renamed), Pin to Menu Bar or Unpin from Menu Bar, and Show in Topology.
 5. **Footer.** "Updated just now" and the button "Open Topology". (In demo mode a DEMO badge sits on the header's summary line.)
 
 ### 3.3 Topology window
@@ -119,7 +121,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
 Tabs:
 
 - **General**: Launch at login (SMAppService, with status and an "Open Login Items" fallback), show menu bar item, show Dock icon while a window is open, hide empty ports, port order (physical / connected first).
-- **Menu Bar**: icon style, text content, power units precision.
+- **Menu Bar**: icon style, text content, power units precision, pinned port (None or one of this Mac's ports) and what it shows (power, link speed, or both).
 - **Appearance**: background opacity slider (60–100%, default 88%), glass tint strength, text size (S/M/L/XL), Reduce Motion override for link animation.
 - **Notifications**: toggles for device connected, device disconnected, link downgraded, charger connected/disconnected, diagnostics.
 - **Ports**: list of the Mac's ports with editable names and a "Reset names" button.
@@ -331,7 +333,7 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 
 ### 5.6 Persistence
 
-`UserDefaults` only: settings, port renames, window frames. The event log and power history live in memory (last 500 events, last 10 minutes of samples). Nothing is written elsewhere unless the user exports.
+`UserDefaults` only: settings, port renames, menu bar pins, window frames. The event log and power history live in memory (last 500 events, last 10 minutes of samples). Nothing is written elsewhere unless the user exports.
 
 ---
 
