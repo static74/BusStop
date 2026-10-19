@@ -122,7 +122,7 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     /// `afterGap` is true for the first capture after launch, wake or a
     /// change of source: nothing is counted across it, since the counters may
     /// have moved while Bus Stop was not watching. A counter that goes down
-    /// starts a new epoch and counts nothing. A capture dated before the last
+    /// counts nothing and keeps its old baseline. A capture dated before the last
     /// one (the clock was set back) counts as after a gap, and the power dated
     /// after it is dropped. A step forward of more than `clockTrust` holds off
     /// the age trims until the clock has held that long. Pass each capture once.
@@ -132,10 +132,18 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     }
 
     /// The increase from `old` to `new`; zero when either is unknown or the
-    /// counter went down (a new epoch).
+    /// counter went down.
     static func delta(_ old: Int?, _ new: Int?) -> Int {
         guard let old, let new, new > old else { return 0 }
         return new - old
+    }
+
+    /// The value to take the next delta from. A counter that went down keeps
+    /// `old`, so one low reading does not count the whole count again when it
+    /// comes back; a real reset comes with a reboot or wake, which is a gap.
+    static func baseline(_ old: Int?, _ new: Int?) -> Int? {
+        guard let old, let new else { return new }
+        return max(old, new)
     }
 
     /// Adds `events` (in the order they happened, as `SnapshotDiffer` returns
@@ -278,12 +286,16 @@ extension HistoryArchive.Section {
             let key = port.id
             var change = HistoryArchive.PortDay(day: day)
             if let stats = port.statistics {
+                var baseline = stats
                 if !gap, let last = lastCounters[key] {
                     change.plugEvents = HistoryArchive.delta(last.plugEventCount, stats.plugEventCount)
                     change.connections = HistoryArchive.delta(last.connectionCount, stats.connectionCount)
                     change.overcurrents = HistoryArchive.delta(last.overcurrentCount, stats.overcurrentCount)
+                    baseline.plugEventCount = HistoryArchive.baseline(last.plugEventCount, stats.plugEventCount)
+                    baseline.connectionCount = HistoryArchive.baseline(last.connectionCount, stats.connectionCount)
+                    baseline.overcurrentCount = HistoryArchive.baseline(last.overcurrentCount, stats.overcurrentCount)
                 }
-                counters[key] = stats
+                counters[key] = baseline
             }
             if !gap, port.liquidDetected, lastLiquid[key] == false { change.liquidDetections = 1 }
             lastLiquid[key] = port.liquidDetected

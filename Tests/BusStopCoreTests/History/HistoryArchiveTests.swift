@@ -189,12 +189,15 @@ struct HistoryArchiveTests {
         #expect(days(archive).map(\.plugEvents) == [2])
     }
 
-    @Test func counterGoingDownStartsANewEpoch() {
+    @Test func counterGoingDownKeepsItsBaseline() {
         var archive = HistoryArchive()
-        archive.record(capture(0, plugs: 10, connections: 5), afterGap: true)
-        archive.record(capture(10, plugs: 2, connections: 1), afterGap: false)
+        archive.record(capture(0, plugs: 10, connections: 5, overcurrents: 3), afterGap: true)
+        // One low reading, then the real values again: nothing happened.
+        archive.record(capture(10, plugs: 2, connections: 1, overcurrents: 0), afterGap: false)
+        archive.record(capture(20, plugs: 10, connections: 5, overcurrents: 3), afterGap: false)
         #expect(days(archive).isEmpty)
-        archive.record(capture(20, plugs: 4, connections: 2), afterGap: false)
+        #expect(archive.sections[model]?.lastOvercurrentAt.isEmpty == true)
+        archive.record(capture(30, plugs: 12, connections: 6, overcurrents: 3), afterGap: false)
         #expect(days(archive).first?.plugEvents == 2)
         #expect(days(archive).first?.connections == 1)
     }
