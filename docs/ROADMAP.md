@@ -21,7 +21,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Views
 
-11. **Compact popover mode.** A denser popover with one line per port for people with many devices.
 12. **Light theme option.** A light Lagoon theme that keeps the turquoise accent, for people who run macOS in light mode. Dark stays the default.
 
 ## Automation and integrations
@@ -47,4 +46,5 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A Power mode colours the map's links by watts, with pulses that follow the power.
 - USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.
 - One port can be pinned to the menu bar, so its link speed or watts show next to the icon.
+- A compact popover layout shows one line per port, with each port's devices a click away.
 - A Mac Outline page draws the Mac with each port where it physically sits, coloured by what is plugged in and how fast it runs.
