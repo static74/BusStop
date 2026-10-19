@@ -311,7 +311,9 @@ final class NotificationManager {
         case notDetermined
     }
 
-    nonisolated private static func currentAuthorization() async -> Authorization {
+    /// The authorization state, read off the main actor; only the Sendable
+    /// result crosses back. The Notifications settings pane reads it too.
+    nonisolated static func currentAuthorization() async -> Authorization {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
         case .notDetermined: return .notDetermined
