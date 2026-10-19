@@ -23,6 +23,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - JSON snapshots: a dock's built-in parts move from its `children` to a new `internalParts` list, and a device that hangs off a built-in part records it in `internalParentID`. Snapshots without built-in parts are unchanged, and older exports still decode.
 - A built-in hub's USB 2 fallback and power budget findings point at the dock, and its link speed changes are reported naming the dock. A device that becomes a built-in part, or stops being one, raises no connect or disconnect event.
 - JSON snapshots: each port records where the model catalogue places it in `catalogLocation` ("Left Front", "Rear (left)"), which stays when the port is renamed. Older exports still decode.
+- Inspector rows put each value on its own line under the field name, so a long value uses the inspector's full width instead of wrapping in a narrow right column. A value too long for one line wraps. The battery card on the Power page uses the same rows.
 
 ### Fixed
 

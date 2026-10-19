@@ -385,28 +385,6 @@ struct SectionHeader: View {
     }
 }
 
-/// Label/value row for inspectors and detail panels.
-struct KeyValueRow: View {
-    var label: String
-    var value: String
-    var monospaced: Bool = false
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label)
-                .foregroundStyle(Lagoon.textSecondary)
-                .frame(minWidth: 110, alignment: .leading)
-            Spacer(minLength: 8)
-            Text(value)
-                .foregroundStyle(Lagoon.textPrimary)
-                .lagoonFont(.body, design: monospaced ? .monospaced : .default, monospacedDigits: true)
-                .multilineTextAlignment(.trailing)
-                .textSelection(.enabled)
-        }
-        .lagoonFont(.callout)
-    }
-}
-
 /// Centered empty-state message.
 struct EmptyStateView: View {
     var systemName: String
