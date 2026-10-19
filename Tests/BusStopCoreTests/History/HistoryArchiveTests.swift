@@ -119,7 +119,8 @@ struct HistoryArchiveTests {
         archive.trim(now: start.addingTimeInterval(HistoryArchive.powerAge + 30))
         #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [2])
 
-        // After a step forward of more than a day, the age trim waits until the clock has held for a day.
+        // After a step forward of more than a day, ages are trimmed against the capture before the step
+        // until the clock has held for a day.
         let later = 2 * HistoryArchive.powerAge
         archive.record(capture(later, inputMilliwatts: 4), afterGap: true)
         #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [2, 3])
@@ -169,6 +170,7 @@ struct HistoryArchiveTests {
         let year = 365 * 86_400.0
         var archive = HistoryArchive()
         archive.append([event("a", 0)], model: model)
+        archive.append([event("b", 0)], model: "Mac16,1")
         archive.record(capture(0, plugs: 1, inputMilliwatts: 10), afterGap: true)
         archive.record(capture(70, plugs: 2, inputMilliwatts: 20), afterGap: false)
         // The clock is a year ahead for two captures and a save.
@@ -176,6 +178,8 @@ struct HistoryArchiveTests {
         archive.record(capture(year + 10, plugs: 2, inputMilliwatts: 99), afterGap: false)
         archive.trim(now: start.addingTimeInterval(year + 20))
         #expect(archive.events(model: model).count == 1)
+        // Another Mac model's section never saw the step, and is kept too.
+        #expect(archive.events(model: "Mac16,1").count == 1)
         #expect(archive.sections[model]?.power.map(\.systemInputMilliwatts) == [10, 20])
         #expect(days(archive).map(\.plugEvents) == [1])
 
@@ -187,6 +191,18 @@ struct HistoryArchiveTests {
         #expect(section?.power.map(\.systemInputMilliwatts) == [10, 20, 30])
         #expect(section?.pendingPower.map(\.systemInputMilliwatts) == [40])
         #expect(days(archive).map(\.plugEvents) == [2])
+    }
+
+    @Test func ageTrimsStillRunWhenEverySessionFollowsAGap() {
+        var archive = HistoryArchive()
+        archive.append([event("old", 0)], model: model)
+        // A weekend Mac: four hours of use every three days, for six weeks.
+        for session in 0..<14 {
+            let t = Double(session) * 3 * 86_400
+            archive.record(capture(t, inputMilliwatts: 1), afterGap: true)
+            archive.record(capture(t + 4 * 3_600, inputMilliwatts: 1), afterGap: false)
+        }
+        #expect(archive.events(model: model).isEmpty)
     }
 
     @Test func counterGoingDownKeepsItsBaseline() {

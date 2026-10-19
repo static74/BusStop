@@ -10,8 +10,9 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public static let eventAge: TimeInterval = 30 * 86_400
     public static let powerAge: TimeInterval = 7 * 86_400
     public static let portDayAge: TimeInterval = 90 * 86_400
-    /// After the clock steps forward by more than this, age trims wait until
-    /// it has held this long, so a clock set wrongly ahead cannot wipe the history.
+    /// After the clock steps forward by more than this, ages are trimmed
+    /// against the last capture before the step until the clock has held this
+    /// long, so a clock set wrongly ahead cannot wipe the history.
     public static let clockTrust: TimeInterval = 86_400
     public static let maxBytes = 5_000_000
 
@@ -35,8 +36,10 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
         /// `PortKey.description` → the capture that saw the last overcurrent increase.
         public var lastOvercurrentAt: [String: Date] = [:]
         public var lastCaptureAt: Date?
-        /// The capture that stepped the clock forward by more than `clockTrust`, while age trims wait.
+        /// The capture that stepped the clock forward by more than `clockTrust`, while the clock is in doubt.
         public var clockJumpedAt: Date?
+        /// The last capture before that step; ages are trimmed against it while the clock is in doubt.
+        public var trustedAt: Date?
 
         public init() {}
     }
@@ -124,8 +127,9 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     /// have moved while Bus Stop was not watching. A counter that goes down
     /// counts nothing and keeps its old baseline. A capture dated before the last
     /// one (the clock was set back) counts as after a gap, and the power dated
-    /// after it is dropped. A step forward of more than `clockTrust` holds off
-    /// the age trims until the clock has held that long. Pass each capture once.
+    /// after it is dropped. After a step forward of more than `clockTrust`,
+    /// ages are trimmed against the capture before the step until the clock
+    /// has held that long. Pass each capture once.
     public mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar = .current) {
         // Mutated in place, so the section's long lists are not copied on every capture.
         sections[snapshot.machine.model, default: Section()].record(snapshot, afterGap: afterGap, calendar: calendar)
@@ -162,7 +166,10 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public mutating func clearEvents(model: String) { sections[model]?.events.removeAll() }
 
     /// Applies the age caps to every section, including models not seen this session.
+    /// While one section's clock is in doubt, all are trimmed against its trusted
+    /// time, since the others never saw the step.
     public mutating func trim(now: Date) {
+        let now = sections.values.map { $0.trimDate(now: now) }.min() ?? now
         for model in sections.keys { sections[model]?.trim(now: now) }
     }
 
@@ -245,7 +252,7 @@ extension HistoryArchive.Section {
     /// Keys spelled out so `init(from:)` can decode lists entry by entry.
     enum CodingKeys: String, CodingKey {
         case events, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt, lastCaptureAt
-        case clockJumpedAt
+        case clockJumpedAt, trustedAt
     }
 
     public init(from decoder: any Decoder) throws {
@@ -260,6 +267,7 @@ extension HistoryArchive.Section {
         lastOvercurrentAt = try c.decodeIfPresent([String: Date].self, forKey: .lastOvercurrentAt) ?? [:]
         lastCaptureAt = try c.decodeIfPresent(Date.self, forKey: .lastCaptureAt)
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
+        trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
@@ -271,8 +279,10 @@ extension HistoryArchive.Section {
             power.removeAll { $0.start > date }
             pendingPower.removeAll { $0.date > date }
             clockJumpedAt = nil
+            trustedAt = nil
         } else if let lastCaptureAt, date.timeIntervalSince(lastCaptureAt) > HistoryArchive.clockTrust {
             clockJumpedAt = date
+            trustedAt = lastCaptureAt
         }
         lastCaptureAt = date
 
@@ -342,16 +352,21 @@ extension HistoryArchive.Section {
         portDays[key] = days
     }
 
+    /// The time to trim ages against: `now`, or while the clock is in doubt
+    /// after a step forward, the last capture before the step.
+    func trimDate(now: Date) -> Date {
+        guard let jumped = clockJumpedAt, let trustedAt,
+              now < jumped.addingTimeInterval(HistoryArchive.clockTrust) else { return now }
+        return min(now, trustedAt)
+    }
+
     /// Drops what is older than the caps allow, and events beyond the count cap.
-    /// Ages are not trimmed while the clock is in doubt after a step forward.
     mutating func trim(now: Date) {
-        if let jumped = clockJumpedAt {
-            guard now >= jumped.addingTimeInterval(HistoryArchive.clockTrust) else {
-                trimCount()
-                return
-            }
+        if let jumped = clockJumpedAt, now >= jumped.addingTimeInterval(HistoryArchive.clockTrust) {
             clockJumpedAt = nil
+            trustedAt = nil
         }
+        let now = trimDate(now: now)
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
         if let oldest = events.last, oldest.date < eventCutoff { events.removeAll { $0.date < eventCutoff } }
         trimCount()
