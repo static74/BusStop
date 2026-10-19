@@ -106,6 +106,9 @@ struct DockPartsAppTests {
         let dock = try Self.dock(snapshot)
         #expect(PortStore.fallback(for: .device(Self.rootHub), in: snapshot) == .device(dock.id))
         #expect(PortStore.fallback(for: .link(.device(Self.rootHub)), in: snapshot) == .device(dock.id))
-        #expect(PortStore.fallback(for: .device("usb:gone"), in: snapshot) == .host)
+        // Any other device that left stays selected; the inspector says it is disconnected.
+        #expect(PortStore.fallback(for: .device("usb:gone"), in: snapshot) == .device("usb:gone"))
+        #expect(PortStore.fallback(for: .link(.device("usb:gone")), in: snapshot) == .link(.device("usb:gone")))
+        #expect(PortStore.fallback(for: .port(PortKey(type: PortKey.usbCType, number: 99)), in: snapshot) == .host)
     }
 }

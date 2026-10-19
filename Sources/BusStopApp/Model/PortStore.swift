@@ -620,20 +620,22 @@ final class PortStore {
 
     /// Where a selection that `snapshot` no longer has goes: to the dock when
     /// the device (or the device a link led to) is now one of the dock's
-    /// built-in parts, else to the Mac.
+    /// built-in parts. Any other device stays selected, like a display: the
+    /// inspector says it is disconnected and shows it again when it returns,
+    /// so a device that keeps dropping out can still be inspected. A port
+    /// macOS stops reporting goes to the Mac.
     static func fallback(for selection: StoreSelection, in snapshot: HostSnapshot) -> StoreSelection {
         switch selection {
         case .device(let id), .link(.device(let id)):
             if let dock = snapshot.dock(withPart: id) { return .device(dock.id) }
-            return .host
+            return selection
         default:
             return .host
         }
     }
 
     /// False when `selection` names a port or device that `snapshot` no
-    /// longer has (or a link to one). Displays stay selected; the inspector
-    /// says when one is gone.
+    /// longer has (or a link to one). Displays always count as present.
     private static func exists(_ selection: StoreSelection, in snapshot: HostSnapshot) -> Bool {
         switch selection {
         case .host, .display: return true
