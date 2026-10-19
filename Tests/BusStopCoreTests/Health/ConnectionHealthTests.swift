@@ -171,11 +171,12 @@ struct ConnectionHealthTests {
         reset.observe(20, [F.port(1, [F.drive()], plugEvents: 4)])
         reset.observe(30, [F.port(1, [F.drive()], plugEvents: 6)])
         #expect(reset.health.history(ofDevice: F.drive().id)?.cycles == 1)
-        // A glitched reading adds no more than a finding needs.
+        // One glitched reading cannot raise a finding by itself.
         var glitch = HealthRun()
         glitch.observe(0, [F.port(1, [F.drive()], plugEvents: 13)])
         glitch.observe(20, [F.port(1, [F.drive()], plugEvents: Int(UInt32.max))])
-        #expect(glitch.health.history(ofDevice: F.drive().id)?.cycles == ConnectionHealth.threshold)
+        #expect(glitch.health.history(ofDevice: F.drive().id)?.cycles == ConnectionHealth.threshold - 1)
+        #expect(glitch.last.isEmpty)
     }
 
     @Test func findingHoldsUntilTheWindowIsQuiet() {
@@ -188,6 +189,31 @@ struct ConnectionHealthTests {
         #expect(run.kinds() == [.flakyConnection])
         run.observe(last + ConnectionHealth.window + 1, [F.port(1, [F.drive()])])
         #expect(run.last.isEmpty)
+    }
+
+    @Test func aReturnAfterTheWindowIsNotACycle() {
+        // No capture while it was away, as while the screens sleep.
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [F.drive()])])
+        run.observe(20, [F.port(1)])
+        run.observe(20 + ConnectionHealth.window, [F.port(1, [F.drive()])])
+        #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 0)
+    }
+
+    @Test func aClockSetBackStartsOver() {
+        var run = HealthRun()
+        run.observe(0, [F.port(1)])
+        let last = run.cycle(F.drive(), on: 1, times: 3, from: 20)
+        #expect(run.kinds() == [.flakyConnection])
+        // An hour back, every cycle on record would be in the future.
+        let back = last - 3_600
+        run.observe(back, [F.port(1, [F.drive()])])
+        #expect(run.last.isEmpty)
+        #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 0)
+        // Presence is timed from the new clock, so a drop once settled counts.
+        run.observe(back + 20, [F.port(1)])
+        run.observe(back + 30, [F.port(1, [F.drive()])])
+        #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 1)
     }
 
     @Test func cyclesWhileTheScreensSleepAreCounted() {
@@ -378,6 +404,22 @@ struct ConnectionHealthTests {
         run.observe(30, [F.port(1, [hub("Front hub", location: 0x0110_0000, []),
                                     hub("Rear hub", location: 0x0120_0000, [slow])])])
         #expect(run.last.isEmpty)
+    }
+
+    @Test func moveToASlowerSocketOfTheSameHubIsNotARegression() {
+        func hub(_ children: [DeviceNode]) -> DeviceNode {
+            F.usb("Hub", location: 0x0110_0000, kind: .hub, children: children)
+        }
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [hub([F.drive(location: 0x0111_0000)])])])
+        run.observe(20, [F.port(1, [hub([F.drive(location: 0x0111_0000)])])])
+        run.observe(25, [F.port(1, [hub([])])])
+        run.observe(30, [F.port(1, [hub([F.drive(location: 0x0112_0000, bps: 5_000_000_000)])])])
+        #expect(run.last.isEmpty)
+        // Back in the first socket at the slower speed is a regression.
+        run.observe(35, [F.port(1, [hub([])])])
+        run.observe(40, [F.port(1, [hub([F.drive(location: 0x0111_0000, bps: 5_000_000_000)])])])
+        #expect(run.kinds() == [.speedRegression])
     }
 
     @Test func dockPartFallingBackToUSB2IsNotAlsoASpeedRegression() {

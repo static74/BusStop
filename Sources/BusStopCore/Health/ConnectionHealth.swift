@@ -1,7 +1,7 @@
 import Foundation
 
 /// What most likely causes a connection that keeps dropping.
-public enum LikelyCulprit: String, Sendable, Hashable {
+public enum LikelyCulprit: Sendable, Hashable {
     case cable
     case device
     case port
@@ -69,6 +69,8 @@ public struct ConnectionHealth: Sendable {
         var parentDeviceID: String?
         var parentIdentity: String?
         var link: LinkInfo?
+        /// Where its best link is kept: `"<identity>@<PortKey>/<parent identity>/<hub socket>"`.
+        var bestKey: String?
         /// When it arrived; for a device in `away`, when it left.
         var since: Date
     }
@@ -94,6 +96,7 @@ public struct ConnectionHealth: Sendable {
     private var plugEvents: [PortKey: Int] = [:]
     private var sharedSerials = Set<String>()
     private var settleUntil = Date.distantPast
+    private var lastCapture = Date.distantPast
     /// Finding id per subject (`"flaky:<identity>"`, `"port:<key>"`, …), fixed at first raise.
     private var raisedIDs: [String: String] = [:]
     private var flaky: Set<String> = []
@@ -103,15 +106,20 @@ public struct ConnectionHealth: Sendable {
 
     /// Takes in the next capture and returns the findings that hold now.
     /// Pass `afterGap` for the first capture after launch, wake or a change
-    /// of source: nothing is compared across it.
+    /// of source: nothing is compared across it. A capture dated before the
+    /// last one (a clock set back) clears everything on record.
     public mutating func observe(_ snapshot: HostSnapshot, afterGap: Bool) -> [Diagnostic] {
         let now = snapshot.capturedAt
-        if afterGap {
+        // A clock set back would leave every date on record in the future; start over.
+        let rolledBack = now < lastCapture
+        if rolledBack { self = ConnectionHealth() }
+        lastCapture = now
+        if afterGap || rolledBack {
             settleUntil = now.addingTimeInterval(Self.settleTime)
             away.removeAll()
             lastDirection.removeAll()
         }
-        let settled = !afterGap && now >= settleUntil
+        let settled = now >= settleUntil
         let current = seen(in: snapshot, now: now)
         let presentIDs = Set(snapshot.allDevices.map(\.device.id)).union(snapshot.internalPartIDs)
 
@@ -126,14 +134,15 @@ public struct ConnectionHealth: Sendable {
                 }
             }
         }
-        // Returns to the same Mac port are cycles; a move to another port is not.
+        // Returns to the same Mac port within the window are cycles; a move to another port is not.
         for (identity, new) in current where present[identity] == nil {
-            if let old = away.removeValue(forKey: identity), old.port == new.port {
+            if let old = away.removeValue(forKey: identity), old.port == new.port,
+               now.timeIntervalSince(old.since) < Self.window {
                 cycles[identity, default: []].append(Cycle(date: now, port: new.port, parent: new.parentIdentity))
             }
         }
         if settled { countLinkReversals(current, now: now) }
-        if !afterGap { countHiddenCycles(snapshot, current: current, now: now, settled: settled) }
+        if settled { countHiddenCycles(snapshot, current: current, now: now) }
         for port in snapshot.ports {
             if let count = port.statistics?.plugEventCount { plugEvents[port.key] = count }
         }
@@ -150,7 +159,7 @@ public struct ConnectionHealth: Sendable {
         let count = cycles[identity]?.count ?? 0
         return DeviceConnectionHistory(
             cycles: count,
-            bestLink: Self.bestKey(identity, seen).flatMap { best[$0] },
+            bestLink: seen.bestKey.flatMap { best[$0] },
             lastLink: seen.link,
             culprit: flaky.contains(identity) ? culprit(of: identity).culprit : nil)
     }
@@ -163,10 +172,17 @@ public struct ConnectionHealth: Sendable {
         for entry in DeviceIdentity.Entry.all(in: snapshot) {
             guard let identity = keys[entry.node.id] else { continue }
             let subject = entry.dock ?? entry.node
+            let parentIdentity = entry.parentID.flatMap { keys[$0] }
+            // Each socket of a hub can run at its own speed. Below the first USB tier the socket
+            // number is the same on both halves of a USB 3 hub, so it survives a change of controller.
+            let location = entry.node.locationID
+            let socket = USBTreeBuilder.tierDepth(location) >= 2
+                ? USBTreeBuilder.tierPort(location).map(String.init) : nil
             result[identity] = Seen(
                 deviceID: entry.node.id, subjectID: subject.id, name: DiagnosticsEngine.displayName(subject),
-                port: entry.port?.key, parentDeviceID: entry.parentID,
-                parentIdentity: entry.parentID.flatMap { keys[$0] }, link: entry.node.link,
+                port: entry.port?.key, parentDeviceID: entry.parentID, parentIdentity: parentIdentity,
+                link: entry.node.link,
+                bestKey: entry.port.map { "\(identity)@\($0.key)/\(parentIdentity ?? "")/\(socket ?? "")" },
                 since: present[identity]?.since ?? now)
         }
         return result
@@ -194,17 +210,16 @@ public struct ConnectionHealth: Sendable {
     /// `Plug Event Count` moves on plugs and unplugs faster than a capture,
     /// so on a Mac port whose devices did not change, half its increase is
     /// cycles of the device plugged into the port.
-    private mutating func countHiddenCycles(_ snapshot: HostSnapshot, current: [String: Seen], now: Date,
-                                            settled: Bool) {
+    private mutating func countHiddenCycles(_ snapshot: HostSnapshot, current: [String: Seen], now: Date) {
         for port in snapshot.ports {
-            guard settled, let count = port.statistics?.plugEventCount, let before = plugEvents[port.key],
+            guard let count = port.statistics?.plugEventCount, let before = plugEvents[port.key],
                   count > before else { continue }
             let was = Set(present.filter { $0.value.port == port.key }.keys)
             let isNow = Set(current.filter { $0.value.port == port.key }.keys)
             guard was == isNow, let root = port.devices.first,
                   let identity = current.first(where: { $0.value.deviceID == root.id })?.key else { continue }
-            // Capped: a finding needs no more, and a glitched counter must not add billions.
-            for _ in 0..<min((count - before) / 2, Self.threshold) {
+            // Capped below the threshold: one glitched reading must not raise a finding by itself.
+            for _ in 0..<min((count - before) / 2, Self.threshold - 1) {
                 cycles[identity, default: []].append(Cycle(date: now, port: port.key, parent: nil))
             }
         }
@@ -222,12 +237,6 @@ public struct ConnectionHealth: Sendable {
         }
         away = away.filter { $0.value.since > cutoff }
         known = known.filter { present[$0.key] != nil || cycles[$0.key] != nil || reversals[$0.key] != nil }
-    }
-
-    /// `"<identity>@<PortKey>/<parent identity>"`: each port of a dock or hub
-    /// behind one Mac port can run at its own speed, so moving between them is not a slowdown.
-    private static func bestKey(_ identity: String, _ seen: Seen) -> String? {
-        seen.port.map { "\(identity)@\($0)/\(seen.parentIdentity ?? "")" }
     }
 
     private static func isDataLink(_ link: LinkInfo) -> Bool {
@@ -300,7 +309,7 @@ public struct ConnectionHealth: Sendable {
         for (identity, seen) in present.sorted(by: { $0.key < $1.key }) {
             guard let key = seen.port, let port = snapshot.port(key), let link = seen.link, Self.isDataLink(link),
                   port.supportedTransports.contains(.usb3) || port.supportedTransports.contains(.cio),
-                  let bestKey = Self.bestKey(identity, seen) else { continue }
+                  let bestKey = seen.bestKey else { continue }
             guard let previous = best[bestKey], let change = SnapshotDiffer.linkChange(from: previous, to: link) else {
                 if best[bestKey] == nil { best[bestKey] = link }
                 continue
