@@ -19,6 +19,11 @@ public enum Format {
         return "\(bps) b/s"
     }
 
+    /// Menu bar form of `dataRate`: "40G", "10G", "480M", "1.5M", "12M".
+    public static func compactDataRate(bitsPerSecond bps: Int64) -> String {
+        dataRate(bitsPerSecond: bps).replacingOccurrences(of: "b/s", with: "").replacingOccurrences(of: " ", with: "")
+    }
+
     /// "4.5 W", "96 W", "0.5 W", "120 mW" (below 0.1 W).
     /// Whole watts drop the decimal at 10 W and above.
     public static func power(milliwatts mw: Int) -> String {

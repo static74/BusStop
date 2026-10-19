@@ -36,7 +36,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `History/` | `PowerHistory`, the in-memory samples behind the sparklines. |
 | `Export/` | `Exporter`: JSON, Markdown, raw capture JSON, the CLI text tree, redaction. |
 | `Demo/` | `DemoScenario`, which builds realistic `RawSnapshot`s. |
-| `Formatting/` | `Format`: locale-independent units ("10 Gb/s", "4.5 W", "20 V × 4.7 A"). |
+| `Formatting/` | `Format`: locale-independent units ("10 Gb/s", "4.5 W", "20 V × 4.7 A") and the menu bar's short forms ("40G", "38W"). |
 | `Version.swift` | `BusStopVersion`, the marketing version. |
 
 ## Data flow

@@ -14,6 +14,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A USB device that reports a vendor ID but no vendor name now shows the vendor's name from a table built into Bus Stop. `scripts/generate-usb-vendors.py` generates the table from the USB ID Repository's `usb.ids` (version 2026.06.26), used under the 3-clause BSD License, whose notice is in `THIRD_PARTY_NOTICES.md`. A device's own vendor name always wins, and Bus Stop still makes no network requests.
 
 - `docs/ROADMAP.md` with the planned features after 1.0.
+- Pin one port to the menu bar, from Settings › Menu Bar or "Pin to Menu Bar" in a port card's context menu, and its link speed, its power or both show after the menu bar text: "5 · 38W · 40G ↓61W". "≤" marks a USB power budget or charger contract rather than a measurement. The pinned port's name is in the item's tooltip and VoiceOver label, and its card shows a pin. Pins are kept per Mac model, and a pin made in demo mode never replaces the live one.
 
 ### Changed
 

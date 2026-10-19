@@ -2,6 +2,28 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: A pinned port shows speed and watts in short form
+
+**Question.** Roadmap item 10 lets one port's watts or link speed sit next to the menu bar icon. What does the segment look like, where is the pin stored, and what happens to a pin made in demo mode?
+
+**Decision.** The title is the existing text, then the pinned port's segment, joined with " · " ("5 · 38W · 40G ↓61W"). The segment uses `Format.compactDataRate` ("40G", "480M", "1.5M": `dataRate` without "b/s" and spaces, the same way `compactPower` drops the space) and `compactPower` with the existing precision setting, behind a plain "↓" for power in or "↑" for power out. "≤" marks a figure that is not measured: a USB power budget or a PD contract. The default shows both speed and power, and either half drops out when the port has nothing for it, so a charging port shows only "↓61W"; an empty port shows "–". The port's name goes in the tooltip and VoiceOver label, not the title. Pins are stored per Mac model in `menuBarPinnedPorts`, like `portNames`, but a demo pin is stored under `demo:<model>`: demo scenarios use real model ids (Mac17,9 and others), so without the prefix pinning a demo port would replace the pin on a real Mac of that model. A pin for a port the Mac does not have adds nothing and stays stored. `StatusItemController.menuBarTitle` is the only builder; the Settings preview calls it too, which also fixes the preview leaving out unattributed USB power that the menu bar includes.
+
+**Why.** Menu bar space is scarce, and next to a number a unit letter is enough: "40G" reads as a link speed, "61W" as power. Showing both by default means one setting covers charging ports and data ports. Per-model storage keeps the pin right after Migration Assistant moves settings to a Mac with different ports.
+
+**Risks.**
+
+- "40G" could be read as gigabytes. The tooltip and the Settings caption spell it out.
+- With the popover closed, measured watts refresh about every 10 s and a contract or budget only on a hardware change or the 60 s full capture, so the pinned figure can trail what is plugged in by that much.
+- `portNames` still shares one key between demo and live data on the same model. Left for a separate change.
+
+**Rejected alternatives.**
+
+- *The port's name in the title ("Left Rear 40G").* Too wide for a menu bar item; the tooltip carries it.
+- *Full units ("40 Gb/s", "61 W").* Twice the width for no extra meaning in context.
+- *Polling faster while a port is pinned.* It undoes the energy saving of power-only polls for one figure the user can refresh by opening the popover.
+- *One global pin.* Wrong on a second Mac or after migration, where port keys mean different ports.
+- *The title builder and the pinned-value enum in Core.* `MenuBarTextMode` and `PowerPrecision` already live in the app and `menuBarText` was already a pure static function there, so only the unit formatting moved to Core. The roadmap plan's separate Core formatting PR was folded into this one for the same reason.
+
 ## 2026-10-19: Background polls read power only, and stop while the screens sleep
 
 **Question.** The weekend soak (`docs/soak-2026-10-19.md`) found about 420 captures an hour, all night, each walking the whole I/O Registry and opening a powerd connection. The polls only exist to keep power figures current. How much of that can go?
