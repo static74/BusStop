@@ -184,6 +184,9 @@ Each token has a Dark value and a Light value (`Lagoon.themed(dark, light)`), an
 | `linkHighlightMix` | `#FFFFFF` | `#000000` | What a hovered or selected link's core mixes toward |
 | `pulseMix` | `#FFFFFF` | `#FFFFFF` | What power pulses mix toward |
 | `shadow` | black at 50% | black at 15% | Under map tooltips |
+| `well` | `#FFFFFF` at 6% | `#0B1F1D` at 6% | Faint fill behind small previews (menu bar icon tiles) |
+| `menuBarBackdrop` | `#1B2A3A` to `#0E1A1C` | `#E4ECEB` to `#F2F6F5` | Stand-in menu bar in the Settings › Menu Bar preview |
+| `menuBarItemHighlight` | `#FFFFFF` at 14% | `#0B1F1D` at 14% | Pressed-item highlight in that preview |
 
 Every colour in the app comes from `Theme.swift` (`Lagoon` and `PowerChartPalette`). The only literals elsewhere are the wallpaper in the Appearance preview and the menu bar icon's template ink.
 

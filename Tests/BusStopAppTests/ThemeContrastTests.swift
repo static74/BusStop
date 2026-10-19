@@ -125,6 +125,13 @@ struct ThemeContrastTests {
         #expect(nsDark.redComponent == 0 && nsDark.greenComponent == 0 && nsDark.blueComponent == 0)
     }
 
+    /// The map asks for ramp colours on every frame; a fresh dynamic colour
+    /// per call would never compare equal and would allocate each time.
+    @Test func rampColoursAreStable() {
+        for tier in SpeedTier.allCases { #expect(Lagoon.linkColor(tier) == Lagoon.linkColor(tier)) }
+        for tier in PowerTier.allCases { #expect(Lagoon.powerColor(tier) == Lagoon.powerColor(tier)) }
+    }
+
     @Test func lightTextMeetsContrastTargets() {
         let targets: [(String, Color, Double)] = [
             ("textPrimary", Lagoon.textPrimary, 12),

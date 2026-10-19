@@ -94,16 +94,18 @@ enum Lagoon {
 
     /// Link-stroke colour: brighter as speed rises in Dark, darker in Light,
     /// so faster links always carry more contrast.
-    static func linkColor(_ tier: SpeedTier) -> Color {
-        switch tier {
-        case .legacy: return themed(0x3C5E5A, 0x7A9592)
-        case .gbps5: return themed(0x22A69B, 0x0B6961)
-        case .gbps10: return themed(0x3EE6D4, 0x005A52)
-        case .gbps20: return themed(0x5FF0E0, 0x004B44)
-        case .gbps40: return themed(0x8AFFF3, 0x003C37)
-        case .gbps80: return themed(0xC9FFF9, 0x002E2A)
-        }
-    }
+    static func linkColor(_ tier: SpeedTier) -> Color { linkRamp[tier.rawValue] }
+
+    /// Built once: each `themed` call makes a new dynamic colour that never
+    /// compares equal to another, and the map asks for these on every frame.
+    private static let linkRamp: [Color] = [
+        themed(0x3C5E5A, 0x7A9592), // legacy
+        themed(0x22A69B, 0x0B6961), // 5 Gb/s
+        themed(0x3EE6D4, 0x005A52), // 10 Gb/s
+        themed(0x5FF0E0, 0x004B44), // 20 Gb/s
+        themed(0x8AFFF3, 0x003C37), // 40 Gb/s
+        themed(0xC9FFF9, 0x002E2A), // 80 Gb/s
+    ]
 
     static func linkWidth(_ tier: SpeedTier) -> CGFloat {
         switch tier {
@@ -134,15 +136,16 @@ enum Lagoon {
     /// lightness (0.52, 0.64, 0.76, 0.88). In Light it gets darker instead,
     /// from gold to deep red (OKLCH lightness falling from 0.62 to 0.40), so
     /// more power always means more ink.
-    static func powerColor(_ tier: PowerTier) -> Color {
-        switch tier {
-        case .none: return themed(0x636363, 0x858585)
-        case .under5: return themed(0xB6322D, 0x9B7300)
-        case .under15: return themed(0xDE6129, 0x994A00)
-        case .under45: return themed(0xEF9D32, 0x9A2B16)
-        case .high: return themed(0xF6D653, 0x831922)
-        }
-    }
+    static func powerColor(_ tier: PowerTier) -> Color { powerRamp[tier.rawValue] }
+
+    /// Built once, like `linkRamp`.
+    private static let powerRamp: [Color] = [
+        themed(0x636363, 0x858585), // none
+        themed(0xB6322D, 0x9B7300), // under 5 W
+        themed(0xDE6129, 0x994A00), // under 15 W
+        themed(0xEF9D32, 0x9A2B16), // under 45 W
+        themed(0xF6D653, 0x831922), // high
+    ]
 
     static func powerWidth(_ tier: PowerTier) -> CGFloat {
         switch tier {
