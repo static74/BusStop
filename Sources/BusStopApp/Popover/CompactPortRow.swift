@@ -64,7 +64,9 @@ struct CompactPortRow: View {
             chevron(hasDevices: !devices.isEmpty)
             PortIcon(kind: port.kind, isActive: port.isConnected, size: 18)
             if isRenaming {
+                // The field fills the line, so the card's editing hint goes in its tooltip.
                 PortRenameField(port: port, store: store, isRenaming: $isRenaming)
+                    .help("Return to save, Esc to cancel")
                     .layoutPriority(1)
             } else {
                 HStack(spacing: 4) {
@@ -82,13 +84,14 @@ struct CompactPortRow: View {
                 }
                 .layoutPriority(1)
             }
-            // The editing hint takes the summary's place while renaming.
-            Text(isRenaming ? "Return to save, Esc to cancel" : PopoverText.compactSummary(port, devices: devices))
-                .lagoonFont(.caption)
-                .foregroundStyle(Lagoon.textTertiary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if !isRenaming {
+                Text(PopoverText.compactSummary(port, devices: devices))
+                    .lagoonFont(.caption)
+                    .foregroundStyle(Lagoon.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             if let link = port.link {
                 SpeedChip(link: link)
                     .fixedSize()
