@@ -405,9 +405,7 @@ struct DeviceInspector: View {
 
     /// Shown once the device has dropped, or runs slower than it has on this port.
     static func showsHistory(_ history: DeviceConnectionHistory) -> Bool {
-        if history.cycles > 0 { return true }
-        guard let best = history.bestLink?.bitsPerSecond, let last = history.lastLink?.bitsPerSecond else { return false }
-        return best > last
+        history.cycles > 0 || history.isSlower
     }
 
     private func connectionHistorySection(_ history: DeviceConnectionHistory) -> some View {

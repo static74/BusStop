@@ -27,6 +27,12 @@ public struct DeviceConnectionHistory: Sendable, Hashable {
     public var lastLink: LinkInfo?
     /// Set once the device has dropped often enough to raise a finding.
     public var culprit: LikelyCulprit?
+
+    /// True when the current link is slower than the best; Thunderbolt 5 Bandwidth Boost does not count.
+    public var isSlower: Bool {
+        guard let best = bestLink, let last = lastLink else { return false }
+        return SnapshotDiffer.linkChange(from: best, to: last) == .slower
+    }
 }
 
 /// Watches consecutive snapshots for connections that keep dropping, links
@@ -67,6 +73,7 @@ public struct ConnectionHealth: Sendable {
         var since: Date
     }
 
+    /// One return to the same Mac port, or a hidden one from Plug Event Count.
     struct Cycle: Sendable {
         var date: Date
         var port: PortKey?
@@ -82,7 +89,7 @@ public struct ConnectionHealth: Sendable {
     private var cycles: [String: [Cycle]] = [:]
     private var reversals: [String: [Date]] = [:]
     private var lastDirection: [String: SnapshotDiffer.LinkChange] = [:]
-    /// Fastest link per `"<identity>@<PortKey>"`.
+    /// Fastest link per `bestKey`.
     private var best: [String: LinkInfo] = [:]
     private var plugEvents: [PortKey: Int] = [:]
     private var sharedSerials = Set<String>()
@@ -102,6 +109,7 @@ public struct ConnectionHealth: Sendable {
         if afterGap {
             settleUntil = now.addingTimeInterval(Self.settleTime)
             away.removeAll()
+            lastDirection.removeAll()
         }
         let settled = !afterGap && now >= settleUntil
         let current = seen(in: snapshot, now: now)
@@ -124,10 +132,8 @@ public struct ConnectionHealth: Sendable {
                 cycles[identity, default: []].append(Cycle(date: now, port: new.port, parent: new.parentIdentity))
             }
         }
-        if !afterGap {
-            countLinkReversals(current, now: now)
-            countHiddenCycles(snapshot, current: current, now: now, settled: settled)
-        }
+        if settled { countLinkReversals(current, now: now) }
+        if !afterGap { countHiddenCycles(snapshot, current: current, now: now, settled: settled) }
         for port in snapshot.ports {
             if let count = port.statistics?.plugEventCount { plugEvents[port.key] = count }
         }
@@ -144,7 +150,7 @@ public struct ConnectionHealth: Sendable {
         let count = cycles[identity]?.count ?? 0
         return DeviceConnectionHistory(
             cycles: count,
-            bestLink: seen.port.flatMap { best["\(identity)@\($0)"] },
+            bestLink: Self.bestKey(identity, seen).flatMap { best[$0] },
             lastLink: seen.link,
             culprit: flaky.contains(identity) ? culprit(of: identity).culprit : nil)
     }
@@ -169,9 +175,15 @@ public struct ConnectionHealth: Sendable {
     /// Direction reversals of USB and Thunderbolt links between two captures.
     /// DisplayPort retrains on a mode change or wake, so it is left out, and
     /// `SnapshotDiffer.linkChange` already ignores Thunderbolt 5 Bandwidth Boost.
+    /// A device that moved is on another link, so its direction starts over.
     private mutating func countLinkReversals(_ current: [String: Seen], now: Date) {
         for (identity, new) in current {
-            guard let old = present[identity], let from = old.link, let to = new.link,
+            guard let old = present[identity] else { continue }
+            guard old.port == new.port, old.parentIdentity == new.parentIdentity else {
+                lastDirection[identity] = nil
+                continue
+            }
+            guard let from = old.link, let to = new.link,
                   Self.isDataLink(from), Self.isDataLink(to),
                   let change = SnapshotDiffer.linkChange(from: from, to: to) else { continue }
             if let last = lastDirection[identity], last != change { reversals[identity, default: []].append(now) }
@@ -191,7 +203,8 @@ public struct ConnectionHealth: Sendable {
             let isNow = Set(current.filter { $0.value.port == port.key }.keys)
             guard was == isNow, let root = port.devices.first,
                   let identity = current.first(where: { $0.value.deviceID == root.id })?.key else { continue }
-            for _ in 0..<((count - before) / 2) {
+            // Capped: a finding needs no more, and a glitched counter must not add billions.
+            for _ in 0..<min((count - before) / 2, Self.threshold) {
                 cycles[identity, default: []].append(Cycle(date: now, port: port.key, parent: nil))
             }
         }
@@ -209,6 +222,12 @@ public struct ConnectionHealth: Sendable {
         }
         away = away.filter { $0.value.since > cutoff }
         known = known.filter { present[$0.key] != nil || cycles[$0.key] != nil || reversals[$0.key] != nil }
+    }
+
+    /// `"<identity>@<PortKey>/<parent identity>"`: each port of a dock or hub
+    /// behind one Mac port can run at its own speed, so moving between them is not a slowdown.
+    private static func bestKey(_ identity: String, _ seen: Seen) -> String? {
+        seen.port.map { "\(identity)@\($0)/\(seen.parentIdentity ?? "")" }
     }
 
     private static func isDataLink(_ link: LinkInfo) -> Bool {
@@ -280,8 +299,8 @@ public struct ConnectionHealth: Sendable {
         // Slower than its own best on this port.
         for (identity, seen) in present.sorted(by: { $0.key < $1.key }) {
             guard let key = seen.port, let port = snapshot.port(key), let link = seen.link, Self.isDataLink(link),
-                  port.supportedTransports.contains(.usb3) || port.supportedTransports.contains(.cio) else { continue }
-            let bestKey = "\(identity)@\(key)"
+                  port.supportedTransports.contains(.usb3) || port.supportedTransports.contains(.cio),
+                  let bestKey = Self.bestKey(identity, seen) else { continue }
             guard let previous = best[bestKey], let change = SnapshotDiffer.linkChange(from: previous, to: link) else {
                 if best[bestKey] == nil { best[bestKey] = link }
                 continue
@@ -291,7 +310,8 @@ public struct ConnectionHealth: Sendable {
                 continue
             }
             guard settled || raisedIDs["\(DiagnosticKind.speedRegression.rawValue):\(identity)"] != nil,
-                  let node = snapshot.device(id: seen.deviceID) ?? snapshot.dock(withPart: seen.deviceID),
+                  let node = snapshot.device(id: seen.deviceID)
+                    ?? snapshot.dock(withPart: seen.deviceID)?.internalParts?.first(where: { $0.id == seen.deviceID }),
                   !DiagnosticsEngine.isUSB2Fallback(node) else { continue }
             let name = seen.name
             let bestRate = previous.rateLabel ?? previous.label
@@ -318,15 +338,15 @@ public struct ConnectionHealth: Sendable {
         let ports = Set(own.map(\.port))
         if ports.count >= 2 { return (.device, [identity]) }
         guard let last = own.last else { return (.cable, [identity]) }
-        // Several devices behind one hub that stayed connected.
+        // Several flaky devices behind one hub that stayed connected; a neighbour replugged once does not count.
         if let hub = last.parent, present[hub] != nil {
-            let siblings = Set(cycles.filter { $0.value.last?.parent == hub }.keys)
+            let siblings = Set(cycles.filter { flaky.contains($0.key) && $0.value.last?.parent == hub }.keys)
             if siblings.count >= 2 { return (.hub, siblings) }
         }
-        // Several devices straight on one port, none of them flaky on another port.
+        // Several flaky devices straight on one port, none of them dropping on another port.
         if last.parent == nil, let port = last.port {
-            let onPort = Set(cycles.filter { _, list in
-                list.allSatisfy { $0.port == port && $0.parent == nil }
+            let onPort = Set(cycles.filter { identity, list in
+                flaky.contains(identity) && list.allSatisfy { $0.port == port && $0.parent == nil }
             }.keys)
             if onPort.count >= Self.threshold { return (.port, onPort) }
         }

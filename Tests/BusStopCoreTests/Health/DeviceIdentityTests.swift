@@ -7,7 +7,8 @@ struct DeviceIdentityTests {
     typealias F = HealthFixtures
 
     private func keys(_ ports: [PhysicalPort]) -> [String: String] {
-        DeviceIdentity.keys(in: F.snapshot(0, ports))
+        var shared = Set<String>()
+        return DeviceIdentity.keys(in: F.snapshot(0, ports), sharedSerials: &shared)
     }
 
     @Test func serialSurvivesAControllerChange() {

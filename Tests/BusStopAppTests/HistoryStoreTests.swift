@@ -113,6 +113,19 @@ struct HistoryStoreTests {
         #expect(store.connectionHistory(ofDevice: deviceID)?.cycles == 3)
     }
 
+    @Test func aClockSetBackIsAGapForHealth() {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.ingest(capture(0))
+        store.ingest(capture(100))
+        // The clock goes back 50 s: the drops that follow fall in the settle time after a gap.
+        for t in stride(from: 50.0, through: 62, by: 6) {
+            store.ingest(capture(t, unplugged: true))
+            store.ingest(capture(t + 3))
+        }
+        #expect(!store.snapshot.diagnostics.contains { $0.kind == .flakyConnection })
+    }
+
     @Test func launchingInDemoLeavesTheFileByteIdentical() throws {
         let sandbox = Sandbox()
         _ = storeWithSavedEvents(sandbox)

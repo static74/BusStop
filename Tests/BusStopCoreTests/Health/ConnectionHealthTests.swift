@@ -78,13 +78,13 @@ struct ConnectionHealthTests {
         run.observe(0, [F.port(1, liquid: true)])
         var t = run.cycle(a, on: 1, times: 3, from: 20)
         #expect(run.last.first?.detail.contains("the cable") == true)
-        // Drive A moves to port 2 and is fine there; B and C drop on port 1 too.
+        // Drive A moves to port 2 and is fine there; B and C each arrive on port 1, then drop three times too.
         for device in [b, c] {
-            run.observe(t + 5, [F.port(1, liquid: true), F.port(2, [aOnPort2])])
-            run.observe(t + 10, [F.port(1, [device], liquid: true), F.port(2, [aOnPort2])])
-            run.observe(t + 15, [F.port(1, liquid: true), F.port(2, [aOnPort2])])
-            run.observe(t + 20, [F.port(1, [device], liquid: true), F.port(2, [aOnPort2])])
-            t += 20
+            for _ in 0..<4 {
+                run.observe(t + 5, [F.port(1, liquid: true), F.port(2, [aOnPort2])])
+                run.observe(t + 10, [F.port(1, [device], liquid: true), F.port(2, [aOnPort2])])
+                t += 10
+            }
         }
         let finding = try #require(run.last.first)
         #expect(run.kinds() == [.flakyConnection])
@@ -121,6 +121,30 @@ struct ConnectionHealthTests {
         #expect(finding.deviceID == hub([]).id)
     }
 
+    @Test func aNeighbourRepluggedOnceDoesNotShiftTheBlameToTheHub() throws {
+        let keyboard = F.usb("Keyboard", location: 0x0111_0000, bps: 12_000_000, version: "2.0", kind: .keyboard,
+                             vendorID: 0x05ac, productID: 0x024f)
+        let mouse = F.usb("Mouse", location: 0x0112_0000, bps: 12_000_000, version: "2.0", kind: .mouse,
+                          vendorID: 0x046d, productID: 0xc077)
+        func hub(_ children: [DeviceNode]) -> DeviceNode {
+            F.usb("USB hub", location: 0x0110_0000, kind: .hub, selfPowered: true, children: children)
+        }
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [hub([keyboard, mouse])])])
+        // The mouse is unplugged and plugged back once; the keyboard drops three times.
+        run.observe(15, [F.port(1, [hub([keyboard])])])
+        run.observe(18, [F.port(1, [hub([keyboard, mouse])])])
+        for i in 0..<3 {
+            let t = 20 + Double(i) * 10
+            run.observe(t + 5, [F.port(1, [hub([mouse])])])
+            run.observe(t + 10, [F.port(1, [hub([keyboard, mouse])])])
+        }
+        let finding = try #require(run.last.first)
+        #expect(run.kinds() == [.flakyConnection])
+        #expect(finding.id == "flakyConnection:\(keyboard.id)")
+        #expect(finding.detail.contains("Likely cause: the cable."))
+    }
+
     @Test func threeReversalsAreLinkFlapping() throws {
         var run = HealthRun()
         run.observe(0, [F.port(1, [F.drive()])])
@@ -147,6 +171,11 @@ struct ConnectionHealthTests {
         reset.observe(20, [F.port(1, [F.drive()], plugEvents: 4)])
         reset.observe(30, [F.port(1, [F.drive()], plugEvents: 6)])
         #expect(reset.health.history(ofDevice: F.drive().id)?.cycles == 1)
+        // A glitched reading adds no more than a finding needs.
+        var glitch = HealthRun()
+        glitch.observe(0, [F.port(1, [F.drive()], plugEvents: 13)])
+        glitch.observe(20, [F.port(1, [F.drive()], plugEvents: Int(UInt32.max))])
+        #expect(glitch.health.history(ofDevice: F.drive().id)?.cycles == ConnectionHealth.threshold)
     }
 
     @Test func findingHoldsUntilTheWindowIsQuiet() {
@@ -251,6 +280,29 @@ struct ConnectionHealthTests {
         #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 0)
     }
 
+    @Test func linkTrainingAroundWakeIsNotFlapping() {
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [F.drive()])])
+        run.observe(100, [F.port(1, [F.drive(bps: 5_000_000_000)])])
+        // After wake the link trains up and down while the bus settles, then once more after it.
+        run.observe(1_000, [F.port(1, [F.drive(bps: 5_000_000_000)])], afterGap: true)
+        run.observe(1_005, [F.port(1, [F.drive()])])
+        run.observe(1_010, [F.port(1, [F.drive(bps: 5_000_000_000)])])
+        run.observe(1_020, [F.port(1, [F.drive()])])
+        #expect(!run.kinds().contains(.linkFlapping))
+    }
+
+    @Test func movesBetweenPortsOfDifferentSpeedsAreNotFlapping() {
+        // No capture catches the drive away between ports.
+        var run = HealthRun()
+        let slow = F.drive(location: 0x0210_0000, bps: 5_000_000_000)
+        for i in 0..<6 {
+            run.observe(Double(i) * 20, i.isMultiple(of: 2) ? [F.port(1, [F.drive()]), F.port(2)]
+                                                            : [F.port(1), F.port(2, [slow])])
+        }
+        #expect(run.last.isEmpty)
+    }
+
     @Test func dockPlugInOverThreeCapturesIsQuiet() {
         let ssd = F.usb("Dock SSD", location: 0x0111_0000, serial: "SSD-1")
         func dock(_ children: [DeviceNode]) -> DeviceNode {
@@ -309,6 +361,35 @@ struct ConnectionHealthTests {
         run.observe(20, [F.port(1, [F.drive()]), F.port(2)])
         run.observe(30, [F.port(1), F.port(2, [F.drive(location: 0x0210_0000, bps: 5_000_000_000)])])
         #expect(run.last.isEmpty)
+    }
+
+    @Test func moveToASlowerPortOfTheSameDockIsNotARegression() {
+        func hub(_ name: String, location: UInt32, _ children: [DeviceNode]) -> DeviceNode {
+            F.usb(name, location: location, kind: .hub, children: children)
+        }
+        let slow = F.drive(location: 0x0121_0000, bps: 5_000_000_000)
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [hub("Front hub", location: 0x0110_0000, [F.drive(location: 0x0111_0000)]),
+                                   hub("Rear hub", location: 0x0120_0000, [])])])
+        run.observe(20, [F.port(1, [hub("Front hub", location: 0x0110_0000, [F.drive(location: 0x0111_0000)]),
+                                    hub("Rear hub", location: 0x0120_0000, [])])])
+        run.observe(25, [F.port(1, [hub("Front hub", location: 0x0110_0000, []),
+                                    hub("Rear hub", location: 0x0120_0000, [])])])
+        run.observe(30, [F.port(1, [hub("Front hub", location: 0x0110_0000, []),
+                                    hub("Rear hub", location: 0x0120_0000, [slow])])])
+        #expect(run.last.isEmpty)
+    }
+
+    @Test func dockPartFallingBackToUSB2IsNotAlsoASpeedRegression() {
+        func dock(_ part: DeviceNode) -> DeviceNode {
+            DeviceNode(id: "tb:d0c", bus: .thunderbolt, kind: .dock, name: "Dock", internalParts: [part])
+        }
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [dock(F.usb("USB hub", location: 0x0110_0000, kind: .hub))])])
+        run.observe(20, [F.port(1, [dock(F.usb("USB hub", location: 0x0110_0000, kind: .hub))])])
+        // Still declares USB 3.2, so usb2Fallback reports the hub against the dock instead.
+        run.observe(30, [F.port(1, [dock(F.usb("USB hub", location: 0x0010_0000, bps: 480_000_000, kind: .hub))])])
+        #expect(!run.kinds().contains(.speedRegression))
     }
 
     @Test func usb2FallbackIsNotAlsoASpeedRegression() {

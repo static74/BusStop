@@ -45,12 +45,6 @@ public enum DeviceIdentity {
         return result.filter { owners[$0.value]?.count == 1 }
     }
 
-    /// `keys(in:sharedSerials:)` for one snapshot on its own.
-    public static func keys(in snapshot: HostSnapshot) -> [String: String] {
-        var shared = Set<String>()
-        return keys(in: snapshot, sharedSerials: &shared)
-    }
-
     private static func key(for entry: Entry, sharedSerials: Set<String>) -> String? {
         let node = entry.node
         guard node.bus == .usb else { return node.id }
