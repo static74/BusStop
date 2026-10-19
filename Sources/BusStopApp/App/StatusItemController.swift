@@ -18,6 +18,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     private var observation: ObservationLoop?
     private var statusItemMoveObserver: NSObjectProtocol?
+    private var appearanceObservation: NSKeyValueObservation?
     /// Whether the popover is currently counted in `store.setUIVisible`.
     private var isPopoverCounted = false
     private var currentIconStyle: MenuBarIconStyle?
@@ -88,8 +89,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .darkAqua)
         popover.delegate = self
+        // Without its own appearance the popover can take the menu bar's,
+        // which follows the wallpaper rather than the app's theme. Kept in
+        // step with the app, so an open popover follows a theme change and,
+        // under Match System, a system Light/Dark switch.
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.initial]) { [weak self] app, _ in
+            MainActor.assumeIsolated {
+                self?.popover.appearance = app.effectiveAppearance
+            }
+        }
         popover.contentSize = NSSize(width: Lagoon.popoverWidth(for: settings.textSize), height: 420)
 
         // The SwiftUI content measures itself (fixed width, height up to

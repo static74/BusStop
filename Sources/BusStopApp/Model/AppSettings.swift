@@ -129,6 +129,33 @@ enum PowerPrecision: String, CaseIterable, Identifiable {
     }
 }
 
+/// The app's look. Dark is the Lagoon default; Match System follows System
+/// Settings › Appearance.
+enum ThemeSetting: String, CaseIterable, Identifiable {
+    case dark
+    case light
+    case system
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .dark: return "Dark"
+        case .light: return "Light"
+        case .system: return "Match System"
+        }
+    }
+
+    /// The appearance set on `NSApp`; nil lets the app follow the system.
+    var appearance: NSAppearance? {
+        switch self {
+        case .dark: return NSAppearance(named: .darkAqua)
+        case .light: return NSAppearance(named: .aqua)
+        case .system: return nil
+        }
+    }
+}
+
 enum TextSizeSetting: String, CaseIterable, Identifiable {
     case small
     case medium
@@ -206,7 +233,8 @@ final class AppSettings {
 
     // MARK: Appearance
 
-    /// Opacity of the black backing behind popover and window content (0.6…1).
+    var theme: ThemeSetting { didSet { defaults.set(theme.rawValue, forKey: Key.theme) } }
+    /// Opacity of the background behind popover and window content (0.6…1).
     var backgroundOpacity: Double { didSet { defaults.set(backgroundOpacity, forKey: Key.backgroundOpacity) } }
     /// Strength of the turquoise tint on glass controls (0…0.5).
     var glassTint: Double { didSet { defaults.set(glassTint, forKey: Key.glassTint) } }
@@ -261,6 +289,7 @@ final class AppSettings {
         menuBarPowerPrecision = string(Key.menuBarPowerPrecision).flatMap(PowerPrecision.init(rawValue:)) ?? .automatic
         menuBarPinnedPorts = (defaults.dictionary(forKey: Key.menuBarPinnedPorts) as? [String: String]) ?? [:]
         menuBarPinnedValue = string(Key.menuBarPinnedValue).flatMap(PinnedPortValue.init(rawValue:)) ?? .both
+        theme = string(Key.theme).flatMap(ThemeSetting.init(rawValue:)) ?? .dark
         backgroundOpacity = min(max(double(Key.backgroundOpacity, 0.88), 0.6), 1)
         glassTint = min(max(double(Key.glassTint, 0.22), 0), 0.5)
         textSize = string(Key.textSize).flatMap(TextSizeSetting.init(rawValue:)) ?? .medium
@@ -294,6 +323,7 @@ final class AppSettings {
         menuBarPowerPrecision = fresh.menuBarPowerPrecision
         menuBarPinnedPorts = fresh.menuBarPinnedPorts
         menuBarPinnedValue = fresh.menuBarPinnedValue
+        theme = fresh.theme
         backgroundOpacity = fresh.backgroundOpacity
         glassTint = fresh.glassTint
         textSize = fresh.textSize
@@ -324,6 +354,7 @@ final class AppSettings {
         static let menuBarPowerPrecision = "menuBarPowerPrecision"
         static let menuBarPinnedPorts = "menuBarPinnedPorts"
         static let menuBarPinnedValue = "menuBarPinnedValue"
+        static let theme = "theme"
         static let backgroundOpacity = "backgroundOpacity"
         static let glassTint = "glassTint"
         static let textSize = "textSize"
@@ -345,7 +376,7 @@ final class AppSettings {
         static let all = [
             showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, popoverLayout, menuBarIcon,
             menuBarText, menuBarPowerPrecision, menuBarPinnedPorts, menuBarPinnedValue,
-            backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
+            theme, backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
             notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
             demoScenario, keepHistory, portNames,
         ]

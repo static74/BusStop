@@ -25,7 +25,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
-- **Settings** for text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
+- **Settings** for a dark or light theme, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
 
 ## Screenshots
 

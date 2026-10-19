@@ -189,7 +189,6 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// Settings shared by every Bus Stop window.
     private func configureCommon(_ window: NSWindow) {
         window.isReleasedWhenClosed = false
-        window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = Lagoon.nsBackground
         window.tabbingMode = .disallowed
         window.delegate = self

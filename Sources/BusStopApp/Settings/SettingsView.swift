@@ -54,7 +54,6 @@ struct SettingsView: View {
         }
         .frame(width: 620, height: 500)
         .background(Lagoon.background)
-        .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(store.settings.textSize)
@@ -82,7 +81,7 @@ struct SettingsView: View {
 }
 
 extension View {
-    /// Shared look for settings panes: grouped form on true black.
+    /// Shared look for settings panes: grouped form on the Lagoon background.
     func settingsPaneStyle() -> some View {
         formStyle(.grouped)
             .scrollContentBackground(.hidden)
