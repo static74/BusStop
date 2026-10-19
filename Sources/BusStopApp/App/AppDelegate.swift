@@ -1,16 +1,18 @@
 import AppKit
 import BusStopCore
 
-/// App lifecycle: forces the dark appearance, runs as a menu bar accessory,
+/// App lifecycle: applies the theme setting, runs as a menu bar accessory,
 /// creates the store, the menu bar item and the main menu, and wires events
 /// to notifications.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: PortStore?
     private var statusItemController: StatusItemController?
+    private var themeLoop: ObservationLoop?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        // Always dark: the Lagoon look is true black (docs/SPEC.md §9).
-        NSApp.appearance = NSAppearance(named: .darkAqua)
+        // Before any window exists, and again on every change, so open
+        // windows switch too. Windows and the popover inherit it.
+        themeLoop = ObservationLoop { NSApp.appearance = AppSettings.shared.theme.appearance }
         NSApp.setActivationPolicy(.accessory)
         NSApp.mainMenu = MainMenu.make(delegate: self)
     }

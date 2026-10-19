@@ -40,7 +40,6 @@ struct PopoverView: View {
         }
         .frame(width: Lagoon.popoverWidth(for: settings.textSize))
         .background(LagoonBackground(opacity: settings.backgroundOpacity))
-        .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
         // macOS ignores dynamicTypeSize, so the Text Size setting scales every
         // lagoonFont below through the environment instead.

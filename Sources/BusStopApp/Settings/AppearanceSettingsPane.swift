@@ -1,7 +1,7 @@
 import BusStopCore
 import SwiftUI
 
-/// Appearance: background opacity, glass tint, text size and link animation.
+/// Appearance: theme, background opacity, glass tint, text size and link animation.
 struct AppearanceSettingsPane: View {
     var store: PortStore
 
@@ -11,6 +11,16 @@ struct AppearanceSettingsPane: View {
     var body: some View {
         @Bindable var settings = store.settings
         Form {
+            Section("Theme") {
+                Picker("Theme", selection: $settings.theme) {
+                    ForEach(ThemeSetting.allCases) { theme in
+                        Text(theme.title).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+                SettingsCaption("Dark is the Lagoon look. Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
+            }
+
             Section("Background") {
                 AppearancePreviewSwatch(opacity: settings.backgroundOpacity, tint: settings.glassTint)
                 Slider(value: $settings.backgroundOpacity, in: 0.6...1, step: 0.01) {

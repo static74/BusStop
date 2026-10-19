@@ -66,6 +66,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             return
         }
         if !popover.isShown {
+            // Without its own appearance the popover can take the menu bar's,
+            // which follows the wallpaper rather than the app's theme.
+            popover.appearance = NSApp.effectiveAppearance
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
         NSApp.activate()
@@ -88,7 +91,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .darkAqua)
         popover.delegate = self
         popover.contentSize = NSSize(width: Lagoon.popoverWidth(for: settings.textSize), height: 420)
 

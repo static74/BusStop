@@ -68,7 +68,6 @@ struct AboutView: View {
         .frame(minHeight: 360)
         .fixedSize(horizontal: false, vertical: true)
         .background { background }
-        .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(AppSettings.shared.textSize)

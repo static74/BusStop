@@ -64,7 +64,6 @@ struct TopologyWindowView: View {
         .searchable(text: $searchText, placement: .toolbar, prompt: Text("Search ports and devices"))
         .navigationTitle(store.snapshot.machine.name)
         .navigationSubtitle(store.hasLoaded ? WindowText.summary(store.snapshot) : "Reading ports…")
-        .preferredColorScheme(.dark)
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(settings.textSize)

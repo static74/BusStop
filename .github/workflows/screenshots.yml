@@ -112,6 +112,15 @@ jobs:
             capture "settings-$tab" "settings:$tab" -demoMode YES -demoScenario studioDesk
           done
           capture "about" about -demoMode YES
+          # The light theme. The runner is in system Dark mode, so these set it.
+          for scenario in studioDesk travel dockStation unplugged flakyCable; do
+            capture "$scenario-popover-light" popover -demoMode YES -demoScenario "$scenario" -theme light
+            capture "$scenario-topology-light" topology -demoMode YES -demoScenario "$scenario" -theme light
+            capture "$scenario-silhouette-light" topology:silhouette -demoMode YES -demoScenario "$scenario" -theme light
+          done
+          capture "power-light" topology:power -demoMode YES -demoScenario studioDesk -theme light
+          capture "settings-appearance-light" settings:appearance -demoMode YES -demoScenario studioDesk -theme light
+          capture "about-light" about -demoMode YES -theme light
           ls -la shots
 
       - name: Upload the screenshots

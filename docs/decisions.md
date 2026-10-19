@@ -2,6 +2,29 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: The theme setting
+
+**Question.** With a light palette in place (see the next entry), how does the user pick it, how does the choice reach every window, the popover and the system controls, and what happens to the code that forced Dark?
+
+**Decision.**
+
+- **One setting, `theme`:** `dark` (the default), `light` or `system` ("Match System"). It is the first control in Settings › Appearance, Reset All restores Dark, and `-theme light` works as a launch argument for screenshots and visual checks without being saved.
+- **Applied app-wide through `NSApp.appearance`.** `AppDelegate` sets it in `applicationWillFinishLaunching`, before any window exists, inside an `ObservationLoop`, so a change applies at once to open windows. Match System sets `nil`, so the app follows System Settings › Appearance by itself. Windows and SwiftUI roots no longer set an appearance of their own.
+- **All seven forced-dark sites are deleted together**: `NSApp.appearance` in `AppDelegate`, the popover's and every window's `darkAqua`, and `.preferredColorScheme(.dark)` on the Settings, About, popover and topology window roots. Deleting only some of them leaves windows in mixed appearances. The window background is the dynamic `Lagoon.nsBackground`, so it follows too.
+- **The popover takes `NSApp.effectiveAppearance` each time it opens.** A popover without its own appearance can take the menu bar's, which follows the wallpaper rather than the app. The popover is transient, so it closes before the theme can change under it.
+- **The menu bar preview in Settings › Menu Bar follows the app's theme**, not the system appearance as the plan asked. On macOS 26 and 27 the real menu bar also follows the wallpaper, so "follows the system" would be only approximate too; following the theme is exact under Match System and needs no code. If users report a mismatch, read the status item button's `effectiveAppearance` instead.
+- **The palette, the flipped power hues and the glow policy** are in the next entry; this one only makes them reachable.
+
+**Why.** `NSApp.appearance` is the one switch that reaches AppKit chrome (title bars, sidebars, toolbars, popover glass, menus) and SwiftUI's `colorScheme` alike, and every Lagoon token already resolves per appearance. Dark stays the default because the Lagoon look is designed around true black, and people who chose it should see no change.
+
+**Rejected alternatives.**
+
+- *An appearance per window.* Every new window or panel would have to remember to set it, and a missed one shows the other theme.
+- *`.preferredColorScheme` on each SwiftUI root.* It does not reach the AppKit chrome around the SwiftUI content.
+- *Match System as the default.* The roadmap item says Dark stays the default.
+- *A menu bar preview that follows the system appearance.* See above: approximate on macOS 26 and 27, and more code.
+- *One forced-dark helper in the token-prep PR (#17).* The plan asked to gather the seven sites behind a helper that still returned Dark. This PR deletes all seven at once, so the helper would have existed only to be deleted, and `grep -rn 'darkAqua\|preferredColorScheme' Sources` already found every site.
+
 ## 2026-10-19: A light Lagoon palette
 
 **Question.** Roadmap item 12 asks for a light theme. How does Lagoon look on white without losing what its colours mean: faster links and more power read as stronger, turquoise is the brand, and every text and stroke stays legible?
@@ -399,7 +422,7 @@ Each half was measured on its own in the window test. The detail column frame al
 
 **Question.** With the inspector open, the toolbar's search field straddled the end of a gray band over the detail column, because the inspector's black runs up under the toolbar. How should the toolbar strip look?
 
-**Decision.** The title bar is transparent on the map (an overview or port page in Graph mode), the All Ports and All Devices tables, Events, and Diagnostics while it has no findings. `TopologyWindowView` sets it through `HostingWindowObserver`. On those pages the toolbar strip shows the window's black over the page and the inspector alike (SPEC §4.1, "true dark"). Power, the List overview and Diagnostics with findings keep the system's opaque title bar. The Export menu hides its chevron.
+**Decision.** The title bar is transparent on the map (an overview or port page in Graph mode), the All Ports and All Devices tables, Events, and Diagnostics while it has no findings. `TopologyWindowView` sets it through `HostingWindowObserver`. On those pages the toolbar strip shows the window's background (black in Dark, SPEC §4.4) over the page and the inspector alike. Power, the Mac Outline, the List view of the overview or a port, and Diagnostics with findings keep the system's opaque title bar. The Export menu hides its chevron.
 
 **Why.** Over the map, which has no scroll view, the title bar drew an opaque gray band (40/255), while the inspector's black ran up under the toolbar. The search capsule began just left of that boundary. The map is clipped to its frame, so a transparent title bar there shows only black. The rows of the two tables and of Events scroll only below their page header, and Diagnostics has no scroll view while it has no findings, so nothing passes under the strip on those pages either.
 
