@@ -256,10 +256,12 @@ struct PortInspector: View {
         let statistics = port.statistics
         let standsOut = store.snapshot.diagnostics.first { $0.kind == .portStandsOut && $0.portKey == port.key }
         return InspectorSection(title: "Health") {
-            InspectorRow(label: "Connections", value: Self.healthValue(statistics?.connectionCount, health.connections))
-            InspectorRow(label: "Plug events", value: Self.healthValue(statistics?.plugEventCount, health.plugEvents))
+            InspectorRow(label: "Connections",
+                         value: statistics?.connectionCount.map { Self.healthValue($0, health.connections) })
+            InspectorRow(label: "Plug events",
+                         value: statistics?.plugEventCount.map { Self.healthValue($0, health.plugEvents) })
             InspectorRow(label: "Overcurrent events",
-                         value: Self.healthValue(statistics?.overcurrentCount, health.overcurrents))
+                         value: statistics?.overcurrentCount.map { Self.healthValue($0, health.overcurrents) })
             InspectorRow(label: "Liquid detections", value: Self.healthValue(nil, health.liquidDetections))
             InspectorRow(label: "Connection errors", value: Self.healthValue(nil, health.errors))
             if let standsOut {
@@ -272,7 +274,8 @@ struct PortInspector: View {
         }
     }
 
-    /// "7 total · 2 in the last 7 days", or only the last 7 days when the port has no counter.
+    /// "7 total · 2 in the last 7 days", or only the last 7 days for counts with no hardware total.
+    /// A hardware row is hidden when the port lacks its counter, since its 7 days come from that counter.
     static func healthValue(_ total: Int?, _ lastWeek: Int) -> String {
         let week = "\(lastWeek) in the last 7 days"
         return total.map { "\($0) total · \(week)" } ?? week

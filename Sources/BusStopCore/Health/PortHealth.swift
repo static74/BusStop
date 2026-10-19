@@ -8,9 +8,11 @@ public struct PortHealth: Sendable, Hashable {
     public var connections = 0
     public var overcurrents = 0
     public var liquidDetections = 0
-    /// Connections that ended within `shortConnection`, slower links and USB 2
-    /// fallbacks in the event log. A slowdown and the USB 2 fallback it raises
-    /// in the same capture count once.
+    /// Connections that ended within `shortConnection` on the port they
+    /// started on, slower links and USB 2 fallbacks in the event log. A
+    /// slowdown and the USB 2 fallback it raises in the same capture count
+    /// once, and a device's fallback counts once per port, since it comes back
+    /// on every plug-in when the cable is the cause.
     public var errors = 0
     /// The capture that saw the last overcurrent increase, at any age.
     public var lastOvercurrentAt: Date?
@@ -46,23 +48,29 @@ extension HistoryArchive {
         // Oldest first, so a connect is seen before the disconnect that ends it.
         var connectedAt: [String: (date: Date, port: PortKey)] = [:]
         var slowdowns = Set<String>()
+        var fallbacks = Set<String>()
+        let fallbackPrefix = "\(DiagnosticKind.usb2Fallback.rawValue):"
         for event in section.events.reversed() where event.date >= start {
             let subject = event.subjectID ?? event.deviceID ?? event.id
             switch event.kind {
             case .deviceConnected:
                 if let port = event.portKey { connectedAt[subject] = (event.date, port) }
             case .deviceDisconnected:
-                if let connect = connectedAt.removeValue(forKey: subject),
+                // A device that moved ports raised no events, so the disconnect can be on another port.
+                if let connect = connectedAt.removeValue(forKey: subject), event.portKey == connect.port,
                    event.date.timeIntervalSince(connect.date) < PortHealth.shortConnection {
                     result[connect.port, default: PortHealth()].errors += 1
                 }
             case .linkChanged, .diagnosticRaised:
-                let isSlowdown = event.kind == .linkChanged
-                    ? event.isDowngrade : subject.hasPrefix("\(DiagnosticKind.usb2Fallback.rawValue):")
-                // The fallback finding a slowdown raises carries the same device and date.
-                guard isSlowdown, let port = event.portKey,
-                      slowdowns.insert("\(event.date.timeIntervalSince1970)|\(event.deviceID ?? subject)").inserted
+                let isFallback = event.kind == .diagnosticRaised && subject.hasPrefix(fallbackPrefix)
+                guard event.kind == .linkChanged ? event.isDowngrade : isFallback, let port = event.portKey
                 else { break }
+                // The device, not the dock its part is built into: a slowdown's subject, a fallback's id suffix.
+                let device = isFallback ? String(subject.dropFirst(fallbackPrefix.count)) : subject
+                // The fallback a slowdown raises carries the same device and date.
+                let newCapture = slowdowns.insert("\(event.date.timeIntervalSince1970)|\(device)").inserted
+                let newFallback = !isFallback || fallbacks.insert("\(port)|\(device)").inserted
+                guard newCapture, newFallback else { break }
                 result[port, default: PortHealth()].errors += 1
             default:
                 break

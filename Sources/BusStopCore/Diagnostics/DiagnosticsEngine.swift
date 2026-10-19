@@ -525,7 +525,7 @@ public enum DiagnosticsEngine {
     static func overcurrents(_ snapshot: HostSnapshot, ports: [PortKey: PortHealth]) -> [Diagnostic] {
         snapshot.ports.compactMap { port in
             guard let health = ports[port.key], let last = health.lastOvercurrentAt,
-                  snapshot.capturedAt.timeIntervalSince(last) < overcurrentHold else { return nil }
+                  abs(snapshot.capturedAt.timeIntervalSince(last)) < overcurrentHold else { return nil }
             let count = max(health.overcurrents, 1)
             let times = count == 1 ? "This happened once, in the last 24 hours."
                 : "This happened in the last 24 hours, and \(count) times in the last 7 days."
@@ -576,8 +576,9 @@ public enum DiagnosticsEngine {
                 kind: .portStandsOut,
                 severity: .info,
                 title: "\(port.label.title) has more connection problems than the other ports",
-                detail: "In the last 7 days, \(health.errors) of \(health.connections) connections on "
-                    + "\(port.label.title) had a problem: the device dropped within 10 seconds, slowed down or "
+                // Errors come from the event log, connections from a hardware counter: errors can be the larger.
+                detail: "In the last 7 days, \(port.label.title) had \(health.errors) connection problems over "
+                    + "\(health.connections) connections: a device dropped within 10 seconds, slowed down or "
                     + "fell back to USB 2. That is at least 3 times as often as on this Mac's other "
                     + "\(port.kind.displayName) ports.",
                 suggestion: "Check the port for dust or damage, and try the same cable and device on another port. "

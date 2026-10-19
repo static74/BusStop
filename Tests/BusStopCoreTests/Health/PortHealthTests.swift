@@ -113,13 +113,23 @@ struct PortHealthTests {
         events.append(event(.diagnosticRaised, "usb2Fallback:usb:stick", 70, port: key2, device: "usb:stick"))
         events.append(event(.linkChanged, "usb:t9", 80, port: key1))      // faster: fine
         events.append(event(.diagnosticRaised, "hubOverBudget:usb:hub", 90, port: key1))
+        // Moved to port 2 without events, then left: not port 1's error.
+        events.append(event(.deviceConnected, "usb:cam", 100, port: key1))
+        events.append(event(.deviceDisconnected, "usb:cam", 105, port: key2))
+        // Two parts of one dock slow down together: two errors, each part's fallback counted with its slowdown.
+        events.append(event(.linkChanged, "usb:dock-a", 120, port: key2, device: "usb:dock", downgrade: true))
+        events.append(event(.linkChanged, "usb:dock-b", 120, port: key2, device: "usb:dock", downgrade: true))
+        events.append(event(.diagnosticRaised, "usb2Fallback:usb:dock-a", 120, port: key2, device: "usb:dock"))
+        // The same stick falling back again on later plug-ins is the same cable, not new errors.
+        events.append(event(.diagnosticRaised, "usb2Fallback:usb:stick", 130, port: key2, device: "usb:stick"))
+        events.append(event(.diagnosticRaised, "usb2Fallback:usb:stick", 140, port: key2, device: "usb:stick"))
         // Eight days ago: outside the window.
         events += visit("usb:old", -8 * 86_400, after: 1, port: key1)
         archive.append(events.sorted { $0.date < $1.date }, model: model)
 
-        let ports = archive.portHealth(model: model, now: start.addingTimeInterval(100), calendar: calendar)
+        let ports = archive.portHealth(model: model, now: start.addingTimeInterval(200), calendar: calendar)
         #expect(ports[key1]?.errors == 2)
-        #expect(ports[key2]?.errors == 1)
+        #expect(ports[key2]?.errors == 3)
     }
 
     // MARK: Stands out
@@ -132,7 +142,7 @@ struct PortHealthTests {
                                                               ports: [key1: health(10, 5)]).first)
         #expect(finding.severity == .info)
         #expect(finding.portKey == key1)
-        #expect(finding.detail.contains("5 of 10 connections"))
+        #expect(finding.detail.contains("5 connection problems over 10 connections"))
         // Siblings at 0.2 put the bar at 0.6.
         #expect(standsOut([key1: health(10, 5), key2: health(10, 2), key3: health(10, 2)]).isEmpty)
     }

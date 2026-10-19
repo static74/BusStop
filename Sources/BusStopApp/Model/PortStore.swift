@@ -582,6 +582,8 @@ final class PortStore {
             portHealth = archive.portHealth(model: built.machine.model, now: built.capturedAt)
         }
 
+        // shortcut: stands-out sees this capture's events on the next capture (the events depend on the
+        // diagnostics); info only, revisit if users notice the lag.
         built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, ports: portHealth, extra: cachedHealth)
 
         let isFirstCapture = !hasLoaded
