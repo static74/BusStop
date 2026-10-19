@@ -70,7 +70,7 @@ struct TopologyWindowLayoutTests {
     /// dockStation is the Mac Outline's two-face desktop layout.
     @Test(arguments: [
         (TopologySidebarItem.events, DemoScenario.studioDesk), (.diagnostics, .studioDesk),
-        (.silhouette, .studioDesk), (.silhouette, .dockStation),
+        (.power, .studioDesk), (.silhouette, .studioDesk), (.silhouette, .dockStation),
     ], [900.0, 1000.0])
     func narrowWindowWithInspectorSettles(page: (item: TopologySidebarItem, scenario: DemoScenario), width: Double) {
         let suite = "BusStopAppTests.WindowLayout"

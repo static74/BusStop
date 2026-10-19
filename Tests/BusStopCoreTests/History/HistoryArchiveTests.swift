@@ -242,6 +242,31 @@ struct HistoryArchiveTests {
         #expect(archive.sections[model]?.pendingPower.count == 1)
     }
 
+    @Test func powerSamplesResampleToTheStep() {
+        var archive = HistoryArchive()
+        var section = HistoryArchive.Section()
+        // Minutes 0-19 and 40-41; Bus Stop was not running in between.
+        section.power = (Array(0..<20) + [40, 41]).map { minute in
+            HistoryArchive.PowerBucket(start: start.addingTimeInterval(Double(minute) * 60),
+                                       systemInputMilliwatts: minute * 1_000,
+                                       portMilliwatts: minute.isMultiple(of: 2) ? ["2/1": minute * 100] : [:])
+        }
+        archive.sections[model] = section
+
+        let minutes = archive.powerSamples(model: model, since: start.addingTimeInterval(5 * 60), step: 60)
+        #expect(minutes.count == 17)
+        #expect(minutes.first?.date == start.addingTimeInterval(5 * 60))
+        #expect(minutes.first?.systemInputMilliwatts == 5_000)
+
+        let tens = archive.powerSamples(model: model, since: start, step: 600)
+        // Windows with no saved minute are left out, so the gap stays a gap.
+        #expect(tens.map(\.date) == [0, 600, 2_400].map { start.addingTimeInterval($0) })
+        #expect(tens.map(\.systemInputMilliwatts) == [4_500, 14_500, 40_500])
+        // A port is averaged over the minutes that had a reading: 0, 2, 4, 6 and 8.
+        #expect(tens.first?.portMilliwatts == ["2/1": 400])
+        #expect(archive.powerSamples(model: "Mac16,11", since: start, step: 600).isEmpty)
+    }
+
     @Test func eachModelHasItsOwnSection() {
         var archive = HistoryArchive()
         archive.record(capture(0, plugs: 1), afterGap: true)

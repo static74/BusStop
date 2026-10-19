@@ -54,6 +54,23 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
             self.portMilliwatts = portMilliwatts
         }
 
+        /// The average of `samples`; a port is averaged over the samples that
+        /// had a reading for it.
+        init(start: Date, averaging samples: [PowerSample]) {
+            func average(_ values: [Int]) -> Int? {
+                values.isEmpty ? nil : Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+            }
+            var ports: [String: Int] = [:]
+            for key in Set(samples.flatMap(\.portMilliwatts.keys)) {
+                ports[key] = average(samples.compactMap { $0.portMilliwatts[key] })
+            }
+            self.init(start: start,
+                      systemInputMilliwatts: average(samples.compactMap(\.systemInputMilliwatts)),
+                      batteryMilliwatts: average(samples.compactMap(\.batteryMilliwatts)),
+                      systemLoadMilliwatts: average(samples.compactMap(\.systemLoadMilliwatts)),
+                      portMilliwatts: ports)
+        }
+
         enum CodingKeys: String, CodingKey {
             case start = "t", systemInputMilliwatts = "in", batteryMilliwatts = "bat", systemLoadMilliwatts = "load"
             case portMilliwatts = "ports"
@@ -147,6 +164,24 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
             }
         }
         return result
+    }
+
+    /// Saved power for one Mac model from `start` on, oldest first, averaged
+    /// over windows of `step` seconds (60 returns the minutes as saved). A
+    /// window with no saved minute is left out, so a gap stays a gap. The
+    /// minute in progress is not included.
+    public func powerSamples(model: String, since start: Date, step: TimeInterval = 60) -> [PowerSample] {
+        let minutes = (sections[model]?.power ?? []).filter { $0.start >= start }.map(PowerSample.init)
+        guard step > 60 else { return minutes }
+        return Dictionary(grouping: minutes) { Self.windowStart($0.date, step: step) }
+            .sorted { $0.key < $1.key }
+            .map { PowerSample(PowerBucket(start: $0.key, averaging: $0.value)) }
+    }
+
+    /// The start of the `step`-second window holding `date`. Saved minutes
+    /// and resampled windows both use it, so they line up.
+    static func windowStart(_ date: Date, step: TimeInterval) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / step).rounded(.down) * step)
     }
 
     // MARK: Codec
@@ -246,8 +281,7 @@ extension HistoryArchive.Section {
     /// bucket when the sample starts a new one. A sample older than what is
     /// already kept is dropped.
     mutating func addPower(_ sample: PowerSample) {
-        let minute = Date(timeIntervalSinceReferenceDate:
-            (sample.date.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60)
+        let minute = HistoryArchive.windowStart(sample.date, step: 60)
         if let last = power.last, minute <= last.start { return }
         if let last = pendingPower.last {
             if sample.date < last.date { return }
@@ -259,19 +293,9 @@ extension HistoryArchive.Section {
 
     mutating func closePendingMinute() {
         guard let first = pendingPower.first else { return }
-        func average(_ values: [Int]) -> Int? {
-            values.isEmpty ? nil : Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
-        }
-        var ports: [String: Int] = [:]
-        for key in Set(pendingPower.flatMap(\.portMilliwatts.keys)) {
-            ports[key] = average(pendingPower.compactMap { $0.portMilliwatts[key] })
-        }
         power.append(HistoryArchive.PowerBucket(
-            start: Date(timeIntervalSinceReferenceDate: (first.date.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60),
-            systemInputMilliwatts: average(pendingPower.compactMap(\.systemInputMilliwatts)),
-            batteryMilliwatts: average(pendingPower.compactMap(\.batteryMilliwatts)),
-            systemLoadMilliwatts: average(pendingPower.compactMap(\.systemLoadMilliwatts)),
-            portMilliwatts: ports))
+            start: HistoryArchive.windowStart(first.date, step: 60),
+            averaging: pendingPower))
         pendingPower.removeAll()
     }
 

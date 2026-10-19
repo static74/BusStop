@@ -2,16 +2,20 @@ import BusStopCore
 import SwiftUI
 
 /// The Power page: totals, the charger and its profiles, the battery, and
-/// power over time for the system and for each port.
+/// power over time for the system and for each port, over the last 10
+/// minutes (live) or the last hour, day or week (saved history).
 struct PowerDetailView: View {
     var store: PortStore
+    @State private var range = PowerRange.tenMinutes
+    @State private var cache = SavedPowerCache()
 
     var body: some View {
         let snapshot = store.snapshot
         let power = snapshot.power
+        let samples = samples(for: range, snapshot: snapshot)
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                WindowDetailHeader(title: "Power", subtitle: subtitle(power))
+                header(subtitle(power))
 
                 PowerTotalsRow(power: power)
 
@@ -26,11 +30,9 @@ struct PowerDetailView: View {
                     }
                 }
 
-                SystemPowerChartCard(
-                    history: store.history,
-                    load: SystemLoadRecorder.shared.series(for: store.history, current: snapshot)
-                )
-                PortPowerChartCard(history: store.history) { key in
+                SystemPowerChartCard(samples: samples, range: range,
+                                     spanText: spanText(samples, snapshot: snapshot))
+                PortPowerChartCard(samples: samples, range: range) { key in
                     snapshot.port(key)?.label.title ?? "Port \(key)"
                 }
             }
@@ -38,6 +40,52 @@ struct PowerDetailView: View {
             .frame(maxWidth: 1100, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// The range picker beside the title, or under it when one row does not
+    /// fit beside the inspector.
+    private func header(_ subtitle: String) -> some View {
+        ViewThatFits(in: .horizontal) {
+            WindowDetailHeader(title: "Power", subtitle: subtitle) { rangePicker }
+            VStack(alignment: .leading, spacing: 10) {
+                WindowDetailHeader(title: "Power", subtitle: subtitle)
+                rangePicker
+            }
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rangePicker: some View {
+        Picker("Chart range", selection: $range) {
+            ForEach(PowerRange.allCases) { Text($0.title).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+        .help("How far back the power charts reach. Ten minutes is live; longer ranges come from saved history.")
+    }
+
+    /// The live buffer for ten minutes, else the saved minutes for this Mac
+    /// model, resampled once per new saved minute rather than on every capture.
+    private func samples(for range: PowerRange, snapshot: HostSnapshot) -> [PowerSample] {
+        guard range != .tenMinutes else { return store.history.samples }
+        let model = snapshot.machine.model
+        let saved = store.archive.sections[model]?.power ?? []
+        let key = SavedPowerCache.Key(range: range, model: model, newest: saved.last?.start, count: saved.count)
+        if cache.key != key {
+            cache.key = key
+            cache.samples = store.archive.powerSamples(model: model, since: snapshot.capturedAt - range.span,
+                                                       step: range.step)
+        }
+        return cache.samples
+    }
+
+    /// The range, and when the samples start if that is later than the range
+    /// would reach (history saved for a shorter time, or a fresh launch).
+    private func spanText(_ samples: [PowerSample], snapshot: HostSnapshot) -> String {
+        guard let first = samples.first?.date,
+              first > snapshot.capturedAt - range.span + range.maxGap else { return range.spanText }
+        return range.spanText + " · since " + first.formatted(range.tooltipFormat)
     }
 
     private func subtitle(_ power: PowerSummary) -> String {
@@ -265,28 +313,44 @@ struct PowerBatteryBar: View {
 
 // MARK: - Charts
 
-/// System input, battery and system load over the last few minutes.
+/// Saved power resampled for one range. A reference type, so `body` can
+/// refresh it without invalidating the view.
+final class SavedPowerCache {
+    struct Key: Equatable {
+        var range: PowerRange
+        var model: String
+        var newest: Date?
+        var count: Int
+    }
+
+    var key: Key?
+    var samples: [PowerSample] = []
+}
+
+/// System input, battery and system load over the chosen range.
 struct SystemPowerChartCard: View {
-    var history: PowerHistory
-    /// System load in watts (from `SystemLoadRecorder`).
-    var load: [(date: Date, watts: Double)]
+    var samples: [PowerSample]
+    var range: PowerRange
+    var spanText: String
 
     var body: some View {
-        let points = PowerChartData.systemPoints(history, load: load)
+        let points = PowerChartData.systemPoints(samples, maxGap: range.maxGap)
         let domain = [PowerChartData.inputName, PowerChartData.batteryName, PowerChartData.loadName]
             .filter { name in points.contains { $0.series == name } }
         let colors = domain.map(PowerChartData.systemColor)
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "System power", trailing: "Last \(Int(history.window / 60)) minutes")
-            if points.count < 2 {
-                PowerChartEmpty(message: "System input, battery and system load appear here once a few readings arrive. Some Macs do not report them.")
+            SectionHeader(title: "System power", trailing: spanText)
+            if points.isEmpty {
+                PowerChartEmpty(message: "System input, battery and system load appear here once readings arrive. Some Macs do not report them.")
             } else {
                 PowerLineChart(
                     points: points,
+                    isolatedPoints: PowerChartData.isolated(points),
                     domain: domain,
                     colors: colors,
                     areaSeries: PowerChartData.inputName,
-                    showsZeroLine: points.contains { $0.watts < 0 }
+                    showsZeroLine: points.contains { $0.watts < 0 },
+                    range: range
                 )
                 .frame(height: 220)
             }
@@ -295,24 +359,27 @@ struct SystemPowerChartCard: View {
     }
 }
 
-/// Power through each port over the last few minutes.
+/// Power through each port over the chosen range.
 struct PortPowerChartCard: View {
-    var history: PowerHistory
+    var samples: [PowerSample]
+    var range: PowerRange
     var title: (PortKey) -> String
 
     var body: some View {
-        let series = PowerChartData.portSeries(history, title: title)
+        let series = PowerChartData.portSeries(samples, title: title, maxGap: range.maxGap)
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Per-port power", trailing: "Positive: out to devices · negative: into the Mac")
-            if series.points.count < 2 {
+            if series.points.isEmpty {
                 PowerChartEmpty(message: "No port reports live power yet. Ports with a charger or a powered device show up here.")
             } else {
                 PowerLineChart(
                     points: series.points,
+                    isolatedPoints: PowerChartData.isolated(series.points),
                     domain: series.domain,
                     colors: series.colors,
                     areaSeries: nil,
-                    showsZeroLine: true
+                    showsZeroLine: true,
+                    range: range
                 )
                 .frame(height: 220)
             }

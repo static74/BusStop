@@ -43,4 +43,22 @@ struct PowerHistoryTests {
         #expect((try? JSONDecoder().decode(PowerSample.self, from: old))?.systemLoadMilliwatts == nil)
         #expect((try? JSONDecoder().decode(PowerSample.self, from: old)) != nil)
     }
+
+    @Test func segmentsSplitAtGaps() {
+        let dates = [0.0, 10, 20, 200, 210, 1_000].map { start.addingTimeInterval($0) }
+        #expect(PowerSample.segments(dates, maxGap: 30) == [0, 0, 0, 1, 1, 2])
+        #expect(PowerSample.segments(dates, maxGap: 1_000) == [0, 0, 0, 0, 0, 0])
+        #expect(PowerSample.segments([], maxGap: 30).isEmpty)
+    }
+
+    @Test func seriesSkipSamplesWithoutAReading() {
+        let samples = [PowerSample(date: start, systemInputMilliwatts: 2_000, systemLoadMilliwatts: 9_500,
+                                   portMilliwatts: ["2/1": -1_500]),
+                       PowerSample(date: start.addingTimeInterval(5), batteryMilliwatts: 500)]
+        #expect(samples.systemInputSeries.map(\.watts) == [2])
+        #expect(samples.systemLoadSeries.map(\.watts) == [9.5])
+        #expect(samples.batterySeries.map(\.date) == [start.addingTimeInterval(5)])
+        #expect(samples.portKeys.map(\.description) == ["2/1"])
+        #expect(samples.series(for: samples.portKeys[0]).map(\.watts) == [-1.5])
+    }
 }

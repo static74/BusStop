@@ -13,7 +13,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Port map in the menu bar.** One card per physical port in physical order, with what is connected, the active transports and the power in or out, or a compact layout with one line per port. Optional live text next to the icon: total watts, device count, or both. Pin one port, such as the charging port, to show its link speed or watts there too.
 - **Link speeds** for every device and port, such as "USB 3.2 Gen 2 @ 10 Gb/s" or "USB4 v2 / TB5 @ 80 Gb/s".
 - **Hubs, docks and daisy chains.** USB hub trees and Thunderbolt / USB4 chains, with device counts and power rolled up to each hub and to the Mac.
-- **Power.** Watts in and out per port, a charger card with the active USB-PD contract ("20 V × 4.7 A") and every profile the charger offers, battery state, and a sparkline of the last few minutes.
+- **Power.** Watts in and out per port, a charger card with the active USB-PD contract ("20 V × 4.7 A") and every profile the charger offers, battery state, a sparkline of the last few minutes in the popover, and charts of system and per-port power over the last 10 minutes, hour, day or week on the Power page.
 - **Real port names.** "Left Front · USB-C" instead of "Port 2", from a per-model catalogue. You can rename any port.
 - **Instant change detection.** Plug and unplug events show up at once, with an event timeline kept between launches and optional notifications for connections, disconnections and link downgrades.
 - **Topology window.** A graph of host, ports and devices with links drawn by speed, sortable port and device tables, power charts, the event log, diagnostics and an inspector with the raw IORegistry keys.

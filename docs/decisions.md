@@ -2,6 +2,29 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: The Power page charts saved history in four fixed ranges
+
+**Question.** With power saved per minute for 7 days (see "History is a local JSON file" below), how does the Power page show it, and how do its lines handle the hours Bus Stop was not running or the Mac slept?
+
+**Decision.**
+
+- **Ranges.** A segmented picker with 10 min, 1 h, 24 h and 7 d. Ten minutes stays the live `PowerHistory` buffer (a point every 2 to 10 s); the others read `HistoryArchive.powerSamples(model:since:step:)`: saved minutes for 1 h and 24 h, averaged per 10 minutes for 7 d, which keeps a week near 1,000 points per series instead of 10,080. The range is page state, not a setting, so it adds no `AppSettings` key and resets to 10 min at launch.
+- **Gaps.** A series breaks where two of its own points are more than 30 s apart (10 min) or 2.5 steps apart (150 s, or 25 minutes for 7 d). Each point carries a segment number and the chart's `series` is "name#segment", while the colour still comes from the name. Segments are found per series rather than per sample, so a port that was unplugged for an hour also breaks instead of drawing a straight line across the hour.
+- **Resampling** averages the saved minutes in each window, as the minutes themselves average their samples; a window with no saved minute is left out, so a gap stays a gap. The minute in progress is not shown until it ends.
+- **Cache.** The page keeps the resampled samples in a small reference object keyed by range, model and the newest saved minute, so the page's redraw on every capture does not resample a week of minutes.
+- **System load** comes from `PowerSample.systemLoadMilliwatts`, so `SystemLoadRecorder`, which recorded load separately only after the window first opened, is deleted.
+- **Series helpers** (`systemInputSeries`, `batterySeries`, `systemLoadSeries`, `series(for:)`, `portKeys`) move from `PowerHistory` onto any collection of `PowerSample`, so the live buffer and the saved samples go through the same chart code. `PowerHistory` no longer forwards them; the popover reads `history.samples.systemInputSeries`.
+- **Departures from the lane design:** `PowerSample.segments(_:maxGap:)` takes one series' dates instead of every sample (above), and `PowerHistory` keeps no forwarding properties.
+
+**Why.** Fixed ranges match how people ask ("what happened overnight", "this week") and keep each chart's point count bounded. Splitting at gaps is honest: a line across eight hours of sleep would claim a reading that was never taken.
+
+**Rejected alternatives.**
+
+- *A free zoomable time axis.* More code and more points on screen for no question the four ranges do not answer.
+- *Showing the minute in progress.* It would jump as samples arrive and needs a second path through the archive; a minute's lag on a 1-hour chart does not matter.
+- *Gaps by a dashed line or a grey band.* A break says the same with no new marks, and Swift Charts bodies must stay `ForEach` only for the macOS 26 build.
+- *Remembering the range.* A new setting key (and `Key.all`, `resetAll()`, a launch argument) for a choice that is quick to make again.
+
 ## 2026-10-19: The Mac Outline draws a desktop's back as seen from behind
 
 **Question.** Roadmap item 9 draws each port where it sits on the Mac. The catalogue says "Rear (left)" for a desktop port. Whose left is that, which way is the outline drawn, and which ports does it show?

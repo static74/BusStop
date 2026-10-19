@@ -102,7 +102,6 @@ struct TopologyWindowView: View {
         .onChange(of: store.revealGeneration, initial: true) { _, generation in
             handleReveal(generation)
         }
-        .onAppear { SystemLoadRecorder.shared.start(store: store) }
     }
 
     // MARK: Detail
