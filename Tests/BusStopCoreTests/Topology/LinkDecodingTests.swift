@@ -284,6 +284,10 @@ struct TopologyTextTests {
         #expect(TopologyValues.signedMilliwatts(.string("18446744073709549616")) == -2000)
         #expect(TopologyValues.signedMilliwatts(.string("-25")) == -25)
         #expect(TopologyValues.signedMilliwatts(.int(Int64.max)) == nil)
+        // Int.min would trap on negation or abs().
+        #expect(TopologyValues.signedMilliwatts(.int(Int64.min)) == nil)
+        #expect(TopologyValues.signedMilliwatts(.string("9223372036854775808")) == nil)
+        #expect(TopologyValues.signedMilliwatts(.double(9.223372036854775808e18)) == nil)
         #expect(TopologyValues.signedMilliwatts(.double(6e18)) == nil)
         #expect(TopologyValues.signedMilliwatts(.double(.nan)) == nil)
         #expect(TopologyValues.signedMilliwatts(.double(1e30)) == nil)
