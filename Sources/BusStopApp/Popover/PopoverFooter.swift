@@ -23,7 +23,7 @@ struct PopoverFooter: View {
                     .lagoonFont(.callout, weight: .semibold)
                     // Black on the deep turquoise fill reads at about 6.8:1, like
                     // the DEMO badge; near-white text there was below 3:1.
-                    .foregroundStyle(Lagoon.background)
+                    .foregroundStyle(Lagoon.onAccent)
             }
             .buttonStyle(.glassProminent)
             .tint(Lagoon.accentDeep)

@@ -107,6 +107,24 @@ extension LiveMonitor {
         return max(now, lastCapture + interval)
     }
 
+    /// A power-only capture never reuses a topology older than this, in
+    /// seconds: the safety net for property changes that post no IOKit
+    /// notification (a PD contract renegotiated on a component node, say).
+    static let maximumTopologyAge: TimeInterval = 60
+
+    /// Whether the next capture re-reads the whole topology: when a request
+    /// asked for it, when there has been no full capture yet, or when the
+    /// last one is older than `maximumTopologyAge`.
+    static func needsFullCapture(requested: Bool, lastFull: DispatchTime?, now: DispatchTime) -> Bool {
+        guard !requested, let lastFull else { return true }
+        return now >= lastFull + maximumTopologyAge
+    }
+
+    /// Timer leeway for a polling interval: a tenth of it, at least 10 ms.
+    static func pollLeeway(_ interval: TimeInterval) -> DispatchTimeInterval {
+        .milliseconds(max(10, Int(interval * 100)))
+    }
+
     /// Whether a visibility change should capture at once: only when the UI
     /// appears (hidden to visible), and not when a capture finished less than
     /// `minimumPollInterval` before `now`, since that one is still fresh.

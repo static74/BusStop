@@ -90,7 +90,7 @@ The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or a
 
 `LiveMonitor.start(onSnapshot:)` takes a `@MainActor @Sendable` closure. The monitor captures on its queue and hops to the main actor to deliver. A delivery gate drops snapshots from a run that was stopped, so a late capture never reaches a store that has moved on (for example to demo mode).
 
-Polling is adaptive: every 2 seconds while a popover or window is visible, every 10 seconds otherwise. Power figures change without IOKit notifications, so polling is what keeps the menu bar text current.
+Polling is adaptive: every 2 seconds while a popover or window is visible, every 10 seconds otherwise, and every capture pushes the next poll back one interval. Power figures change without IOKit notifications, so polling is what keeps the menu bar text current. A poll, like `AppleSmartBattery` interest, runs a power-only capture (`RegistryCapture.refreshPower`): it re-reads the battery service and SMC and copies the topology from the last capture. Other notifications, the UI appearing, and any capture more than 60 s after the last full one re-read everything. `PortStore` pauses polling while the screens sleep or another user's session is active (`setPollingPaused`); hardware notifications keep capturing, and resuming runs a full capture.
 
 Safety rules for IOKit code (`BusStopKit`):
 

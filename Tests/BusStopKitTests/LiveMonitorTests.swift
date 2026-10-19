@@ -139,6 +139,78 @@ struct LiveMonitorTests {
         monitor.stop()
     }
 
+    @Test func powerChangesReuseTheTopologyAndHardwareChangesDoNot() async throws {
+        let monitor = LiveMonitor(configuration: LiveMonitor.Configuration(
+            visibleInterval: 30, backgroundInterval: 30, debounce: 0.1, includeSMC: false
+        ))
+        let recorder = SnapshotRecorder()
+        monitor.start { raw in recorder.snapshots.append(raw) }
+        try await wait(timeout: 10) { !recorder.snapshots.isEmpty }
+        #expect(monitor.completedFullCaptures == 1)
+
+        // Real battery interest may add power-only captures meanwhile, so
+        // only the count of power-only captures going up is checked.
+        let powerOnly = monitor.completedCaptures - monitor.completedFullCaptures
+        monitor.powerChangeFromAnyThread()
+        try await wait(timeout: 5) { monitor.completedCaptures - monitor.completedFullCaptures > powerOnly }
+        #expect(monitor.completedCaptures - monitor.completedFullCaptures > powerOnly)
+
+        let full = monitor.completedFullCaptures
+        monitor.externalChangeFromAnyThread()
+        try await wait(timeout: 5) { monitor.completedFullCaptures > full }
+        #expect(monitor.completedFullCaptures > full)
+        monitor.stop()
+    }
+
+    @Test func anyCapturePushesThePollBack() async throws {
+        // A power change every 0.5 s, more often than the 1.5 s poll: the
+        // poll never comes due because each capture re-arms it.
+        let monitor = LiveMonitor(configuration: LiveMonitor.Configuration(
+            visibleInterval: 1.5, backgroundInterval: 1.5, debounce: 0.05, includeSMC: false
+        ))
+        let recorder = SnapshotRecorder()
+        monitor.start { raw in recorder.snapshots.append(raw) }
+        try await wait(timeout: 10) { !recorder.snapshots.isEmpty }
+        let ticks = monitor.pollTicks
+        for _ in 0..<8 {
+            monitor.powerChangeFromAnyThread()
+            try await Task.sleep(for: .milliseconds(500))
+        }
+        #expect(monitor.pollTicks == ticks)
+
+        // With the changes gone, polling resumes.
+        try await wait(timeout: 5) { monitor.pollTicks > ticks }
+        #expect(monitor.pollTicks > ticks)
+        monitor.stop()
+    }
+
+    @Test func pausedPollingIgnoresPowerChangesUntilResumed() async throws {
+        let monitor = LiveMonitor(configuration: Self.configuration)
+        let recorder = SnapshotRecorder()
+        monitor.start { raw in recorder.snapshots.append(raw) }
+        try await wait(timeout: 10) { !recorder.snapshots.isEmpty }
+
+        monitor.setPollingPaused(true)
+        #expect(!monitor.registrations.hasPollTimer)
+        #expect(monitor.registrations.hasNotificationPort)
+        let powerOnly = monitor.completedCaptures - monitor.completedFullCaptures
+        let ticks = monitor.pollTicks
+        for _ in 0..<3 { monitor.powerChangeFromAnyThread() }
+        try await Task.sleep(for: .milliseconds(1_500))
+        #expect(monitor.completedCaptures - monitor.completedFullCaptures == powerOnly)
+        #expect(monitor.pollTicks == ticks)
+
+        // Waking captures the whole topology at once and polls again.
+        let full = monitor.completedFullCaptures
+        monitor.setPollingPaused(false)
+        try await wait(timeout: 5) { monitor.completedFullCaptures > full }
+        #expect(monitor.completedFullCaptures > full)
+        #expect(monitor.registrations.hasPollTimer)
+        try await wait(timeout: 5) { monitor.pollTicks > ticks }
+        #expect(monitor.pollTicks > ticks)
+        monitor.stop()
+    }
+
     @Test func rapidStartStopCyclesDeliverNothingAfterStop() async throws {
         let recorder = SnapshotRecorder()
         for _ in 0..<10 {

@@ -297,6 +297,6 @@ struct GraphTooltipBubble: View {
             .padding(.vertical, 4)
             .background(shape.fill(Lagoon.surfaceRaised))
             .overlay(shape.strokeBorder(contrast == .increased ? Lagoon.accent : Lagoon.strokeStrong, lineWidth: 1))
-            .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
+            .shadow(color: Lagoon.shadow, radius: 6, y: 2)
     }
 }

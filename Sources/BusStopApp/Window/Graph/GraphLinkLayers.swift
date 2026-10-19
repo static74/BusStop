@@ -235,7 +235,7 @@ enum GraphPaint {
             return GraphPulseTrack(
                 id: edge.id,
                 curve: power.flowsToParent ? edge.curve.reversed : edge.curve,
-                color: Lagoon.powerColor(tier).mix(with: .white, by: 0.25, in: .device),
+                color: Lagoon.powerColor(tier).mix(with: Lagoon.highlight, by: 0.25, in: .device),
                 radius: 1.8 + CGFloat(tier.rawValue) * 0.3,
                 period: 3.2 - Double(tier.rawValue) * 0.5,
                 phase: phase(for: edge.id),
@@ -331,6 +331,7 @@ struct GraphLinkHighlightLayer: View {
     var body: some View {
         let accent = Lagoon.accentGlow
         let background = Lagoon.background
+        let highlight = Lagoon.highlight
         Canvas { context, _ in
             for stroke in strokes {
                 let isSelected = selected.contains(stroke.id)
@@ -347,7 +348,7 @@ struct GraphLinkHighlightLayer: View {
                     context.stroke(stroke.path, with: .color(accent),
                                    style: StrokeStyle(lineWidth: stroke.width + 3.5 * scale, lineCap: .round, lineJoin: .round))
                 }
-                let core = stroke.color.mix(with: .white, by: isHovered ? 0.4 : 0.2, in: .device)
+                let core = stroke.color.mix(with: highlight, by: isHovered ? 0.4 : 0.2, in: .device)
                 context.stroke(
                     stroke.path,
                     with: .color(isSelected ? background : core),

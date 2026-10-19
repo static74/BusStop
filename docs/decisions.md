@@ -24,6 +24,25 @@ The chassis family (laptop, Mac mini, Mac Studio, Mac Pro, iMac, or another desk
 - *Hand-edit `PortLocationCatalog+Data.swift` to add coordinates.* The file is generated from PortScope's data and is never edited by hand.
 - *Generic laptop and desktop fallbacks as separate families.* An unknown Mac with a battery already draws as a laptop; one `other` case covers the rest.
 
+## 2026-10-19: Background polls read power only, and stop while the screens sleep
+
+**Question.** The weekend soak (`docs/soak-2026-10-19.md`) found about 420 captures an hour, all night, each walking the whole I/O Registry and opening a powerd connection. The polls only exist to keep power figures current. How much of that can go?
+
+**Decision.** A poll tick or `AppleSmartBattery` interest runs a power-only capture: `RegistryCapture.refreshPower` re-reads the battery service and SMC and copies the rest, port counters included, from the last capture. Every other notification, the UI appearing, and any capture more than 60 s (`LiveMonitor.maximumTopologyAge`) after the last full one re-read everything. Every capture pushes the next poll back one interval. `PortStore` pauses polling while the screens sleep or another user's session is active; hardware notifications still capture, and resuming runs a full capture.
+
+**Why.** Topology changes already post IOKit match, terminate, interest and display notifications, so re-walking it every 10 s found nothing new. A power-only capture also skips the power-source API, so powerd is contacted only on full captures. Nobody can see the menu bar while the screens sleep. The 60 s floor covers any per-port PD value that changes without a notification, without first proving where each one comes from.
+
+**Risks.**
+
+- A per-port value that changes without a notification can be up to 60 s stale.
+- Port counters (plug, connection, overcurrent) in a power-only capture are copies, and while polling is paused full captures are sparse. History built on these captures has to treat long gaps as gaps, not as zero change.
+- If a wake or session-active notification were missed, power text would stay frozen until the next hardware change.
+
+**Rejected alternatives.**
+
+- *Cache the powerd reads and invalidate them on `kIOPSNotifyPowerSource`.* That notification fires only on an AC/battery switch, not when one of two chargers is unplugged, so the cache would go stale. Skipping the API on power-only captures removes the round-trip anyway.
+- *Prove every per-port PD source has a notification and drop the 60 s floor.* Not checked on every Mac and dock; the floor costs one full capture a minute.
+
 ## 2026-10-16: Bus Stop builds on macOS only
 
 **Question.** `BusStopCore` was kept buildable on Linux, with a CI job in the `swift:6.4-noble` container, so that contributors without a Mac could work on parsing and topology. Is that still worth it?

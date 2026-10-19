@@ -172,6 +172,8 @@ busstop --version
 | `warning` | `#FFC266` | Warnings |
 | `critical` | `#FF6B7A` | Errors |
 
+Every colour in the app comes from `Theme.swift` (`Lagoon` and `PowerChartPalette`). The only literals elsewhere are the wallpaper in the Appearance preview and the menu bar icon's template ink.
+
 Link-speed ramp (colour and stroke width of topology links): USB 1/2 `#3C5E5A` 1.5 pt; 5 Gb/s `#22A69B` 2 pt; 10 Gb/s `#3EE6D4` 2.5 pt; 20 Gb/s `#5FF0E0` 3 pt; 40 Gb/s `#8AFFF3` 3.5 pt; 80 Gb/s and faster `#C9FFF9` 4 pt with glow.
 
 ### 4.3 Typography
@@ -230,7 +232,8 @@ IOKit / IOPS / SMC / CoreGraphics
    PortStore (@Observable, @MainActor) → SwiftUI views, status item text
 ```
 
-- `LiveMonitor` triggers a full capture on any IOKit match/terminate/interest notification (debounced 250 ms, a burst never delays a capture by more than 1 s), on power-source and display changes, when the popover or a window appears, and on a timer (power polling every 2 s while UI is visible, every 10 s otherwise for the menu bar text). Poll deadlines are measured from the last capture, so quickly opening and closing the popover cannot starve them.
+- `LiveMonitor` triggers a full capture on any IOKit match/terminate/interest notification (debounced 250 ms, a burst never delays a capture by more than 1 s), on power-source and display changes, and when the popover or a window appears. Between those, a power-only capture keeps the menu bar text current: it re-reads the battery service and SMC power and copies everything else, port counters included, from the last capture. It runs on a timer (every 2 s while UI is visible, every 10 s otherwise) and on `AppleSmartBattery` interest. A capture is full whenever the last full one is more than 60 s old.
+- Every capture pushes the next poll back one interval. While the screens sleep or another user's session is active, polling stops and battery interest is ignored; other notifications still capture, and resuming runs one full capture.
 - Captures run on one serial background queue and never overlap. Results are delivered to the main actor.
 - Demo mode swaps the capture source for `DemoScenarios`, which produce `RawSnapshot` values, so the same builder path is exercised.
 
