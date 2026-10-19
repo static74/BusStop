@@ -19,8 +19,8 @@ extension Exporter {
     /// carry control characters or terminal escape sequences.
     public static func textTree(_ snapshot: HostSnapshot) -> String {
         var lines: [String] = []
-        let os = TextTree.clean(snapshot.machine.osVersion)
-        var header = "\(TextTree.clean(snapshot.machine.name)) · macOS"
+        let os = Format.terminalSafe(snapshot.machine.osVersion)
+        var header = "\(Format.terminalSafe(snapshot.machine.name)) · macOS"
         if !os.isEmpty { header += " \(os)" }
         if snapshot.isDemo { header += " · demo" }
         lines.append(header)
@@ -55,7 +55,7 @@ extension Exporter {
             lines.append("Diagnostics")
             for (index, diagnostic) in snapshot.diagnostics.enumerated() {
                 let branch = index == snapshot.diagnostics.count - 1 ? "└─ " : "├─ "
-                lines.append(branch + "\(TextTree.severityText(diagnostic.severity)): \(TextTree.clean(diagnostic.title))")
+                lines.append(branch + "\(TextTree.severityText(diagnostic.severity)): \(Format.terminalSafe(diagnostic.title))")
             }
         }
 
@@ -72,7 +72,7 @@ enum TextTree {
     static func powerLine(_ power: PowerSummary) -> String {
         var parts: [String] = []
         if let charger = power.charger {
-            parts.append(clean(charger.displayName))
+            parts.append(Format.terminalSafe(charger.displayName))
             if let mv = charger.millivolts, let ma = charger.milliamps, mv > 0, ma > 0 {
                 parts.append(Format.contract(millivolts: mv, milliamps: ma))
             }
@@ -94,9 +94,9 @@ enum TextTree {
 
     /// "Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W".
     static func portText(_ port: PhysicalPort) -> String {
-        var columns = [clean(port.label.title)]
-        if let link = port.link { columns.append(clean(link.label)) }
-        if let charger = port.charger { columns.append(clean(charger.displayName)) }
+        var columns = [Format.terminalSafe(port.label.title)]
+        if let link = port.link { columns.append(Format.terminalSafe(link.label)) }
+        if let charger = port.charger { columns.append(Format.terminalSafe(charger.displayName)) }
         if let badge = powerBadge(port.power) { columns.append(badge) }
         if columns.count == 1 && port.devices.isEmpty {
             columns.append(port.isConnected ? "(connected)" : "(empty)")
@@ -126,9 +126,9 @@ enum TextTree {
     /// "Samsung T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
     /// as they get no card on the map.
     static func deviceText(_ device: DeviceNode) -> String {
-        let name = clean(device.name)
+        let name = Format.terminalSafe(device.name)
         var parts = [name.isEmpty ? device.kind.displayName : name]
-        if let rate = device.link?.rateLabel ?? device.link?.generation { parts.append(clean(rate)) }
+        if let rate = device.link?.rateLabel ?? device.link?.generation { parts.append(Format.terminalSafe(rate)) }
         let milliwatts = device.rolledUpMilliwatts
         if milliwatts > 0 { parts.append(Format.power(milliwatts: milliwatts)) }
         return parts.joined(separator: " · ")
@@ -136,13 +136,13 @@ enum TextTree {
 
     /// "Studio Display · 5120 × 2880 @ 60 Hz · Left Front · USB-C".
     static func displayText(_ display: DisplayInfo, in snapshot: HostSnapshot) -> String {
-        let name = clean(display.name)
+        let name = Format.terminalSafe(display.name)
         var parts = [name.isEmpty ? "Display" : name]
         if let mode = display.modeDescription { parts.append(mode) }
         if display.isBuiltin {
             parts.append("built-in")
         } else if let key = display.portKey, let port = snapshot.port(key) {
-            parts.append(clean(port.label.title))
+            parts.append(Format.terminalSafe(port.label.title))
         }
         return parts.joined(separator: " · ")
     }
@@ -153,14 +153,6 @@ enum TextTree {
         case .warning: return "Warning"
         case .info: return "Info"
         }
-    }
-
-    /// Text with control and format characters (including escape sequences)
-    /// replaced by spaces and surrounding whitespace removed, so
-    /// device-supplied names cannot break lines or inject terminal codes.
-    /// See `Format.terminalSafe`.
-    static func clean(_ text: String) -> String {
-        Format.terminalSafe(text)
     }
 
     static func trimTrailing(_ line: String) -> String {
