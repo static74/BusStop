@@ -13,10 +13,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 4. **Charging bottleneck explainer.** When the Mac charges slower than the charger could deliver, say which part is the limit (charger, cable rating, port, battery temperature or charge limit) and what would fix it.
 5. **Charger history.** Remember chargers by their PD identity: profiles offered, highest contract, and when each was last seen.
 
-## History and health
-
-8. **Port health statistics.** Per-port counters over time: plug events, connection errors, overcurrent events and liquid detection, with a gentle warning when a port's numbers stand out.
-
 ## Views
 
 12. **Light theme option.** A light Lagoon theme that keeps the turquoise accent, for people who run macOS in light mode. Dark stays the default.
@@ -48,3 +44,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A Mac Outline page draws the Mac with each port where it physically sits, coloured by what is plugged in and how fast it runs.
 - The event log, power and per-port counters are saved between launches in a local file with size and age caps, a Clear History button and a switch to stop saving; the Power page charts the last hour, day or week from it.
 - Devices that keep disconnecting, links that keep changing speed and devices slower than before on the same port raise a warning that names the likely culprit (cable, port, hub or device).
+- Each port shows its plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days next to the hardware's all-time counts, with a gentle note when a port has far more problems than its siblings; the overcurrent warning now lasts 24 hours across relaunches.

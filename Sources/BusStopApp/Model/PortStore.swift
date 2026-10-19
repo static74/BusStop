@@ -49,6 +49,8 @@ final class PortStore {
     /// The sidebar badge counts events since this moment.
     let launchDate = Date()
     private(set) var history = PowerHistory()
+    /// Each port's last 7 days from the archive, for the inspector and the diagnostics.
+    private(set) var portHealth: [PortKey: PortHealth] = [:]
     private(set) var lastUpdated: Date?
     private(set) var hasLoaded = false
     /// Every device that just disappeared, nested ones included. Most views
@@ -99,7 +101,6 @@ final class PortStore {
     /// it back on then starts empty instead of writing that history back.
     @ObservationIgnored private var historyDeletedByUser = false
     @ObservationIgnored private var saveTimer: Timer?
-    @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
     @ObservationIgnored private var connectionHealth = ConnectionHealth()
     /// The health findings of the last new capture, reused when settings
     /// changes re-ingest it.
@@ -363,6 +364,7 @@ final class PortStore {
     func clearEvents() {
         archive.clearEvents(model: snapshot.machine.model)
         events = []
+        portHealth = archive.portHealth(model: snapshot.machine.model, now: snapshot.capturedAt)
         if !archiveHoldsDemo { eventsDirty = true }
     }
 
@@ -373,6 +375,7 @@ final class PortStore {
         archive = HistoryArchive()
         if heldLiveArchive != nil { heldLiveArchive = HistoryArchive() }
         events = []
+        portHealth = [:]
         historyFile?.delete()
         historyIsReadOnly = false
         eventsDirty = false
@@ -534,7 +537,7 @@ final class PortStore {
         raw = nil
         history.removeAll()
         allDeparting.removeAll()
-        overcurrentBaseline.removeAll()
+        portHealth = [:]
         connectionHealth = ConnectionHealth()
         cachedHealth = []
         events.removeAll()
@@ -576,15 +579,12 @@ final class PortStore {
             nextHealthGap = false
             lastRecordedAt = raw.capturedAt
             if !built.isDemo { powerDirty = true }
+            portHealth = archive.portHealth(model: built.machine.model, now: built.capturedAt)
         }
 
-        if overcurrentBaseline.isEmpty {
-            for port in built.ports {
-                if let count = port.statistics?.overcurrentCount { overcurrentBaseline[port.id] = count }
-            }
-        }
-        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline,
-                                                       extra: cachedHealth)
+        // shortcut: stands-out sees this capture's events on the next capture (the events depend on the
+        // diagnostics); info only, revisit if users notice the lag.
+        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, ports: portHealth, extra: cachedHealth)
 
         let isFirstCapture = !hasLoaded
         let previous = hasLoaded ? snapshot : nil
@@ -600,6 +600,8 @@ final class PortStore {
 
         if !newEvents.isEmpty {
             archive.append(newEvents, model: built.machine.model)
+            // Short connections and slowdowns are counted from the events.
+            portHealth = archive.portHealth(model: built.machine.model, now: built.capturedAt)
             // Demo data is never saved and never raises system notifications.
             if !built.isDemo {
                 eventsDirty = true

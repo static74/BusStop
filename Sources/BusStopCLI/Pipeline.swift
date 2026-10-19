@@ -8,28 +8,17 @@ enum Pipeline {
     /// Raw IORegistry properties are left off ports and devices: they only
     /// matter to the app's inspector, and `--raw` prints all of them anyway.
     ///
-    /// - Parameters:
-    ///   - baseline: overcurrent counts per port at the start of a `--watch`
-    ///     session, so increases raise a diagnostic.
-    ///   - health: called with the built snapshot before diagnostics are
-    ///     evaluated; `--watch` passes its `ConnectionHealth` findings here.
-    static func snapshot(from raw: RawSnapshot, isDemo: Bool, baseline: [String: Int] = [:],
-                         health: (HostSnapshot) -> [Diagnostic] = { _ in [] }) -> HostSnapshot {
+    /// - Parameter history: called with the built snapshot before diagnostics
+    ///   are evaluated; `--watch` records it in its in-memory archive and
+    ///   passes back the port health and `ConnectionHealth` findings.
+    static func snapshot(from raw: RawSnapshot, isDemo: Bool,
+                         history: (HostSnapshot) -> (ports: [PortKey: PortHealth], extra: [Diagnostic])
+                            = { _ in ([:], []) }) -> HostSnapshot {
         let options = BuildOptions(includeRawProperties: false, isDemo: isDemo)
         var snapshot = TopologyBuilder.build(raw, options: options)
-        snapshot.diagnostics = DiagnosticsEngine.evaluate(snapshot, raw: raw, baseline: baseline,
-                                                          extra: health(snapshot))
+        let (ports, extra) = history(snapshot)
+        snapshot.diagnostics = DiagnosticsEngine.evaluate(snapshot, raw: raw, ports: ports, extra: extra)
         return snapshot
-    }
-
-    /// Overcurrent counts per port key, recorded from the first snapshot of a
-    /// session.
-    static func overcurrentBaseline(of snapshot: HostSnapshot) -> [String: Int] {
-        var baseline: [String: Int] = [:]
-        for port in snapshot.ports {
-            if let count = port.statistics?.overcurrentCount { baseline[port.id] = count }
-        }
-        return baseline
     }
 
     /// Reads the capture for a one-shot run.

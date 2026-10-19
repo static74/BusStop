@@ -24,6 +24,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - `BUSSTOP_AUTOMATION=topology:<page>` opens the topology window on a page, such as `topology:silhouette`.
 - Pin one port to the menu bar, from Settings › Menu Bar or "Pin to Menu Bar" in a port card's context menu, and its link speed, its power or both show after the menu bar text: "5 · 38W · 40G ↓61W". "≤" marks a USB power budget or charger contract rather than a measurement. The pinned port's name is in the item's tooltip and VoiceOver label, and its card shows a pin. Pins are kept per Mac model, and a pin made in demo mode never replaces the live one.
 - A compact popover layout, in Settings › General › Ports, lists each port on one line: its name, what is connected ("Samsung T9", "3 devices" or the charger), its link speed and its power. An arrow beside a port shows the same device tree as the card, and the context menu and VoiceOver actions match the card's. The power card shrinks to one line in this layout. Cards stay the default.
+- Port health. The port inspector's Statistics section is now Health: the hardware's all-time connections, plug events and overcurrent events, each with how many came in the last 7 days, plus liquid detections and connection errors (a device that left within 10 seconds, a slower link, a USB 2 fallback) in the last 7 days, from the saved history. A port with at least 3 times the connection errors per connection of the Mac's other ports of the same kind (at least 5 connections and 3 errors in 7 days) gets a gentle note in Diagnostics and the inspector, never a notification. In the popover, a port with a flaky connection, a flapping or slower link, or one that stands out gets a small health mark after its name, with the findings in its tooltip and VoiceOver label. `busstop --watch` applies the same rules to what it has seen since it started.
 
 ### Changed
 
@@ -37,6 +38,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - JSON snapshots: each port records where the model catalogue places it in `catalogLocation` ("Left Front", "Rear (left)"), which stays when the port is renamed. Older exports still decode.
 - Inspector rows put each value on its own line under the field name, so a long value uses the inspector's full width instead of wrapping in a narrow right column. A value too long for one line wraps. The battery card on the Power page uses the same rows.
 - VoiceOver says "up to" before a port card's power when it is a USB power budget or charger contract rather than a measurement, as the menu bar item does. A renamed port's VoiceOver actions include Restore Default Name, as its context menu does.
+- The overcurrent warning comes from the saved history: it shows for 24 hours after a port's overcurrent counter last went up, even across a relaunch, and gives the count for the last 7 days. It used to compare with the count when Bus Stop started and last until it quit.
+- On the Diagnostics and Events pages, a title that does not fit beside its severity chip or its times moves them under it, so at large text sizes in a narrow window a word such as "disconnecting" no longer breaks in the middle.
 
 ### Fixed
 

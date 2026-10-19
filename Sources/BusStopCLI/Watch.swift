@@ -11,7 +11,9 @@ import Foundation
 /// never mix with `--json` lines.
 ///
 /// Captures also feed a `ConnectionHealth`, so a device that keeps
-/// dropping out raises a `!` line after its third reconnect.
+/// dropping out raises a `!` line after its third reconnect, and an
+/// in-memory `HistoryArchive` for the overcurrent and port-health rules. It
+/// is never saved: `--watch` keeps nothing between runs.
 ///
 /// Unless `--no-redact` is given, every event passes through
 /// `Exporter.redacted(_:)` first, so display serial numbers and other unit
@@ -25,7 +27,7 @@ final class WatchSession {
 
     private let options: CLIOptions
     private var previous: HostSnapshot?
-    private var baseline: [String: Int] = [:]
+    private var archive = HistoryArchive()
     private var health = ConnectionHealth()
     private var eventCount = 0
     private var stopMonitoring: (@Sendable () -> Void)?
@@ -108,17 +110,16 @@ final class WatchSession {
     /// previous one.
     private func ingest(_ raw: RawSnapshot, isDemo: Bool) {
         let isFirst = previous == nil
-        if isFirst {
-            // Overcurrent counts are compared with the start of the session.
-            baseline = Pipeline.overcurrentBaseline(of: Pipeline.snapshot(from: raw, isDemo: isDemo))
-        }
         // shortcut: --watch does not observe system sleep, so a wake counts as continuous; add a wake
         // observer if users see false flaky lines after wake.
-        let snapshot = Pipeline.snapshot(from: raw, isDemo: isDemo, baseline: baseline) { built in
-            health.observe(built, afterGap: isFirst)
+        let snapshot = Pipeline.snapshot(from: raw, isDemo: isDemo) { built in
+            archive.record(built, afterGap: isFirst)
+            return (archive.portHealth(model: built.machine.model, now: built.capturedAt),
+                    health.observe(built, afterGap: isFirst))
         }
         if isFirst { announce(snapshot) }
         var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
+        archive.append(events, model: snapshot.machine.model)
         if options.redact { events = events.map { Exporter.redacted($0) } }
         previous = snapshot
         for event in events {

@@ -218,26 +218,7 @@ struct EventTimelineRow: View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 12) {
                 symbol
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(event.title)
-                        .lagoonFont(.callout, weight: .semibold)
-                        .foregroundStyle(Lagoon.textPrimary)
-                    if !event.detail.isEmpty {
-                        Text(event.detail)
-                            .lagoonFont(.caption)
-                            .foregroundStyle(Lagoon.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer(minLength: 12)
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(event.date, format: .dateTime.hour().minute().second())
-                        .lagoonFont(.callout, monospacedDigits: true)
-                        .foregroundStyle(Lagoon.textPrimary)
-                    Text(Format.relative(event.date, now: now))
-                        .lagoonFont(.caption, monospacedDigits: true)
-                        .foregroundStyle(WindowContrast.tertiary(contrast))
-                }
+                EventTimelineText(event: event, now: now, relativeColor: WindowContrast.tertiary(contrast))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -281,5 +262,62 @@ struct EventTimelineRow: View {
         case .chargerConnected: return Lagoon.powerIn
         case .diagnosticRaised: return Lagoon.warning
         }
+    }
+}
+
+/// An event's title, detail and times. The times go under the title when the
+/// title does not fit beside them on one line, so it wraps between words,
+/// never inside one. The detail wraps either way.
+struct EventTimelineText: View {
+    var event: ConnectionEvent
+    var now: Date
+    var relativeColor: Color
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                text
+                VStack(alignment: .trailing, spacing: 3) { time; relativeTime }
+            }
+            stacked
+        }
+    }
+
+    /// The times under the title and detail.
+    var stacked: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            text
+            HStack(spacing: 6) { time; relativeTime }
+        }
+    }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(event.title)
+                .lagoonFont(.callout, weight: .semibold)
+                .foregroundStyle(Lagoon.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !event.detail.isEmpty {
+                Text(event.detail)
+                    .lagoonFont(.caption)
+                    .foregroundStyle(Lagoon.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    // No ideal width, so only the title decides where the times go.
+                    .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var time: some View {
+        Text(event.date, format: .dateTime.hour().minute().second())
+            .lagoonFont(.callout, monospacedDigits: true)
+            .foregroundStyle(Lagoon.textPrimary)
+    }
+
+    private var relativeTime: some View {
+        Text(Format.relative(event.date, now: now))
+            .lagoonFont(.caption, monospacedDigits: true)
+            .foregroundStyle(relativeColor)
     }
 }

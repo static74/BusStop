@@ -38,6 +38,22 @@ struct NotificationManagerTests {
         }
     }
 
+    /// A port that stands out is a gentle note in the Diagnostics page and the
+    /// event log, never an alert.
+    @Test func portStandsOutDoesNotNotify() {
+        let diagnostic = Diagnostic(id: "portStandsOut:2/1", kind: .portStandsOut, severity: .info,
+                                    title: "Left Rear · USB-C has more connection problems than the other ports",
+                                    detail: "", portKey: PortKey(type: 2, number: 1))
+        let event = finding(diagnostic.id, severity: nil)
+        #expect(NotificationManager.severity(of: event, in: [diagnostic]) == .info)
+        withSettings { settings in
+            #expect(!NotificationManager.isEnabled(finding(diagnostic.id, severity: .info), settings: settings,
+                                                   severity: .info))
+            #expect(!NotificationManager.isEnabled(event, settings: settings,
+                                                   severity: NotificationManager.severity(of: event, in: [diagnostic])))
+        }
+    }
+
     @Test func plugAndUnplugInOneBurstSettleToNothing() {
         let out = ConnectionEvent(id: "deviceDisconnected:usb:1:1791115200000", date: start, kind: .deviceDisconnected,
                                   title: "iPhone disconnected", detail: "", deviceID: "usb:1")

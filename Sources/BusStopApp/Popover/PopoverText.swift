@@ -107,10 +107,12 @@ enum PopoverText {
     }
 
     /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts",
-    /// then ", pinned to the menu bar" when `isPinned`. `speaksLink` adds the port's
-    /// link speed ("link at 40 gigabits per second") unless the one device already
-    /// says it; the compact row needs it because its speed chip is not read.
-    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool, speaksLink: Bool = false) -> String {
+    /// then ", pinned to the menu bar" when `isPinned`, then the titles of its
+    /// `health` findings. `speaksLink` adds the port's link speed ("link at 40
+    /// gigabits per second") unless the one device already says it; the compact
+    /// row needs it because its speed chip is not read.
+    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool, speaksLink: Bool = false,
+                                       health: [Diagnostic] = []) -> String {
         var parts = ["\(spokenPortTitle(port.label)) port"]
         if port.devices.count == 1, let device = port.devices.first {
             var phrase = "\(device.name) connected"
@@ -134,6 +136,7 @@ enum PopoverText {
         }
         if let power = spokenPortPower(port.power) { parts.append(power) }
         if isPinned { parts.append("pinned to the menu bar") }
+        parts += health.map(\.title)
         return parts.joined(separator: ", ")
     }
 
@@ -200,6 +203,14 @@ enum PopoverText {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    /// Findings about a port's connections that put a mark on its card.
+    static let healthKinds: Set<DiagnosticKind> = [.flakyConnection, .linkFlapping, .speedRegression, .portStandsOut]
+
+    /// The port's connection-health findings, most severe first.
+    static func health(of port: PhysicalPort, in diagnostics: [Diagnostic]) -> [Diagnostic] {
+        diagnostics.filter { $0.portKey == port.key && healthKinds.contains($0.kind) }
     }
 }
 

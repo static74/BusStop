@@ -7,8 +7,16 @@ struct DiagnosticsEngineTests {
     typealias F = SupportFixtures
 
     private func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot? = nil,
-                          baseline: [String: Int] = [:]) -> [Diagnostic] {
-        DiagnosticsEngine.evaluate(snapshot, raw: raw, baseline: baseline)
+                          ports: [PortKey: PortHealth] = [:]) -> [Diagnostic] {
+        DiagnosticsEngine.evaluate(snapshot, raw: raw, ports: ports)
+    }
+
+    /// Port health with an overcurrent `hoursAgo` before `F.date`.
+    private func overcurrent(hoursAgo: Double, count: Int) -> PortHealth {
+        var health = PortHealth()
+        health.overcurrents = count
+        health.lastOvercurrentAt = F.date.addingTimeInterval(-hoursAgo * 3_600)
+        return health
     }
 
     private func kinds(_ diagnostics: [Diagnostic]) -> [DiagnosticKind] {
@@ -345,19 +353,21 @@ struct DiagnosticsEngineTests {
         #expect(evaluate(F.snapshot(ports: [dry])).isEmpty)
     }
 
-    @Test func overcurrentSinceLaunch() throws {
+    @Test func overcurrentInTheLastDay() throws {
         let port = F.usbC(1, "Left Center", statistics: PortStatistics(overcurrentCount: 3))
-        let finding = try #require(evaluate(F.snapshot(ports: [port]), baseline: ["2/1": 1]).first)
+        let key = PortKey(type: 2, number: 1)
+        let finding = try #require(evaluate(F.snapshot(ports: [port]),
+                                            ports: [key: overcurrent(hoursAgo: 2, count: 2)]).first)
         #expect(finding.kind == .overcurrent)
         #expect(finding.severity == .warning)
         #expect(finding.id == "overcurrent:2/1")
-        #expect(finding.detail.contains("2 times"))
+        #expect(finding.detail.contains("in the last 24 hours, and 2 times in the last 7 days"))
 
-        #expect(evaluate(F.snapshot(ports: [port]), baseline: ["2/1": 3]).isEmpty)
+        let once = try #require(evaluate(F.snapshot(ports: [port]), ports: [key: overcurrent(hoursAgo: 2, count: 1)]).first)
+        #expect(once.detail.contains("This happened once, in the last 24 hours."))
+
+        // The hardware counter alone, with nothing in the history, says nothing.
         #expect(evaluate(F.snapshot(ports: [port])).isEmpty)
-
-        let fromKeys = F.usbC(1, "Left Center", properties: ["Overcurrent Count": 1])
-        #expect(kinds(evaluate(F.snapshot(ports: [fromKeys]), baseline: ["2/1": 0])) == [.overcurrent])
     }
 
     // MARK: Reduced detail
@@ -386,7 +396,7 @@ struct DiagnosticsEngineTests {
         let fallback = F.usbC(1, "Left Center", devices: [F.usbDevice("usb:a", "Stick", bps: 480_000_000)])
         let snapshot = F.snapshot(ports: [slow, fallback, wet, F.usbC(4, "Right Rear", statistics:
             PortStatistics(overcurrentCount: 2))], displays: [])
-        let ids = evaluate(snapshot, baseline: ["2/4": 0]).map(\.id)
+        let ids = evaluate(snapshot, ports: [PortKey(type: 2, number: 4): overcurrent(hoursAgo: 1, count: 1)]).map(\.id)
         #expect(ids == ["liquidDetected:2/3", "overcurrent:2/4", "usb2Fallback:usb:a", "usb2Fallback:usb:z"])
     }
 }

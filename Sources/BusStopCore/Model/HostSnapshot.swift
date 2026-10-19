@@ -85,6 +85,8 @@ public enum DiagnosticKind: String, Sendable, Hashable, Codable, CaseIterable {
     case linkFlapping
     /// A device runs slower than it has before on the same port.
     case speedRegression
+    /// A port has far more connection errors than the Mac's other ports of its kind (`PortHealth`).
+    case portStandsOut
 }
 
 /// A plain-English finding about the current setup.

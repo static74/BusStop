@@ -139,7 +139,7 @@ struct HostInspector: View {
 // MARK: - Port
 
 /// A physical port: name editor, transports, link, power, charger, cable,
-/// statistics, devices and raw keys.
+/// health, devices and raw keys.
 struct PortInspector: View {
     var store: PortStore
     var port: PhysicalPort
@@ -171,7 +171,8 @@ struct PortInspector: View {
         powerSection
         if let charger = port.charger { ChargerInspectorSection(charger: charger) }
         if port.isConnected || port.cable != nil { cableSection }
-        if let statistics = port.statistics { statisticsSection(statistics) }
+        let health = store.portHealth[port.key]
+        if port.statistics != nil || health != nil { healthSection(health ?? PortHealth()) }
         devicesSection
         InspectorRawKeysSection(properties: port.properties, showRawKeys: store.settings.showRawKeys)
     }
@@ -250,12 +251,34 @@ struct PortInspector: View {
         }
     }
 
-    private func statisticsSection(_ statistics: PortStatistics) -> some View {
-        InspectorSection(title: "Statistics") {
-            InspectorRow(label: "Connections", value: statistics.connectionCount.map { "\($0)" })
-            InspectorRow(label: "Plug events", value: statistics.plugEventCount.map { "\($0)" })
-            InspectorRow(label: "Overcurrent events", value: statistics.overcurrentCount.map { "\($0)" })
+    /// All-time hardware counters with the last 7 days from the saved history.
+    private func healthSection(_ health: PortHealth) -> some View {
+        let statistics = port.statistics
+        let standsOut = store.snapshot.diagnostics.first { $0.kind == .portStandsOut && $0.portKey == port.key }
+        return InspectorSection(title: "Health") {
+            InspectorRow(label: "Connections",
+                         value: statistics?.connectionCount.map { Self.healthValue($0, health.connections) })
+            InspectorRow(label: "Plug events",
+                         value: statistics?.plugEventCount.map { Self.healthValue($0, health.plugEvents) })
+            InspectorRow(label: "Overcurrent events",
+                         value: statistics?.overcurrentCount.map { Self.healthValue($0, health.overcurrents) })
+            InspectorRow(label: "Liquid detections", value: Self.healthValue(nil, health.liquidDetections))
+            InspectorRow(label: "Connection errors", value: Self.healthValue(nil, health.errors))
+            if let standsOut {
+                // A sentence, so it wraps instead of truncating in a row.
+                Text(standsOut.detail)
+                    .lagoonFont(.caption)
+                    .foregroundStyle(Lagoon.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    /// "7 total · 2 in the last 7 days", or only the last 7 days for counts with no hardware total.
+    /// A hardware row is hidden when the port lacks its counter, since its 7 days come from that counter.
+    static func healthValue(_ total: Int?, _ lastWeek: Int) -> String {
+        let week = "\(lastWeek) in the last 7 days"
+        return total.map { "\($0) total · \(week)" } ?? week
     }
 
     private var devicesSection: some View {

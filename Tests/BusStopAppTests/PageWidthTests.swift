@@ -50,6 +50,34 @@ struct PageWidthTests {
         }
     }
 
+    /// In the 338 pt detail column, a finding's title and an event's title get
+    /// the whole line at every text size: the severity chip and the times move
+    /// under them instead of squeezing "disconnecting" until it breaks
+    /// mid-word. 210 and 224 pt are what the card and the timeline row leave
+    /// for the text there (padding, icon and spacing taken off).
+    @Test(arguments: TextSizeSetting.allCases)
+    func longTitlesStackTheirChipAndTimes(_ size: TextSizeSetting) {
+        func height(_ view: some View, _ width: CGFloat) -> CGFloat {
+            NSHostingController(rootView: view.lagoonTextScale(size))
+                .sizeThatFits(in: CGSize(width: width, height: 2_000)).height
+        }
+        let date = Date(timeIntervalSince1970: 1_791_115_200)
+        let diagnostic = Diagnostic(id: "flakyConnection:usb:1", kind: .flakyConnection, severity: .warning,
+                                    title: "iPhone keeps disconnecting", detail: "")
+        let title = DiagnosticTitle(diagnostic: diagnostic)
+        #expect(height(title, 210) == height(title.stacked, 210))
+
+        let event = ConnectionEvent(id: "deviceDisconnected:usb:1:1", date: date, kind: .deviceDisconnected,
+                                    title: "iPhone keeps disconnecting", detail: "Left Front · USB-C")
+        let text = EventTimelineText(event: event, now: date.addingTimeInterval(60), relativeColor: .gray)
+        #expect(height(text, 224) == height(text.stacked, 224))
+
+        // A short title keeps its chip and times beside it.
+        let short = DiagnosticTitle(diagnostic: Diagnostic(id: "a", kind: .overcurrent, severity: .warning,
+                                                           title: "Hub", detail: ""))
+        #expect(height(short, 210) < height(short.stacked, 210))
+    }
+
     /// The Power page's battery card uses `InspectorRow`, so a long value
     /// must wrap rather than set a minimum width.
     @Test func inspectorRowWrapsALongValue() {
