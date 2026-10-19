@@ -232,6 +232,56 @@ struct HistoryStoreTests {
         #expect(sandbox.data() != nil)
     }
 
+    @Test func turningKeepHistoryOnMidSessionKeepsThisSessionsEvents() throws {
+        let sandbox = Sandbox()
+        let saved = storeWithSavedEvents(sandbox).events
+        sandbox.settings.keepHistory = false
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        store.ingest(capture(3_600))
+        store.ingest(capture(3_602, unplugged: true))
+        let session = store.events
+        #expect(!session.isEmpty)
+
+        // Reset All Settings takes this path too.
+        store.setKeepHistory(true)
+        #expect(store.events == session + saved)
+        store.flushHistory()
+        let relaunched = sandbox.store()
+        relaunched.loadHistoryIfNeeded()
+        relaunched.ingest(capture(7_200))
+        #expect(relaunched.events == session + saved)
+    }
+
+    @Test func expiredEventsLeaveTheEventsPage() {
+        let sandbox = Sandbox()
+        let store = storeWithSavedEvents(sandbox)
+        #expect(!store.events.isEmpty)
+        // No new events, but the old ones are now past the 30-day limit.
+        store.ingest(capture(HistoryArchive.eventAge + 60, unplugged: true))
+        #expect(store.events.isEmpty)
+    }
+
+    @Test func powerAloneSavesEveryFifteenMinutes() throws {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        store.ingest(capture(0))
+        store.ingest(capture(2, unplugged: true))
+        store.saveHistoryIfDue(now: start)
+        store.historyFile?.waitForWrites()
+        let saved = try #require(sandbox.data())
+
+        store.ingest(capture(60, unplugged: true))
+        // flushHistory would save the power change, so only wait for queued writes.
+        store.saveHistoryIfDue(now: start.addingTimeInterval(PortStore.powerSaveInterval - 60))
+        store.historyFile?.waitForWrites()
+        #expect(sandbox.data() == saved)
+        store.saveHistoryIfDue(now: start.addingTimeInterval(PortStore.powerSaveInterval))
+        store.historyFile?.waitForWrites()
+        #expect(sandbox.data() != saved)
+    }
+
     @Test func corruptFileIsMovedAside() throws {
         let sandbox = Sandbox()
         try FileManager.default.createDirectory(at: sandbox.directory, withIntermediateDirectories: true)

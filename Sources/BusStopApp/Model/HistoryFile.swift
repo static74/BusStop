@@ -1,5 +1,6 @@
 import BusStopCore
 import Foundation
+import os
 
 /// Reads and writes `history.json` (SPEC §5.6). Writes run on a serial
 /// background queue so encoding a few megabytes never blocks the UI.
@@ -54,6 +55,11 @@ nonisolated final class HistoryFile: Sendable {
         queue.sync { write(archive) }
     }
 
+    /// Returns once every queued write has finished.
+    func waitForWrites() {
+        queue.sync {}
+    }
+
     /// Removes the file, corrupt copies and a newer version's file included.
     func delete() {
         queue.sync {
@@ -77,6 +83,9 @@ nonisolated final class HistoryFile: Sendable {
             try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
             try archive.encoded().write(to: url, options: .atomic)
             try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        } catch {}
+        } catch {
+            Logger(subsystem: Self.folderName, category: "history")
+                .error("Could not save \(self.url.lastPathComponent, privacy: .public): \(error, privacy: .public)")
+        }
     }
 }

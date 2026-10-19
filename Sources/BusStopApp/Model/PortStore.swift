@@ -365,9 +365,14 @@ final class PortStore {
         guard !historyLoaded, let historyFile, settings.keepHistory else { return }
         historyLoaded = true
         switch historyFile.load() {
-        case .loaded(let saved):
+        case .loaded(var saved):
+            // Turned on mid-session: keep this session's events, and count no
+            // port counters between the file's last capture and now.
+            let model = snapshot.machine.model
+            saved.append(archive.events(model: model).reversed(), model: model)
             archive = saved
-            if hasLoaded { events = archive.events(model: snapshot.machine.model) }
+            nextCaptureAfterGap = true
+            if hasLoaded { events = archive.events(model: model) }
         case .newerSchema:
             historyIsReadOnly = true
         case .missing, .movedAside:
@@ -376,10 +381,11 @@ final class PortStore {
         refreshHistorySummary()
     }
 
-    /// Saves now if anything changed, for will-sleep and quit.
+    /// Saves now if anything changed, for will-sleep and quit, and waits for
+    /// a save the timer already queued.
     func flushHistory() {
-        guard eventsDirty || powerDirty else { return }
-        saveHistory(now: Date(), wait: true)
+        if eventsDirty || powerDirty { saveHistory(now: Date(), wait: true) }
+        historyFile?.waitForWrites()
     }
 
     /// The timer's check: new events save within a minute, power alone every
@@ -545,7 +551,8 @@ final class PortStore {
                 onEvents?(newEvents)
             }
         }
-        if isFirstCapture || !newEvents.isEmpty {
+        // A count change means `record` dropped events past the age limit.
+        if isFirstCapture || !newEvents.isEmpty || events.count != archive.events(model: built.machine.model).count {
             events = archive.events(model: built.machine.model)
         }
 

@@ -337,7 +337,7 @@ Settings, port renames and window frames are in `UserDefaults`. History is saved
 - **Saving.** A serial background queue writes the file atomically: new events within a minute, power-only changes every 15 minutes, and at once when the Mac goes to sleep and when Bus Stop quits. The folder is mode 0700 and the file 0600.
 - **Reading.** The file is read once at launch, straight into the store; restored events never notify. An entry that does not decode (an event kind from a newer version) is dropped on its own. A file that cannot be read is renamed `history-corrupt-<ms>.json` and a new one is started. A file written by a newer version is left untouched and never overwritten; Settings says so.
 - **Demo mode** never reads, shows or writes the saved history, including when Bus Stop launches straight into demo mode. Entering demo mode saves the live history and sets it aside; it comes back when demo mode ends. Each demo scenario starts with an empty history of its own.
-- **Turning it off** ("Keep history between launches", or `-keepHistory NO`) deletes the file, corrupt copies and a newer version's file included; that session's history stays in memory only. Clear History deletes it for every Mac model.
+- **Turning it off** ("Keep history between launches") deletes the file, corrupt copies and a newer version's file included; that session's history stays in memory only. Launching with `-keepHistory NO` neither reads nor writes the file for that launch; it stays on disk. Turning it on mid-session reads the file and keeps that session's events. Clear History deletes it for every Mac model.
 - `busstop --watch` keeps nothing between runs and never touches the file.
 
 ---
