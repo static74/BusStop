@@ -54,11 +54,13 @@ struct PageWidthTests {
     /// the whole line at every text size: the severity chip and the times move
     /// under them instead of squeezing "disconnecting" until it breaks
     /// mid-word. 210 and 224 pt are what the card and the timeline row leave
-    /// for the text there (padding, icon and spacing taken off).
+    /// for the text there (padding, icon and spacing taken off). The locale is
+    /// pinned to a 12-hour clock: with a 24-hour clock the times are narrower,
+    /// and at the small size the title then fits beside them on one line.
     @Test(arguments: TextSizeSetting.allCases)
     func longTitlesStackTheirChipAndTimes(_ size: TextSizeSetting) {
         func height(_ view: some View, _ width: CGFloat) -> CGFloat {
-            NSHostingController(rootView: view.lagoonTextScale(size))
+            NSHostingController(rootView: view.lagoonTextScale(size).environment(\.locale, Locale(identifier: "en_US")))
                 .sizeThatFits(in: CGSize(width: width, height: 2_000)).height
         }
         let date = Date(timeIntervalSince1970: 1_791_115_200)
