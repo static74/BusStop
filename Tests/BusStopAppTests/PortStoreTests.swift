@@ -24,6 +24,25 @@ struct PortStoreTests {
         try body(store)
     }
 
+    /// Demo scenarios use real model ids, so renaming or resetting a demo
+    /// port must leave the real Mac's names alone, and the demo must not show them.
+    @Test func demoPortNamesStayApartFromTheRealMacs() {
+        withSettings("names") { settings in
+            let model = DemoScenario.studioDesk.model
+            let key = PortKey(type: PortKey.usbCType, number: 2)
+            let liveKey = "\(model)#\(key)"
+            settings.portNames = [liveKey: "Desk hub"]
+            withDemoStore(settings) { store in
+                #expect(store.snapshot.port(key)?.label.source == .catalog)
+                store.renamePort(key, to: "Demo hub")
+                #expect(settings.portNames == [liveKey: "Desk hub", "demo:\(liveKey)": "Demo hub"])
+                #expect(store.snapshot.port(key)?.label.location == "Demo hub")
+                store.resetPortNames()
+                #expect(settings.portNames == [liveKey: "Desk hub"])
+            }
+        }
+    }
+
     /// Demo mode was turned off, but the source switches a SwiftUI update
     /// later: a demo capture in between is still demo data.
     @Test func aDemoCaptureAfterTheToggleStaysDemo() {

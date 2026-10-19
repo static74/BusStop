@@ -250,7 +250,10 @@ final class PortStore {
 
     // MARK: Ports
 
-    func portNameKey(_ key: PortKey) -> String { "\(snapshot.machine.model)#\(key.description)" }
+    /// Demo names live under their own key, like pins, because demo scenarios use real model ids.
+    private func portNamePrefix(_ model: String) -> String { isDemo ? "demo:\(model)#" : "\(model)#" }
+
+    func portNameKey(_ key: PortKey) -> String { portNamePrefix(snapshot.machine.model) + key.description }
 
     /// Sets or clears (`nil` / empty) the user's name for a port.
     func renamePort(_ key: PortKey, to name: String?) {
@@ -271,7 +274,7 @@ final class PortStore {
     func pinPort(_ key: PortKey?) { settings.menuBarPinnedPorts[pinStorageKey] = key?.description }
 
     func resetPortNames() {
-        let prefix = "\(snapshot.machine.model)#"
+        let prefix = portNamePrefix(snapshot.machine.model)
         settings.portNames = settings.portNames.filter { !$0.key.hasPrefix(prefix) }
         if let raw { ingest(raw) }
     }
@@ -553,7 +556,7 @@ final class PortStore {
     }
 
     private func userPortNames(for model: String) -> [String: String] {
-        let prefix = "\(model)#"
+        let prefix = portNamePrefix(model)
         var result: [String: String] = [:]
         for (key, value) in settings.portNames where key.hasPrefix(prefix) {
             result[String(key.dropFirst(prefix.count))] = value
