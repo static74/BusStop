@@ -57,14 +57,6 @@ final class SMCReader: @unchecked Sendable {
         return (channels, nil)
     }
 
-    /// Closes the connection; the next read reopens it.
-    func close() {
-        lock.lock()
-        defer { lock.unlock() }
-        closeLocked()
-        openFailure = nil
-    }
-
     private func closeLocked() {
         if connection != 0 {
             IOServiceClose(connection)
@@ -95,16 +87,12 @@ final class SMCReader: @unchecked Sendable {
             let amps = readKey("D\(index)JI").flatMap(decodeFloat)
             let present = readKey("D\(index)PR").flatMap { $0.bytes.first.map { $0 != 0 } }
             guard uuid != nil || volts != nil || amps != nil || present != nil else { continue }
-            let contract = readKey("D\(index)MP").flatMap { decodeBigEndianInt($0.bytes) }
-            let label = readKey("D\(index)DE").flatMap { decodeString($0.bytes) }
             channels.append(SMCChannel(
                 index: index,
                 uuid: uuid,
                 volts: volts,
                 amps: amps,
-                present: present,
-                contractMilliwatts: contract,
-                label: label
+                present: present
             ))
         }
         return channels
@@ -119,26 +107,11 @@ final class SMCReader: @unchecked Sendable {
         return float.isFinite ? Double(float) : nil
     }
 
-    /// A big-endian unsigned integer of 1…8 bytes (`ui8 `, `ui16`, `ui32`).
-    static func decodeBigEndianInt(_ bytes: [UInt8]) -> Int? {
-        guard !bytes.isEmpty, bytes.count <= 8 else { return nil }
-        let value = bytes.reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
-        return Int(exactly: value)
-    }
-
     /// Raw bytes as lowercase hex (`DxUI`, the HPM controller UUID without
     /// dashes). All-zero means "no controller" and reads as nil.
     static func decodeHex(_ bytes: [UInt8]) -> String? {
         guard bytes.contains(where: { $0 != 0 }) else { return nil }
         return bytes.map { String(format: "%02x", $0) }.joined()
-    }
-
-    /// A NUL-padded string (`ch8*`). Empty reads as nil.
-    static func decodeString(_ bytes: [UInt8]) -> String? {
-        let trimmed = bytes.prefix { $0 != 0 }
-        guard !trimmed.isEmpty else { return nil }
-        let string = String(decoding: trimmed, as: UTF8.self).trimmingCharacters(in: .whitespaces)
-        return string.isEmpty ? nil : string
     }
 
     /// Packs a four-character key into its FourCC value, first character in

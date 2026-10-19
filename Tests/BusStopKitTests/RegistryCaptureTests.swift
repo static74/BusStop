@@ -125,6 +125,9 @@ struct RegistryCaptureTests {
         #expect(PortNodeReader.family(of: ["AppleHPMLDCMType2"]) == .feature)
         #expect(PortNodeReader.family(of: ["IOPortTransportComponentCCUSBPDSOPp"]) == .component)
         #expect(PortNodeReader.family(of: ["IOPortTransportProtocolAppleUVDM"]) == .transportProtocol)
+        #expect(PortNodeReader.family(of: ["IOThunderboltSwitchIntelJHL9580", "IOThunderboltSwitchOS2",
+                                           "IOThunderboltSwitch", "IOThunderboltNub", "IOService"])
+                == .thunderboltSwitch)
         #expect(PortNodeReader.family(of: ["SomethingNew", "IOService"]) == .other)
     }
 
