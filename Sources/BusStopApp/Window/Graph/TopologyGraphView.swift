@@ -573,10 +573,12 @@ struct GraphPowerLegend: View {
 
     /// The legend's spoken text: the ramp runs the other way in Light.
     static func accessibilityText(_ scheme: ColorScheme) -> String {
-        let ramp = scheme == .dark
-            ? "deep red, orange, amber and gold"
-            : "dark gold, amber, rust and deep red"
-        return "Power colours: grey for no power, then \(ramp) as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements."
+        "Power colours: grey for no power, then \(rampWords(scheme)) as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements."
+    }
+
+    /// The power ramp's colours from low to high watts, shared with the Mac outline legend.
+    static func rampWords(_ scheme: ColorScheme) -> String {
+        scheme == .dark ? "deep red, orange, amber and gold" : "dark gold, amber, rust and deep red"
     }
 
     static func title(_ tier: PowerTier) -> String {

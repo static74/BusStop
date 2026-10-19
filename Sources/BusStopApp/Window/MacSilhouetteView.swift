@@ -468,7 +468,6 @@ struct SilhouetteStateLegend: View {
         if mode == .data {
             return "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
         }
-        let ramp = scheme == .dark ? "deep red, orange, amber and gold" : "dark gold, amber, rust and deep red"
-        return "Port colours by power: dim for empty, then \(ramp) as watts rise"
+        return "Port colours by power: dim for empty, then \(GraphPowerLegend.rampWords(scheme)) as watts rise"
     }
 }
