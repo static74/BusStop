@@ -28,7 +28,7 @@ struct PopoverHeader: View {
                         .lagoonFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
                         .lineLimit(1)
-                    if store.settings.demoMode {
+                    if store.isDemo {
                         DemoBadge()
                             .fixedSize()
                     }
