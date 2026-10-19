@@ -143,6 +143,8 @@ public struct ConnectionHealth: Sendable {
         }
         if settled { countLinkReversals(current, now: now) }
         if settled { countHiddenCycles(snapshot, current: current, now: now) }
+        // Rebuilt every capture: a missing reading loses its baseline, so counts only span back-to-back readings.
+        plugEvents.removeAll()
         for port in snapshot.ports {
             if let count = port.statistics?.plugEventCount { plugEvents[port.key] = count }
         }
