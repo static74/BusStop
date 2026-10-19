@@ -65,6 +65,8 @@ public final class LiveMonitor: @unchecked Sendable {
     private let queueKey = DispatchSpecificKey<UInt8>()
     private let gate = DeliveryGate()
     private let smc = SMCReader()
+    private static let logger = Logger(subsystem: "io.github.static74.busstop", category: "monitor")
+    private static let signposter = OSSignposter(logger: logger)
 
     // MARK: Queue-confined state
 
@@ -177,6 +179,7 @@ public final class LiveMonitor: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self, self.isPollingPaused != paused else { return }
             self.isPollingPaused = paused
+            Self.logger.info("Polling \(paused ? "paused" : "resumed", privacy: .public)")
             if paused {
                 self.pollTimer?.cancel()
                 self.pollTimer = nil
@@ -439,12 +442,25 @@ public final class LiveMonitor: @unchecked Sendable {
         guard isRunning, let handler else { return }
         let now = DispatchTime.now()
         let raw: RawSnapshot
+        let kind: String
         if let lastRaw, !Self.needsFullCapture(requested: needsFullCapture, lastFull: lastFullCaptureTime, now: now) {
-            raw = RegistryCapture.refreshPower(lastRaw, includeSMC: configuration.includeSMC, smc: smc)
+            kind = "power-only"
+            raw = Self.signposter.withIntervalSignpost("refreshPower") {
+                RegistryCapture.refreshPower(lastRaw, includeSMC: configuration.includeSMC, smc: smc)
+            }
         } else {
-            raw = RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
+            kind = "full"
+            raw = Self.signposter.withIntervalSignpost("capture") {
+                RegistryCapture.capture(includeSMC: configuration.includeSMC, smc: smc)
+            }
             fullCaptureCount += 1
             lastFullCaptureTime = now
+        }
+        let milliseconds = Double(DispatchTime.now().uptimeNanoseconds - now.uptimeNanoseconds) / 1_000_000
+        Self.logger.debug("Capture \(kind, privacy: .public) took \(milliseconds, format: .fixed(precision: 1)) ms")
+        for note in raw.captureNotes where !(lastRaw?.captureNotes.contains(note) ?? false) {
+            // Default (private) privacy: notes can name a device.
+            Self.logger.error("Capture note: \(note)")
         }
         needsFullCapture = false
         lastRaw = raw
