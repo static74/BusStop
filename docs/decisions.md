@@ -2,6 +2,55 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-16: Bus Stop builds on macOS only
+
+**Question.** `BusStopCore` was kept buildable on Linux, with a CI job in the `swift:6.4-noble` container, so that contributors without a Mac could work on parsing and topology. Is that still worth it?
+
+**Decision.** No. The package builds on macOS only. `Package.swift` declares every target without `#if os(macOS)`, the `core-linux` CI job is gone, and CONTRIBUTING, ARCHITECTURE, SPEC and README no longer describe a Linux build. The split between targets stays: `BusStopCore` has no IOKit, AppKit or SwiftUI, so its tests run on saved captures and demo data, without the hardware or a running app. It may now use other Apple frameworks, such as `os.Logger` or CryptoKit.
+
+**Why.** The app only runs on macOS, and the project has no contributors without a Mac. The Linux build ruled out Apple frameworks in the core and had to be kept in mind in every change, for no user. The macOS 26 job runs the same core tests on every pull request.
+
+**Risks.**
+
+- Nothing now fails the build if `BusStopCore` imports IOKit, AppKit or SwiftUI. Code review has to catch it.
+- Someone without a Mac can no longer run the tests.
+
+**Rejected alternatives.**
+
+- *Keep the Linux job as a check on the core's imports.* A whole platform build is a heavy way to enforce a rule about imports.
+- *Keep the Linux build but drop the CI job.* A build nobody runs breaks without anyone noticing.
+
+## 2026-10-14: The map's controls get their own hosting views
+
+**Question.** The map's Zoom Out, Actual Size, Zoom In and Fit buttons and its Data/Power picker carry `.help`, but often showed no tooltip. List mode was also reported to lose its chips' tooltips at the 2 s refresh, while a 5 s poll and the menu-bar popover were fine. The suspects were the 30 fps pulse `TimelineView` and `PortStore` replacing the snapshot on every poll, even when nothing changed. What stops the tooltips?
+
+**Decision.** `GraphControlHost` hosts the picker and the zoom cluster each in its own `NSHostingView`, sized to its content, and passes the Text Size setting and the accent tint on. The pulses keep running, and the store still replaces the snapshot on every poll. `GraphControlHostTests` checks that the map has the two hosting views, that ⌘=, ⌘-, ⌘0 and ⌘9 still reach the zoom buttons, and that the hosted content follows Text Size.
+
+**Why.** Measured on macOS 27 with a probe library loaded into a demo build (`DYLD_INSERT_LIBRARIES`, on a copy signed without the hardened runtime). It logs AppKit's tooltip calls and every mouse-moved, entered and exited event the app receives. The pointer was moved either in-process (a faked mouse location) or for real, by the agent's computer-use tool.
+
+- SwiftUI's `.help` does not add AppKit tooltip rectangles. Each `NSHostingView` has one `NSViewDynamicToolTipManager`, which asks SwiftUI for the help text under the pointer. When the pointer rests for about half a second where there is none, the manager stops asking. It adds a 4 × 4 pt tracking area at the pointer and waits for the window server to report the pointer leaving it. The map, the zoom cluster and the picker shared the detail column's hosting view, so one manager served them all, and it waited like this whenever the pointer rested on the map.
+- The window server normally reports the pointer entering such an area at once, and leaving it later. Sometimes it reports no entry, and then no exit either. The manager then waits until the pointer passes back over that spot, and no control in its hosting view shows a tooltip until then. In three tries with the pointer resting on the map and then moving to a zoom button, Zoom Out and Zoom In showed their tooltips. Actual Size showed none, in exactly this way, while Zoom Out's tooltip was still fading out.
+- The pulses are not the cause. With the pointer faked in-process on Zoom In, the manager's calls, the cursor-rect resets and the tracking-area changes were the same with `-animateLinks NO` as with the pulses running, and the tooltip appeared both times. With the real pointer, Zoom In showed its tooltip with the pulses running, and Zoom Out failed as above with them off (about 2 % CPU, so nothing was animating).
+- List mode did not reproduce. Each List row has its own hosting view. With the real pointer, chips on two rows showed their tooltips after about 1.6 s and kept them across the following refreshes. That held in the demo at its 2 s tick and on this Mac's live ports at a 2 s poll. The probe saw no tooltip calls from a refresh. So skipping an unchanged snapshot would change nothing here, and in the demo the readings change every tick anyway.
+- While the agent controls the screen, the Claude app shrinks to a floating 520 × 720 pt window at the top right of the screen (window level 3), which screenshots leave out. Pointer events over it go to Claude, so nothing under it shows a tooltip. The menu-bar popover sits above it, so its tooltips work. That explains failures in agent-driven sessions wherever the window ran under it: the first List-mode runs here had their chips under it and showed no tooltips. Runs that move the pointer must keep the window clear of it.
+
+With the controls in their own hosting views, the probe finds each control's help text through that view's own manager instead of the map's. This has not yet been checked with the real pointer.
+
+**Risks.**
+
+- A manager can still stall inside one hosting view, for example after resting on the few points between two zoom buttons.
+- Environment values set above the map reach the hosted controls only if `GraphControlHost` passes them on. Today that is Text Size and the accent tint; the window's root font does not reach them, which changes nothing because every text in them sets its own `lagoonFont`.
+- The map's body runs on every frame of a drag or pinch, and each run gives both hosts a new root view. That costs two small re-renders per frame; it was not measured against the 16.7 ms p95 budget.
+- Scroll-wheel zoom still works over the controls, because it watches the window's events. A drag that starts on a control did not pan the map before this change either.
+- The window server's behaviour is observed on macOS 27, not documented, and may change.
+
+**Rejected alternatives.**
+
+- *Pause the pulses, or move them out of the map's hosting view.* They do not affect the tooltips.
+- *Skip reassigning an unchanged snapshot, or make List rows equatable.* List rows kept their tooltips at a 2 s refresh.
+- *Drop the zoom cluster's glass, or its `.interactive()`.* Both were built. The failures first blamed on the glass were the stalled manager; the picker shared it and showed its tooltip in the tries where the window server had reported the waiting area.
+- *Draw the controls' tooltips on the map, as for the chips (`GraphTooltipState`).* More code, and with a manager of their own the controls no longer depend on the map's.
+
 ## 2026-10-14: CI runs once per pull request, and the paid runner only by hand
 
 **Question.** When should GitHub Actions run, given that the CI minutes cost money?
@@ -78,11 +127,13 @@ The regions are kept out of observation and the map's body never reads tooltip s
 
 List mode in the topology window also loses native tooltips at the demo's 2 s cadence (it showed them at a 5 s poll; the menu-bar popover shows them at 2 s). That looks like a window-level problem; it is not fixed here and is to be filed as a follow-up.
 
+The pulse conclusion was wrong, and the List-mode failure did not reproduce. The pulses do not affect the system's tooltips; AppKit's tooltip tracking for the map's hosting view can stall whatever the pulses do, which is what the `-animateLinks NO` runs saw. "The map's controls get their own hosting views", later the same day, has the measurements.
+
 **Rejected alternatives.**
 
 - *Pause the pulses while the pointer rests.* The card chips showed no tooltip with the pulses off either.
 - *One `.help` on each card's `Button`, summarising its chips.* Not per chip, it still depends on the system tooltip over the animating map, and the link chips stay uncovered.
-- *One map-wide `.help` whose text follows the pointer.* Whether the system re-arms it when the text changes is undocumented, and the pulses suppress it anyway.
+- *One map-wide `.help` whose text follows the pointer.* Whether the system re-arms it when the text changes is undocumented. (This entry also said the pulses suppress it; they do not, see above.)
 - *Clear views carrying `.help` above the drawing group.* They would take clicks, hover and pointer styles from the cards and links.
 - *Let the link chips take the pointer.* They would take hover and clicks from the links under them.
 

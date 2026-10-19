@@ -5,21 +5,21 @@ This document explains how Bus Stop is put together: the modules, how data flows
 ## Principles
 
 - **Read, never write.** Bus Stop only reads IORegistry properties, the power-source API and SMC read-only keys.
-- **Capture, then interpret.** IOKit data is first copied into a plain, `Codable` snapshot of raw properties. Everything after that is pure Swift that runs the same on live data, demo data, saved captures and in tests on Linux.
+- **Capture, then interpret.** IOKit data is first copied into a plain, `Codable` snapshot of raw properties. Everything after that is pure Swift that runs the same on live data, demo data, saved captures and in tests.
 - **Fail closed.** Keys can be missing or have the wrong type on another Mac or macOS version. Missing data means less detail, never a crash or a guess presented as fact.
 - **Local only.** There is no network code anywhere.
 
 ## Modules
 
-The project is a single Swift package (`Package.swift`, tools version 6.2, macOS 26 and later). Targets that need Apple frameworks are declared inside `#if os(macOS)`, so `swift build` and `swift test` on Linux build only the core and its tests.
+The project is a single Swift package (`Package.swift`, tools version 6.2, macOS 26 and later). It runs on macOS only.
 
 | Target | Product | Platforms | Responsibility |
 |---|---|---|---|
-| `BusStopCore` | library | macOS, Linux | Foundation only. Raw capture model, output model, topology builder, port labels and catalogue, formatting, diagnostics, event diffing, power history, export, demo scenarios, version. |
+| `BusStopCore` | library | macOS | No IOKit, AppKit or SwiftUI. Raw capture model, output model, topology builder, port labels and catalogue, formatting, diagnostics, event diffing, power history, export, demo scenarios, version. |
 | `BusStopKit` | library | macOS | IOKit capture (`RegistryCapture`), live monitoring (`LiveMonitor`), the SMC power channel reader, power-source and display readers. |
 | `BusStopApp` | `BusStopApp` executable, renamed `BusStop` in the bundle | macOS | AppKit status item and popover, SwiftUI windows and settings, notifications, launch at login, export. |
 | `BusStopCLI` | `busstop` executable | macOS | The command-line tool. |
-| `BusStopCoreTests` | | macOS, Linux | Unit tests for the core, with fixtures. |
+| `BusStopCoreTests` | | macOS | Unit tests for the core, with fixtures. |
 | `BusStopKitTests` | | macOS | Tests for the CF-to-`PlistValue` bridge, capture and monitor lifecycles. |
 | `BusStopAppTests` | | macOS | Tests for app-side logic with no UI to drive, such as the map's camera math. |
 
@@ -76,7 +76,7 @@ The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or a
 
 - A new key never needs a capture format change; it is already in the bag.
 - `busstop --raw` prints the snapshot as JSON, so a bug report from any Mac turns into a test fixture without the hardware.
-- The topology rules are pure functions over plain data, testable on Linux.
+- The topology rules are pure functions over plain data, testable without the hardware.
 
 `RawSnapshot.schemaVersion` exists for changes to the record structure itself. `Exporter.decodeRaw` fills in members that older captures lack.
 
@@ -134,7 +134,7 @@ A USB device that reports a vendor ID but no vendor name gets the name from `USB
 
 | Layer | How it is tested |
 |---|---|
-| `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`, on Linux and macOS. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures), from redacted `busstop --raw` captures kept as JSON resources, and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, determinism and robustness against missing or wrongly typed keys. |
+| `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures), from redacted `busstop --raw` captures kept as JSON resources, and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, determinism and robustness against missing or wrongly typed keys. |
 | `BusStopKit` | `Tests/BusStopKitTests` on macOS: the CF bridge, a live capture on the CI machine, rapid `LiveMonitor` start and stop cycles. |
 | `BusStopApp` | `Tests/BusStopAppTests` on macOS: the map camera (screen and layout points round-trip, the point under the pointer stays put through a zoom, centring, clamping, fitting) and the map's tooltips (the chip under the pointer, placement under or above the chip and inside the map, the texts, the delay and hiding, and, in a hosting view, chip regions passing through the drawing group with only the chips a `ViewThatFits` shows). Interaction itself is checked by hand. |
 | Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle and the zip, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
@@ -142,7 +142,6 @@ A USB device that reports a vendor ID but no vendor name gets the name from `USB
 
 CI runs on every pull request, and again on each push to it. Plain branch pushes and merges to `main` run nothing. Starting the workflow by hand (Actions › CI › Run workflow) also runs the macOS 27 job, which needs the paid `xcode-27` runner:
 
-- **Core (Linux, Swift 6.4)**: `swift test` in `swift:6.4-noble`.
 - **macOS 26 (Xcode 26.6)**: build, test, universal bundle, smoke test without the live checks.
 - **macOS 27 (Xcode 27)**, by hand only: build, test, bundle, full smoke test, upload of `BusStop.zip`.
 

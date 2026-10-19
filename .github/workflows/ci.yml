@@ -13,15 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  core-linux:
-    name: Core (Linux, Swift 6.4)
-    runs-on: ubuntu-24.04
-    container: swift:6.4-noble
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build and test BusStopCore
-        run: swift test
-
   macos-27:
     name: macOS 27 (Xcode 27)
     if: github.event_name == 'workflow_dispatch'
@@ -82,7 +73,7 @@ jobs:
       - name: Test
         run: swift test
       - name: Assemble universal app bundle
-        # Universal here so every push proves the x86_64 build that releases ship.
+        # Universal here so every pull request proves the x86_64 build that releases ship.
         env:
           ARCHS: universal
         run: ./scripts/build-app.sh
