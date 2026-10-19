@@ -113,14 +113,14 @@ struct PowerStripView: View {
         let title: String
         let color: Color
         let badge: (milliwatts: Int, direction: PowerDirection, isMeasured: Bool)
-        var chargerLabel: String?
+        let label: String
         if let charger = power.charger {
             let input = Self.chargerInput(charger, power: power)
             symbol = "bolt.fill"
             title = charger.displayName
             color = Lagoon.powerIn
             badge = (input.milliwatts ?? 0, .input, input.isMeasured)
-            chargerLabel = Self.chargerAccessibilityLabel(charger, power: power, input: input.milliwatts)
+            label = Self.chargerAccessibilityLabel(charger, power: power, input: input.milliwatts)
         } else {
             let accessories = Self.accessoryDraw(snapshot)
             if power.hasBattery || snapshot.machine.isLaptop {
@@ -132,11 +132,10 @@ struct PowerStripView: View {
             }
             color = Lagoon.accent
             badge = (accessories.milliwatts, .output, accessories.isMeasured)
-        }
-        var spoken = [title]
-        if badge.milliwatts > 0 {
-            spoken.append(PowerBadge.helpText(milliwatts: badge.milliwatts, direction: badge.direction,
-                                              isMeasured: badge.isMeasured))
+            label = accessories.milliwatts > 0
+                ? title + ", " + PowerBadge.helpText(milliwatts: accessories.milliwatts, direction: .output,
+                                                     isMeasured: accessories.isMeasured)
+                : title
         }
 
         return HStack(alignment: .center, spacing: 8) {
@@ -156,7 +155,7 @@ struct PowerStripView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(chargerLabel ?? spoken.joined(separator: ", "))
+        .accessibilityLabel(label)
     }
 
     // MARK: Battery

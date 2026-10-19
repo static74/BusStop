@@ -187,6 +187,8 @@ struct PortRenameField: View {
                 // Clicking elsewhere saves, like renaming in Finder.
                 if !focused && isRenaming { commit() }
             }
+            // The compact rows are rebuilt when the popover closes; save rather than drop the typed name.
+            .onDisappear { commit() }
             .onAppear {
                 draftName = port.label.source == .user ? (port.label.location ?? "") : ""
                 // Focus after the field exists.

@@ -11,6 +11,8 @@ import SwiftUI
 final class StatusItemController: NSObject, NSPopoverDelegate {
     let statusItem: NSStatusItem
     private let popover: NSPopover
+    /// Typed so a change to the popover's root view is a compile error here.
+    private let hosting: NSHostingController<PopoverView>
     private let store: PortStore
     private let settings: AppSettings
 
@@ -26,6 +28,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         self.settings = settings
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         popover = NSPopover()
+        hosting = NSHostingController(rootView: PopoverView(store: store))
         super.init()
 
         statusItem.autosaveName = "BusStopStatusItem"
@@ -89,7 +92,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         popover.contentSize = NSSize(width: Lagoon.popoverWidth(for: settings.textSize), height: 420)
 
-        let hosting = NSHostingController(rootView: PopoverView(store: store))
         // The SwiftUI content measures itself (fixed width, height up to
         // Lagoon.popoverMaxHeight) and the popover follows.
         hosting.sizingOptions = [.preferredContentSize]
@@ -111,7 +113,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         isPopoverCounted = counted
         store.setUIVisible(counted)
         if !counted {
-            (popover.contentViewController as? NSHostingController<PopoverView>)?.rootView.closeCount += 1
+            hosting.rootView.closeCount += 1
         }
     }
 
