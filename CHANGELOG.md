@@ -4,6 +4,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
 ### Added
 
 - Bus Stop keeps its history between launches: the event log (up to 5,000 events or 30 days, was 500 events in memory), power averaged per minute for 7 days, and each port's plug, connection, overcurrent and liquid counts per day for 90 days. It is saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account, with one section per Mac model. Settings › Advanced › History shows its size, oldest entry and event count, clears it, or turns saving off (which deletes the file). Demo mode never reads or writes it, and `busstop --watch` still keeps nothing. The Events page shows the saved log and when it starts, and its Clear removes the saved events too; the sidebar badge counts events since launch.
@@ -83,5 +85,6 @@ The first release.
 - `scripts/build-app.sh`, `scripts/install.sh` and `scripts/smoke-test.sh` for building, installing and checking the app bundle; CI on Linux, macOS 26 and macOS 27; tagged releases with a universal, ad-hoc-signed zip and its SHA-256 checksum. The app bundle and the zip carry Bus Stop's licence and the MIT notices of PortScope, WhatPort and WhatCable.
 - Screenshots of the app in demo mode, captured by CI on macOS 27 and published to the `screenshots` branch by a separate job that holds the only write token.
 
-[Unreleased]: https://github.com/static74/BusStop/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/static74/BusStop/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/static74/BusStop/releases/tag/v1.1.0
 [1.0.0]: https://github.com/static74/BusStop/releases/tag/v1.0.0
