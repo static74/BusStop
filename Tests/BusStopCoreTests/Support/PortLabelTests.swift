@@ -68,12 +68,12 @@ struct PortLocationCatalogTests {
 @Suite("Port labels")
 struct PortLabelTests {
     private func label(_ number: Int, siblings: [Int], model: String, userNames: [String: String] = [:],
-                       thunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?) {
+                       thunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?, location: String?) {
         label(.usbC, number, siblings: siblings, model: model, userNames: userNames, thunderbolt: thunderbolt)
     }
 
     private func label(_ kind: PortKind, _ number: Int, siblings: [Int], model: String,
-                       userNames: [String: String] = [:], thunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?) {
+                       userNames: [String: String] = [:], thunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?, location: String?) {
         let type: Int
         switch kind {
         case .magSafe: type = PortKey.magSafeType
@@ -152,6 +152,8 @@ struct PortLabelTests {
         #expect(named.label.title == "Desk dock")
         #expect(named.label.shortTitle == "Desk dock")
         #expect(named.capability == "Thunderbolt 5")
+        // The catalogue's place for the port survives the rename.
+        #expect(named.location == "Left Center")
 
         let blank = label(1, siblings: [1, 2, 3], model: "Mac17,9", userNames: ["2/1": "   "])
         #expect(blank.label.source == .catalog)
@@ -172,6 +174,7 @@ struct PortLabelTests {
         #expect(rear.label.location == "Rear")
         #expect(rear.label.title == "Rear · USB-C")
         #expect(rear.capability == "Thunderbolt 4")
+        #expect(rear.location == "Rear")
         let front = label(5, siblings: siblings, model: model, thunderbolt: false)
         #expect(front.label.location == "Front")
         #expect(front.capability == "USB 3 (10 Gb/s)")
@@ -209,6 +212,7 @@ struct PortLabelTests {
         #expect(result.label.location == nil)
         #expect(result.label.title == "USB-C 2")
         #expect(result.capability == nil)
+        #expect(result.location == nil)
         #expect(label(.hdmi, 1, siblings: [1], model: "Mac99,1").label.title == "HDMI 1")
     }
 

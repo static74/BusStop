@@ -30,7 +30,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `Raw/` | `PlistValue` (a `Sendable`, `Codable` mirror of CoreFoundation property-list values), `PropertyBag` (forgiving typed accessors), `RawSnapshot` and its records (`RawNode`, `RawUSBDevice`, `RawThunderboltSwitch`, `SMCChannel`, `RawDisplay`). |
 | `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. |
 | `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, a dock's built-in USB parts (`DockParts`), link decoding, power, displays, device classification. |
-| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, generic name), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
+| `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, capability heuristic, generic name), `ChassisLayout` (where each port sits on the Mac's outline), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
 | `Events/` | `SnapshotDiffer`, which turns two snapshots into `ConnectionEvent`s. |
 | `History/` | `PowerHistory`, the in-memory samples behind the sparklines. |
@@ -122,7 +122,10 @@ Labels resolve in this order (SPEC §5.4):
 1. the user's own name for the port,
 2. a catalogue entry for this `hw.model` with the same connector and number,
 3. a catalogue entry by rank among ports of the same connector (for non-contiguous numbering such as 1, 2, 4),
-4. a generic name such as "USB-C 2".
+4. "Rear" or "Front" from the port's Thunderbolt capability, on a Mac mini, a Mac Studio or a model whose rows mix Thunderbolt and plain USB-C,
+5. a generic name such as "USB-C 2".
+
+The catalogue location is also stored as `PhysicalPort.catalogLocation`, which survives a rename; `ChassisLayout` places ports on the Mac's outline from it.
 
 A Mac missing from the catalogue still works; it just shows generic names until someone adds it.
 

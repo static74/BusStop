@@ -266,7 +266,10 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 1. User override (keyed by `hw.model` + port key).
 2. Catalogue entry for `hw.model` with matching connector and number.
 3. Catalogue entry by rank among same-connector ports (non-contiguous numbering such as {1, 2, 4}).
-4. Generic "USB-C 2", "MagSafe", "HDMI".
+4. Capability heuristic on compact desktops and on models whose rows mix Thunderbolt and plain USB-C: "Rear" for Thunderbolt ports and "Front" for the others, when the catalogue's rows (or, for an unlisted Mac mini, the model alone) say so.
+5. Generic "USB-C 2", "MagSafe", "HDMI".
+
+The catalogue location from steps 2 to 4 is also kept apart from the label, as `PhysicalPort.catalogLocation`, so a renamed port keeps its place. `ChassisLayout` turns it into a face of the Mac (left, right, front, rear) and an order along it: laptop sides read "Rear/Center/Front"; desktop qualifiers ("leftmost" to "rightmost") order the rows of one connector. Catalogue rows for connectors macOS does not report (Ethernet, the power inlet, some SD slots) become passive slots. A port with no readable location is left unplaced.
 
 **USB device attribution** (most to least reliable):
 1. `UsbIOPort` path on an ancestor; parse the last path component `Port-<Type>@<hex>`.
