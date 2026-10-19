@@ -4,12 +4,13 @@ extension Exporter {
     /// A Markdown report: machine, power summary, one section per port with a
     /// device tree, displays, diagnostics.
     ///
-    /// Serial numbers are shown as "REDACTED" when `redact` is true. Raw
+    /// Serial numbers are shown as "REDACTED" when `redact` is true, and
+    /// are removed from names and other text too. Raw
     /// property bags and ids are not part of the report. Text from the
     /// capture is escaped and passed through `Format.terminalSafe`, so a
     /// device name cannot break the layout or carry control characters.
     public static func markdown(_ snapshot: HostSnapshot, redact: Bool = true) -> String {
-        var report = MarkdownReport(redact: redact)
+        var report = MarkdownReport(redact: redact, serials: redact ? serialStrings(in: snapshot) : [])
         report.render(snapshot)
         return report.text
     }
@@ -18,16 +19,24 @@ extension Exporter {
 /// Builds the Markdown report line by line.
 private struct MarkdownReport {
     let redact: Bool
+    /// Serial numbers removed from all text, at least 4 characters as elsewhere.
+    let serials: Set<String>
     private(set) var lines: [String] = []
 
-    init(redact: Bool) {
+    init(redact: Bool, serials: Set<String>) {
         self.redact = redact
+        self.serials = serials.filter { $0.count >= 4 }
+    }
+
+    /// Capture text, with serials removed, escaped for Markdown.
+    func escape(_ text: String) -> String {
+        Self.escape(IDShape.removing(serials, from: text))
     }
 
     var text: String {
         // Collapse runs of blank lines and end with exactly one newline.
         var output: [String] = []
-        for line in lines.map(Self.trimTrailing) where !(line.isEmpty && (output.last?.isEmpty ?? true)) {
+        for line in lines.map(TextTree.trimTrailing) where !(line.isEmpty && (output.last?.isEmpty ?? true)) {
             output.append(line)
         }
         while output.last?.isEmpty == true { output.removeLast() }
@@ -48,7 +57,7 @@ private struct MarkdownReport {
 
     private mutating func header(_ snapshot: HostSnapshot) {
         let machine = snapshot.machine
-        lines.append("# \(Self.escape(machine.name))")
+        lines.append("# \(escape(machine.name))")
         lines.append("")
         var facts = ["Captured \(Self.isoDate(snapshot.capturedAt))"]
         if !machine.osVersion.isEmpty { facts.append("macOS \(machine.osVersion)") }
@@ -67,16 +76,16 @@ private struct MarkdownReport {
         lines.append("")
         var facts: [String] = []
         if let charger = power.charger {
-            var name = "Charger: \(Self.escape(charger.displayName))"
-            if let maker = charger.manufacturer, !maker.isEmpty { name += " (\(Self.escape(maker)))" }
-            if let key = charger.portKey, let port = snapshot.port(key) { name += " on \(Self.escape(port.label.title))" }
+            var name = "Charger: \(escape(charger.displayName))"
+            if let maker = charger.manufacturer, !maker.isEmpty { name += " (\(escape(maker)))" }
+            if let key = charger.portKey, let port = snapshot.port(key) { name += " on \(escape(port.label.title))" }
             facts.append(name)
             if let watts = charger.ratedWatts, watts > 0 { facts.append("Rated: \(watts) W") }
             if let mv = charger.millivolts, let ma = charger.milliamps, mv > 0, ma > 0 {
                 facts.append("Active contract: \(Format.contract(millivolts: mv, milliamps: ma)) "
                     + "(\(Format.power(milliwatts: mv * ma / 1000)))")
             }
-            if let family = charger.familyDescription, !family.isEmpty { facts.append("Type: \(Self.escape(family))") }
+            if let family = charger.familyDescription, !family.isEmpty { facts.append("Type: \(escape(family))") }
             if charger.isWireless { facts.append("Wireless: yes") }
             if let serial = charger.serialNumber { facts.append("Serial number: \(serialText(serial))") }
         } else {
@@ -110,22 +119,22 @@ private struct MarkdownReport {
             return
         }
         for port in snapshot.ports {
-            lines.append("### \(Self.escape(port.label.title))")
+            lines.append("### \(escape(port.label.title))")
             lines.append("")
             var facts: [String] = []
             facts.append("Status: \(port.isConnected ? "connected" : "empty")")
             if let capability = port.capabilityDescription, !capability.isEmpty {
-                facts.append("Capability: \(Self.escape(capability))")
+                facts.append("Capability: \(escape(capability))")
             }
             if !port.supportedTransports.isEmpty {
                 facts.append("Supports: " + port.supportedTransports.sorted().map(\.displayName).joined(separator: ", "))
             }
-            if let link = port.link { facts.append("Link: \(Self.escape(link.label))") }
+            if let link = port.link { facts.append("Link: \(escape(link.label))") }
             if !port.activeTransports.isEmpty {
                 facts.append("Active: " + port.activeTransports.map(Self.transportText).joined(separator: ", "))
             }
             if let power = port.power, let text = Self.portPowerText(power) { facts.append("Power: \(text)") }
-            if let charger = port.charger { facts.append("Charger: \(Self.escape(charger.displayName))") }
+            if let charger = port.charger { facts.append("Charger: \(escape(charger.displayName))") }
             if let cable = port.cable, let text = Self.cableText(cable) { facts.append("Cable: \(text)") }
             if port.liquidDetected { facts.append("Liquid detected: yes") }
             facts.append("Registry name: `\(Format.terminalSafe(port.registryName).replacingOccurrences(of: "`", with: "'"))`")
@@ -157,13 +166,13 @@ private struct MarkdownReport {
         lines.append("| Display | Mode | Port | Link | Serial number |")
         lines.append("|---|---|---|---|---|")
         for display in snapshot.displays {
-            let cleaned = Self.escape(display.name)
+            let cleaned = escape(display.name)
             var name = cleaned.isEmpty ? "Display" : cleaned
             if display.isBuiltin { name += " (built-in)" }
-            let port = display.portKey.flatMap { snapshot.port($0) }.map { Self.escape($0.label.title) } ?? ""
+            let port = display.portKey.flatMap { snapshot.port($0) }.map { escape($0.label.title) } ?? ""
             let serial = display.serialNumber.map { serialText(String($0)) } ?? ""
             lines.append("| \(name) | \(display.modeDescription ?? "") | \(port) | "
-                + "\(display.link.map { Self.escape($0.label) } ?? "") | \(serial) |")
+                + "\(display.link.map { escape($0.label) } ?? "") | \(serial) |")
         }
         lines.append("")
     }
@@ -177,10 +186,10 @@ private struct MarkdownReport {
             return
         }
         for diagnostic in snapshot.diagnostics {
-            lines.append("- **\(Self.severityText(diagnostic.severity)):** \(Self.escape(diagnostic.title))")
-            lines.append("  - \(Self.escape(diagnostic.detail))")
+            lines.append("- **\(TextTree.severityText(diagnostic.severity)):** \(escape(diagnostic.title))")
+            lines.append("  - \(escape(diagnostic.detail))")
             if let suggestion = diagnostic.suggestion, !suggestion.isEmpty {
-                lines.append("  - Suggestion: \(Self.escape(suggestion))")
+                lines.append("  - Suggestion: \(escape(suggestion))")
             }
         }
         lines.append("")
@@ -190,7 +199,7 @@ private struct MarkdownReport {
         guard !snapshot.captureNotes.isEmpty else { return }
         lines.append("## Capture notes")
         lines.append("")
-        lines += snapshot.captureNotes.map { "- \(Self.escape($0))" }
+        lines += snapshot.captureNotes.map { "- \(escape($0))" }
         lines.append("")
     }
 
@@ -204,7 +213,7 @@ private struct MarkdownReport {
         lines.append("\(indent)- \(deviceText(device))")
         if let parts = device.internalParts, !parts.isEmpty {
             let names = parts.map { part in
-                let name = Self.escape(part.name)
+                let name = escape(part.name)
                 return name.isEmpty ? part.kind.displayName : name
             }
             lines.append("\(indent)  - Built in: \(names.joined(separator: ", "))")
@@ -213,9 +222,9 @@ private struct MarkdownReport {
     }
 
     private func deviceText(_ device: DeviceNode) -> String {
-        let name = Self.escape(device.name)
+        let name = escape(device.name)
         var parts = ["**\(name.isEmpty ? device.kind.displayName : name)** (\(device.kind.displayName))"]
-        if let link = device.link { parts.append(Self.escape(link.label)) }
+        if let link = device.link { parts.append(escape(link.label)) }
         let milliwatts = device.rolledUpMilliwatts
         if milliwatts > 0 { parts.append("\(Format.power(milliwatts: milliwatts)) allocated") }
         if device.power?.isSelfPowered == true { parts.append("self-powered") }
@@ -230,7 +239,7 @@ private struct MarkdownReport {
     }
 
     private func serialText(_ serial: String) -> String {
-        redact ? Exporter.redactedText : Self.escape(serial)
+        redact ? Exporter.redactedText : escape(serial)
     }
 
     // MARK: Formatting helpers
@@ -290,14 +299,6 @@ private struct MarkdownReport {
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
-    static func severityText(_ severity: DiagnosticSeverity) -> String {
-        switch severity {
-        case .critical: return "Critical"
-        case .warning: return "Warning"
-        case .info: return "Info"
-        }
-    }
-
     static func isoDate(_ date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
     }
@@ -312,11 +313,5 @@ private struct MarkdownReport {
             result.append(character)
         }
         return result
-    }
-
-    static func trimTrailing(_ line: String) -> String {
-        var line = line
-        while let last = line.last, last == " " || last == "\t" { line.removeLast() }
-        return line
     }
 }

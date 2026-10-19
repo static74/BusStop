@@ -13,7 +13,10 @@ import Foundation
 ///   the ContainerID);
 /// - the computer name of a raw capture;
 /// - serial numbers that appear as parts of device, display and diagnostic ids
-///   (display ids can end in the panel's serial number).
+///   (display ids can end in the panel's serial number);
+/// - those serial numbers wherever else they appear as a whole word: in
+///   device, display and charger names, diagnostic text and every string in a
+///   property bag (some devices put their serial in their product name).
 ///
 /// What is replaced with a stand-in that is stable within one export, so the
 /// export still joins up (and a redacted raw capture still builds the same
@@ -34,15 +37,21 @@ extension Exporter {
         copy.ports = snapshot.ports.map { port in
             var port = port
             port.devices = port.devices.map(redactor.device)
-            port.charger = port.charger.map(redacted(_:))
+            port.charger = port.charger.map(redactor.charger)
             port.properties = port.properties.map(redactor.bag)
+            port.activeTransports = port.activeTransports.map { transport in
+                var transport = transport
+                transport.productName = transport.productName.map(redactor.text)
+                return transport
+            }
             return port
         }
         copy.otherDevices = snapshot.otherDevices.map(redactor.device)
-        copy.power.charger = snapshot.power.charger.map(redacted(_:))
+        copy.power.charger = snapshot.power.charger.map(redactor.charger)
         copy.displays = snapshot.displays.map { display in
             var display = display
             display.serialNumber = nil
+            display.name = redactor.text(display.name)
             display.id = redactor.id(display.id)
             display.representingDeviceID = display.representingDeviceID.map(redactor.id)
             return display
@@ -51,6 +60,9 @@ extension Exporter {
             var diagnostic = diagnostic
             diagnostic.id = redactor.id(diagnostic.id)
             diagnostic.deviceID = diagnostic.deviceID.map(redactor.id)
+            diagnostic.title = redactor.text(diagnostic.title)
+            diagnostic.detail = redactor.text(diagnostic.detail)
+            diagnostic.suggestion = diagnostic.suggestion.map(redactor.text)
             return diagnostic
         }
         return copy
@@ -58,9 +70,10 @@ extension Exporter {
 
     /// A copy of the raw capture with serials redacted and unit identifiers
     /// replaced in every property bag, display serials removed, controller
-    /// and SMC UUIDs replaced, and no computer name.
+    /// and SMC UUIDs replaced, and no computer name. Serials found under
+    /// serial keys are also removed from every other string in the capture.
     public static func redacted(_ raw: RawSnapshot) -> RawSnapshot {
-        let redactor = Redactor(serials: [])
+        let redactor = Redactor(serials: serialStrings(in: raw))
         var copy = raw
         copy.machine.computerName = nil
         copy.portNodes = raw.portNodes.map(redactor.node)
@@ -72,12 +85,21 @@ extension Exporter {
         copy.usbDevices = raw.usbDevices.map { device in
             var device = device
             device.node = redactor.node(device.node)
+            device.ancestry = device.ancestry.map(redactor.ancestor)
+            // Matched against the port node names, which are scrubbed the same way.
+            device.usbIOPortPath = device.usbIOPortPath.map(redactor.text)
+            device.interfaces = device.interfaces.map { interface in
+                var interface = interface
+                interface.name = interface.name.map(redactor.text)
+                return interface
+            }
             return device
         }
         copy.thunderboltSwitches = raw.thunderboltSwitches.map { sw in
             var sw = sw
             sw.node = redactor.node(sw.node)
             sw.ports = sw.ports.map(redactor.node)
+            sw.ancestry = sw.ancestry.map(redactor.ancestor)
             return sw
         }
         copy.battery = raw.battery.map(redactor.bag)
@@ -90,6 +112,7 @@ extension Exporter {
         copy.displays = raw.displays.map { display in
             var display = display
             display.serialNumber = nil
+            display.name = display.name.map(redactor.text)
             return display
         }
         return copy
@@ -107,8 +130,10 @@ extension Exporter {
     /// An event carries no snapshot, so identifiers are found by the shape of
     /// its ids: the serial number at the end of a `display:` id and the UID
     /// in a `tb:` id become "REDACTED", and the same values are removed from
-    /// the title and detail wherever they appear as a whole word.
-    public static func redacted(_ event: ConnectionEvent) -> ConnectionEvent {
+    /// the title and detail wherever they appear as a whole word. So are the
+    /// serial numbers of `snapshots` (the ones the event was diffed from),
+    /// which an event title can carry in a device's name.
+    public static func redacted(_ event: ConnectionEvent, serialsFrom snapshots: [HostSnapshot] = []) -> ConnectionEvent {
         var found = Set<String>()
         func scrub(_ id: String) -> String {
             IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
@@ -117,7 +142,7 @@ extension Exporter {
         copy.id = scrub(event.id)
         copy.deviceID = event.deviceID.map(scrub)
         copy.subjectID = event.subjectID.map(scrub)
-        let words = found.filter { $0.count >= 4 }
+        let words = found.union(snapshots.flatMap(serialStrings(in:))).filter { $0.count >= 4 }
         copy.title = IDShape.removing(words, from: event.title)
         copy.detail = IDShape.removing(words, from: event.detail)
         return copy
@@ -130,6 +155,13 @@ extension Exporter {
     public static func redactedID(_ id: String) -> String {
         var found = Set<String>()
         return IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
+    }
+
+    /// The text with each of `serials` (at least 4 characters) replaced by
+    /// "REDACTED" wherever it appears as a whole word, for free text such as
+    /// "Copy Details".
+    public static func redacted(_ text: String, serials: [String]) -> String {
+        IDShape.removing(Set(serials.filter { $0.count >= 4 }), from: text)
     }
 
     /// True for property keys whose values identify a specific unit and are
@@ -151,46 +183,39 @@ extension Exporter {
 
     // MARK: Private
 
-    private static func redacted(_ charger: ChargerInfo) -> ChargerInfo {
-        var charger = charger
-        if charger.serialNumber != nil { charger.serialNumber = redactedText }
-        return charger
-    }
-
     /// An EDID with its serial fields blanked: bytes 12–15 (the numeric
     /// serial) and the text of any "display serial number" descriptor (tag
     /// 0xFF) in the base block, and in each DisplayID extension block the
     /// serial of the product identification and tiled display blocks and the
-    /// ContainerID. Checksums are recomputed so the blob stays valid. Blobs
-    /// shorter than one 128-byte block are returned unchanged.
+    /// ContainerID. Checksums are recomputed so the blob stays valid. A blob
+    /// shorter than one 128-byte block is dropped, and so are bytes after the
+    /// last whole block: their fields cannot be found, so nothing in them is kept.
     static func redactedEDID(_ data: Data) -> Data {
-        guard data.count >= 128 else { return data }
-        var bytes = [UInt8](data)
+        guard data.count >= 128 else { return Data() }
+        var bytes = [UInt8](data.prefix(data.count / 128 * 128))
         for index in 12...15 { bytes[index] = 0 }
         for offset in stride(from: 54, through: 108, by: 18)
         where bytes[offset] == 0 && bytes[offset + 1] == 0 && bytes[offset + 3] == 0xFF {
             for index in (offset + 5)..<(offset + 18) { bytes[index] = 0x20 }
         }
         setChecksum(&bytes, block: 0)
-        let extensions = Int(bytes[126])
-        if extensions > 0 {
-            for block in 1...extensions where (block + 1) * 128 <= bytes.count && bytes[block * 128] == 0x70 {
-                if redactDisplayID(&bytes, start: block * 128) { setChecksum(&bytes, block: block) }
-            }
+        // Every whole block, not only the extension count in byte 126, which can be wrong.
+        for block in 1..<(bytes.count / 128) where bytes[block * 128] == 0x70 {
+            if redactDisplayID(&bytes, start: block * 128) { setChecksum(&bytes, block: block) }
         }
         return Data(bytes)
     }
 
     /// Blanks the identifying fields of a DisplayID extension block that
-    /// starts at `start`, fixing the section checksum. Returns true when
-    /// anything changed.
+    /// starts at `start`, fixing the section checksum. A block whose section
+    /// or data blocks cannot be walked is blanked whole, since its serials
+    /// cannot be found. Returns true when anything changed.
     ///
     /// Layout: tag 0x70, version, section length N, product type, extension
     /// count, N bytes of data blocks, section checksum. Each data block is a
     /// tag, a revision, a payload length and the payload.
     private static func redactDisplayID(_ bytes: inout [UInt8], start: Int) -> Bool {
         let sectionEnd = start + 5 + Int(bytes[start + 2])
-        guard sectionEnd < start + 127 else { return false }
         var changed = false
         func blank(_ range: Range<Int>) {
             for index in range where bytes[index] != 0 {
@@ -198,12 +223,25 @@ extension Exporter {
                 changed = true
             }
         }
+        guard sectionEnd < start + 127 else {
+            blank((start + 1)..<(start + 127))
+            return changed
+        }
         var offset = start + 5
         while offset + 3 <= sectionEnd {
             let tag = bytes[offset]
             let length = Int(bytes[offset + 2])
             let payload = offset + 3
-            guard payload + length <= sectionEnd, tag != 0 || length > 0 else { break }
+            guard tag != 0 || length > 0 else {
+                // Zero padding ends the walk; blank it, in case it is not padding.
+                blank(offset..<sectionEnd)
+                break
+            }
+            guard payload + length <= sectionEnd else {
+                // A data block that overruns its section: nothing after it can be trusted.
+                blank(offset..<sectionEnd)
+                break
+            }
             switch tag {
             case 0x00, 0x20:
                 // Product identification: OUI (3), product code (2), serial (4).
@@ -219,6 +257,8 @@ extension Exporter {
             }
             offset = payload + length
         }
+        // Past the section checksum is fill; nothing there belongs to a walked data block.
+        blank((sectionEnd + 1)..<(start + 127))
         if changed {
             let sum = bytes[(start + 1)..<sectionEnd].reduce(0) { ($0 + Int($1)) & 0xFF }
             bytes[sectionEnd] = UInt8((256 - sum) & 0xFF)
@@ -234,7 +274,7 @@ extension Exporter {
     }
 
     /// Serial numbers in the snapshot, as they could appear inside ids.
-    private static func serialStrings(in snapshot: HostSnapshot) -> Set<String> {
+    static func serialStrings(in snapshot: HostSnapshot) -> Set<String> {
         var serials = Set<String>()
         for display in snapshot.displays {
             if let serial = display.serialNumber, serial != 0 {
@@ -245,6 +285,37 @@ extension Exporter {
         for entry in snapshot.allDevices {
             for device in [entry.device] + (entry.device.internalParts ?? []) {
                 if let serial = device.serialNumber { serials.insert(serial) }
+            }
+        }
+        for charger in [snapshot.power.charger] + snapshot.ports.map(\.charger) {
+            if let serial = charger?.serialNumber { serials.insert(serial) }
+        }
+        return serials
+    }
+
+    /// Serial numbers in a raw capture: the values under serial keys in every
+    /// property bag, at any depth, and display serials.
+    private static func serialStrings(in raw: RawSnapshot) -> Set<String> {
+        var serials = Set<String>()
+        func collect(_ values: [String: PlistValue]) {
+            for (key, value) in values {
+                if isSensitiveKey(key), key.lowercased() != "connectionuuid" {
+                    if let text = value.stringValue { serials.insert(text) }
+                    if case .int(let number) = value { serials.insert(String(number)) }
+                }
+                if case .dict(let items) = value { collect(items) }
+                if case .array(let items) = value {
+                    for case .dict(let item) in items { collect(item) }
+                }
+            }
+        }
+        let nodes = raw.portNodes + raw.usbDevices.map(\.node) + raw.thunderboltSwitches.flatMap { [$0.node] + $0.ports }
+        for node in nodes { collect(node.properties.values) }
+        for bag in [raw.battery, raw.adapter] { if let bag { collect(bag.values) } }
+        for display in raw.displays {
+            if let serial = display.serialNumber, serial != 0 {
+                serials.insert(String(serial))
+                serials.insert(String(serial, radix: 16))
             }
         }
         return serials
@@ -259,11 +330,19 @@ private final class Redactor {
     /// Parts shorter than three characters are left alone: displays without
     /// a serial report 0 or 1, and such short values identify nothing.
     private let serials: Set<String>
+    /// The serials removed from free text: at least 4 characters, as for events.
+    private let textSerials: Set<String>
     private var uids: [UInt64: UInt64] = [:]
     private var uuids: [String: Int] = [:]
 
     init(serials: Set<String>) {
         self.serials = Set(serials.map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count >= 3 })
+        textSerials = self.serials.filter { $0.count >= 4 }
+    }
+
+    /// The text with every known serial removed where it is a whole word.
+    func text(_ text: String) -> String {
+        IDShape.removing(textSerials, from: text)
     }
 
     // MARK: Stand-ins
@@ -347,6 +426,8 @@ private final class Redactor {
         var device = device
         device.id = id(device.id)
         if device.serialNumber != nil { device.serialNumber = Exporter.redactedText }
+        device.name = text(device.name)
+        device.vendorName = device.vendorName.map(text)
         device.properties = device.properties.map(bag)
         device.children = device.children.map(self.device)
         device.internalParts = device.internalParts?.map(self.device)
@@ -354,10 +435,26 @@ private final class Redactor {
         return device
     }
 
+    func charger(_ charger: ChargerInfo) -> ChargerInfo {
+        var charger = charger
+        if charger.serialNumber != nil { charger.serialNumber = Exporter.redactedText }
+        charger.name = charger.name.map(text)
+        charger.manufacturer = charger.manufacturer.map(text)
+        return charger
+    }
+
     func node(_ node: RawNode) -> RawNode {
         var node = node
+        // A USB device's registry entry is named after its product string.
+        node.name = text(node.name)
         node.properties = bag(node.properties)
         return node
+    }
+
+    func ancestor(_ ancestor: RawAncestor) -> RawAncestor {
+        var ancestor = ancestor
+        ancestor.name = text(ancestor.name)
+        return ancestor
     }
 
     func bag(_ bag: PropertyBag) -> PropertyBag {
@@ -386,6 +483,7 @@ private final class Redactor {
         switch value {
         case .dict(let items): return .dict(values(items))
         case .array(let items): return .array(items.map(self.value))
+        case .string(let string): return .string(text(string))
         default: return value
         }
     }
@@ -447,30 +545,32 @@ enum IDShape {
         return (String(part[..<hash]), String(part[hash...]))
     }
 
-    /// The text with every whole word (a run of letters and digits) that
-    /// equals one of `words`, ignoring case, replaced by "REDACTED".
-    static func removing(_ words: Set<String>, from text: String) -> String {
-        guard !words.isEmpty else { return text }
-        let lowered = Set(words.map { $0.lowercased() })
-        var result = ""
-        var word = ""
-        func flush() {
-            result += lowered.contains(word.lowercased()) ? Exporter.redactedText : word
-            word = ""
-        }
-        for character in text {
-            if character.isLetter || character.isNumber {
-                word.append(character)
-            } else {
-                flush()
-                result.append(character)
+    /// The text with every whole occurrence of one of `values`, ignoring
+    /// case, replaced by "REDACTED". An occurrence is whole when no letter or
+    /// digit touches it on either side, so a value with punctuation in it
+    /// ("SN-12/34") matches too, and "1234" never matches inside "512345".
+    static func removing(_ values: Set<String>, from text: String) -> String {
+        var result = text
+        // Longest first, so a serial that contains a shorter one goes whole.
+        for value in values.sorted(by: { $0.count > $1.count }) where !value.isEmpty {
+            var searchStart = result.startIndex
+            while let range = result.range(of: value, options: .caseInsensitive, range: searchStart..<result.endIndex) {
+                let touchesBefore = range.lowerBound > result.startIndex
+                    && result[result.index(before: range.lowerBound)].isWordCharacter
+                let touchesAfter = range.upperBound < result.endIndex && result[range.upperBound].isWordCharacter
+                if touchesBefore || touchesAfter {
+                    searchStart = result.index(after: range.lowerBound)
+                } else {
+                    result.replaceSubrange(range, with: Exporter.redactedText)
+                    searchStart = result.index(range.lowerBound, offsetBy: Exporter.redactedText.count)
+                }
             }
         }
-        flush()
         return result
     }
 }
 
 private extension Character {
     var isASCIIDigit: Bool { isASCII && isNumber }
+    var isWordCharacter: Bool { isLetter || isNumber }
 }

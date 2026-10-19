@@ -179,17 +179,18 @@ enum GraphPaint {
                     solidColor: solid(color, opacity: opacity)
                 )
             case .link:
-                let tier = edge.link?.tier ?? .legacy
-                let color = edge.isDeparting ? Lagoon.textTertiary : Lagoon.linkColor(tier)
+                let tier = edge.link?.tier
+                let color = edge.isDeparting
+                    ? Lagoon.textTertiary : tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
                 let opacity = (edge.isDeparting ? 0.45 : 0.95) * dimFactor
                 return GraphEdgeStroke(
                     id: edge.id,
                     path: edge.curve.path,
                     end: edge.curve.end,
                     color: color,
-                    width: edge.isDeparting ? 1.25 : Lagoon.linkWidth(tier),
+                    width: edge.isDeparting ? 1.25 : Lagoon.linkWidth(tier ?? .legacy),
                     dash: edge.isDashed ? [4, 4] : [],
-                    glows: !edge.isDeparting && Lagoon.linkGlows(tier),
+                    glows: !edge.isDeparting && Lagoon.linkGlows(tier ?? .legacy),
                     opacity: opacity,
                     drawsSocket: true,
                     solidColor: solid(color, opacity: opacity)
@@ -212,7 +213,7 @@ enum GraphPaint {
             guard edge.isActive, !edge.isDeparting, let link = edge.link, !dimmed.contains(edge.toID) else {
                 return nil
             }
-            let tier = link.tier
+            let tier = link.tier ?? .legacy
             let isTrunk = edge.kind == .trunk
             return GraphPulseTrack(
                 id: edge.id,

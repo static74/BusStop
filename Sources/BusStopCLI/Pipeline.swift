@@ -85,7 +85,7 @@ enum Pipeline {
             return Exporter.markdown(snapshot, redact: options.redact)
         case .text:
             let snapshot = snapshot(from: raw, isDemo: isDemo)
-            return Exporter.textTree(snapshot)
+            return Exporter.textTree(options.redact ? Exporter.redacted(snapshot) : snapshot)
         }
     }
 

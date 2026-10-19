@@ -143,7 +143,7 @@ enum RegistryKeys {
         "UID", "Route String", "Depth", "Device Vendor Name", "Device Model Name", "Device Vendor ID",
         "Device Model ID", "Vendor ID", "Device ID", "Revision ID", "Router ID", "Upstream Port Number",
         "Max Port Number", "Firmware Version", "Thunderbolt Version", "Generation", "Supported Link Speed",
-        "IOPowerManagement", "Link Bandwidth", "USB Port Map", "TRM Policy",
+        "Link Bandwidth", "USB Port Map", "TRM Policy",
     ]
 
     /// `IOThunderboltPort` children of a switch.

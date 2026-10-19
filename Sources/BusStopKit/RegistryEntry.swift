@@ -27,7 +27,6 @@ final class IOObjectHandle {
 enum RegistryPlane {
     static let service = "IOService"
     static let port = "IOPort"
-    static let deviceTree = "IODeviceTree"
 }
 
 /// A retained IORegistry entry with the read operations the capture needs.
@@ -85,11 +84,6 @@ struct RegistryEntry {
     /// subclass of it.
     func conforms(to className: String) -> Bool {
         IOObjectConformsTo(raw, className) != 0
-    }
-
-    /// Whether the entry is attached in `plane`.
-    func isInPlane(_ plane: String) -> Bool {
-        IORegistryEntryInPlane(raw, plane) != 0
     }
 
     // MARK: Navigation

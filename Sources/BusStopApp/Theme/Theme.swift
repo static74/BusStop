@@ -86,7 +86,6 @@ enum Lagoon {
     // MARK: Geometry
 
     static let cardRadius: CGFloat = 14
-    static let chipRadius: CGFloat = 7
     static let popoverWidth: CGFloat = 380
     static let popoverMaxHeight: CGFloat = 640
 
@@ -209,16 +208,6 @@ enum Lagoon {
         case .none: return textTertiary
         }
     }
-
-    // MARK: Type
-
-    // Fixed-size fonts kept for views not yet on `lagoonFont`, which follows
-    // the Text Size setting. Prefer `lagoonFont` in new code.
-    static let titleFont = Font.system(.headline, design: .default).weight(.semibold)
-    static let machineFont = Font.system(.title3, design: .default).weight(.bold)
-    static let valueFont = Font.system(.body, design: .default).monospacedDigit()
-    static let chipFont = Font.system(.caption, design: .rounded).weight(.semibold)
-    static let captionFont = Font.system(.caption, design: .default)
 }
 
 /// Series colours, checked with the dataviz palette validator against the

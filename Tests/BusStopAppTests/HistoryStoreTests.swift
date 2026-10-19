@@ -400,6 +400,9 @@ struct HistoryStoreTests {
         #expect(!store.events.isEmpty)
         // No new events, but the old ones are now past the 30-day limit.
         store.ingest(capture(HistoryArchive.eventAge + 60, unplugged: true))
+        // After a step forward of over a day, ages count from the capture before it until the clock holds a day.
+        #expect(!store.events.isEmpty)
+        store.ingest(capture(HistoryArchive.eventAge + 60 + HistoryArchive.clockTrust, unplugged: true))
         #expect(store.events.isEmpty)
     }
 
@@ -441,6 +444,35 @@ struct HistoryStoreTests {
         store.ingest(capture(2, unplugged: true))
         store.flushHistory()
         #expect(sandbox.names() == ["history.json", aside].sorted())
+    }
+
+    @Test func aCorruptFileThatCannotBeMovedIsNeverOverwritten() throws {
+        let sandbox = Sandbox()
+        try FileManager.default.createDirectory(at: sandbox.directory, withIntermediateDirectories: true)
+        let garbage = Data(#"{"schemaVersion": 1, "sections": {"Mac"#.utf8)
+        try garbage.write(to: sandbox.file.url)
+        // A read-only folder makes the rename fail.
+        let manager = FileManager.default
+        try manager.setAttributes([.posixPermissions: 0o500], ofItemAtPath: sandbox.directory.path)
+        defer { try? manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: sandbox.directory.path) }
+
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        #expect(sandbox.names() == ["history.json"])
+        store.ingest(capture(0))
+        store.ingest(capture(2, unplugged: true))
+        store.flushHistory()
+        store.saveHistoryIfDue(now: start.addingTimeInterval(86_400))
+        store.historyFile?.waitForWrites()
+        #expect(sandbox.data() == garbage)
+
+        // Clear History deletes the file, and saving starts again.
+        try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: sandbox.directory.path)
+        store.clearHistory()
+        #expect(sandbox.names().isEmpty)
+        store.ingest(capture(4))
+        store.flushHistory()
+        #expect(sandbox.names() == ["history.json"])
     }
 
     @Test func newerSchemaFileIsNeverOverwritten() throws {

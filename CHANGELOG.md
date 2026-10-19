@@ -4,6 +4,31 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- Power polling speeds up to every 2 seconds only while the topology window can be seen. A window that is minimised, hidden, covered by other windows or on another Space no longer keeps it fast.
+- Background captures make fewer calls: the SMC's per-port contract (`DxMP`) and description (`DxDE`) keys are no longer read, since nothing showed them, and a Thunderbolt switch in the port plane is read with the common keys only. Raw captures (`busstop --raw`) no longer include those two SMC values.
+- A port counter (plug events, connections, overcurrents) that reads lower than before keeps its earlier value as the starting point instead of starting over, so one glitched reading can no longer add a port's lifetime count to today.
+- Reset All Settings also resets whether the sidebar's Cables section is expanded.
+
+### Fixed
+
+- Demo mode no longer shows or changes your own port names when a demo uses your Mac's model. Names given in demo mode are kept apart, as pins already were.
+- A demo update that arrives just as demo mode is turned off is no longer treated as live, so it cannot post a notification for a demo device.
+- A device that left with a hub and was plugged in elsewhere within a moment is no longer drawn twice, once live and once fading under the hub.
+- A history file that can be neither read nor moved aside is no longer overwritten; Bus Stop leaves it alone and saves again once you clear the history.
+- A clock set ahead and then put right no longer erases the saved history, for any Mac model and even when Bus Stop saves before its next reading, and power recording resumes at once instead of waiting for real time to catch up. While the clock is in doubt, old history is trimmed by the time of the last reading before the jump.
+- A port whose plug count was missing for a while, such as across a sleep, no longer raises a false "keeps disconnecting" warning on the next replug.
+- HDMI links, and DisplayPort or USB 3 links with no reported rate, are drawn in the accent colour on chips, the map and the Mac Outline instead of the USB 2 colour.
+- A cable whose e-marker says USB 3.2 Gen 2 / USB4 Gen 2 is rated 20 Gb/s, not 10, so the inspector no longer says it limits a 20 Gb/s link it carries.
+- A corrupt power reading at the bottom of the 64-bit range is dropped instead of crashing the app when it formats power.
+- The port number of a `usb-drd` USB controller is read only from the controller itself, never from a node below it, which could place its devices on the wrong port.
+
+### Security
+
+- Redacted exports no longer leak a serial number that a device puts in its own name. A known serial is removed wherever it appears as a whole word: device, display and charger names, diagnostic text, every string of a raw capture (registry entry names included), `busstop --watch` lines and Copy Details. The CLI's default text tree is now redacted too; `--no-redact` keeps everything as before.
+- Redacted exports drop EDID data whose serial fields cannot be found (shorter than one block, or bytes after the last whole block), and blank a DisplayID block that cannot be walked, instead of passing it through unchanged.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added

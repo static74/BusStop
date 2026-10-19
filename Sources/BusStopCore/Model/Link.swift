@@ -67,8 +67,10 @@ public struct LinkInfo: Sendable, Hashable, Codable {
         self.detail = detail
     }
 
-    public var tier: SpeedTier {
-        bitsPerSecond.map(SpeedTier.init(bitsPerSecond:)) ?? .legacy
+    /// Nil when the rate is unknown (HDMI, some DisplayPort and USB links),
+    /// so an unknown rate is not mistaken for USB 2.
+    public var tier: SpeedTier? {
+        bitsPerSecond.map(SpeedTier.init(bitsPerSecond:))
     }
 
     /// `"10 Gb/s"`, `"480 Mb/s"`; nil when the rate is unknown.

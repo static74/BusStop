@@ -312,6 +312,125 @@ struct RedactionTests {
         #expect(Exporter.redactedID("usb:0x01110000:04e8:61fb") == "usb:0x01110000:04e8:61fb")
     }
 
+    // MARK: Serials in names
+
+    /// A demo capture whose first USB device with a serial also carries it
+    /// in its product name, as some devices do.
+    private func captureWithSerialInName(_ serial: String) throws -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["kUSBSerialNumberString"] = .string(serial)
+        values["USB Product Name"] = .string("Drive \(serial)")
+        values["kUSBProductString"] = .string("Drive \(serial)")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        // The registry entry, and an interface, are named after the product too.
+        raw.usbDevices[index].node.name = "Drive \(serial)"
+        if !raw.usbDevices[index].interfaces.isEmpty { raw.usbDevices[index].interfaces[0].name = "Drive \(serial)" }
+        return raw
+    }
+
+    @Test func serialsInNamesAreRedactedInEveryFormat() throws {
+        let serial = "SNXYZ123"
+        let raw = try captureWithSerialInName(serial)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        let redactedOutputs = [
+            text(try Exporter.rawJSON(raw, redact: true)),
+            text(try Exporter.json(snapshot, redact: true)),
+            Exporter.markdown(snapshot, redact: true),
+            Exporter.textTree(Exporter.redacted(snapshot)),
+        ]
+        for output in redactedOutputs {
+            #expect(!output.contains(serial))
+        }
+        #expect(text(try Exporter.rawJSON(raw, redact: false)).contains(serial))
+        #expect(Exporter.markdown(snapshot, redact: false).contains(serial))
+        // The redacted capture still builds the same topology.
+        let rebuilt = TopologyBuilder.build(try Exporter.decodeRaw(Exporter.rawJSON(raw, redact: true)))
+        #expect(rebuilt.allDevices.count == snapshot.allDevices.count)
+    }
+
+    @Test func displaySerialInARawDisplayNameIsRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        let serial = String(try #require(raw.displays[index].serialNumber))
+        raw.displays[index].name = "Studio Display \(serial)"
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains(serial))
+        #expect(text(try Exporter.rawJSON(raw, redact: false)).contains(serial))
+    }
+
+    @Test func serialsInNamesAreRedactedFromEvents() throws {
+        let serial = "SNXYZ123"
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName(serial))
+        let device = try #require(snapshot.allDevices.first { $0.device.serialNumber == serial }?.device)
+        let connected = ConnectionEvent(id: "deviceConnected:\(device.id):1790000000000", date: S.date,
+                                        kind: .deviceConnected, title: "\(device.name) connected",
+                                        detail: "\(device.name) on Left", deviceID: device.id)
+        let redacted = Exporter.redacted(connected, serialsFrom: [snapshot])
+        #expect(!redacted.title.contains(serial) && !redacted.detail.contains(serial))
+        #expect(Exporter.redacted(connected).title.contains(serial))
+    }
+
+    @Test func wholeWordsOnly() {
+        #expect(Exporter.redacted("Drive SN-12/34 (SN-12/34)", serials: ["SN-12/34"]) == "Drive REDACTED (REDACTED)")
+        #expect(Exporter.redacted("512345 and 1234", serials: ["1234"]) == "512345 and REDACTED")
+        #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
+    }
+
+    // MARK: EDID
+
+    @Test func malformedEDIDIsDropped() {
+        var short = [UInt8](repeating: 0, count: 100)
+        short[12...15] = [0x12, 0x34, 0x56, 0x78]
+        #expect(Exporter.redactedEDID(Data(short)).isEmpty)
+        var long = [UInt8](repeating: 0, count: 200)
+        long[150...153] = [0x12, 0x34, 0x56, 0x78]
+        let redacted = Exporter.redactedEDID(Data(long))
+        #expect(redacted.count == 128)
+        #expect(redacted[12..<16].allSatisfy { $0 == 0 })
+    }
+
+    @Test func displayIDBlocksThatCannotBeWalkedAreBlanked() {
+        // Byte 126 says no extensions, block 1 is DisplayID with a section length past its end.
+        var bytes = [UInt8](repeating: 0, count: 256)
+        bytes[128] = 0x70
+        bytes[130] = 0xFF
+        bytes[140...143] = [0x12, 0x34, 0x56, 0x78]
+        let redacted = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(redacted[129..<255].allSatisfy { $0 == 0 })
+        #expect(redacted[128..<256].reduce(0) { ($0 + Int($1)) & 0xFF } == 0)
+        // A data block that overruns its section blanks the rest of the section.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 20
+        bytes[133...135] = [0x20, 0, 40]
+        bytes[136...140] = [1, 2, 3, 4, 5]
+        let overrun = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(overrun[133..<153].allSatisfy { $0 == 0 })
+        // Zeros in the middle of a section end the walk; what follows is blanked too.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 20
+        bytes[136...138] = [0x20, 0, 9]
+        bytes[144...147] = [0xDE, 0xAD, 0xBE, 0xEF]
+        let padded = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(padded[133..<153].allSatisfy { $0 == 0 })
+        // A data block whose serial lies past the end of its section.
+        bytes = [UInt8](repeating: 0, count: 256)
+        bytes[126] = 1
+        bytes[128] = 0x70
+        bytes[130] = 5
+        bytes[133...135] = [0x20, 0, 12]
+        bytes[141...144] = [0xDE, 0xAD, 0xBE, 0xEF]
+        let past = [UInt8](Exporter.redactedEDID(Data(bytes)))
+        #expect(past[141..<145].allSatisfy { $0 == 0 })
+        #expect(past[128..<256].reduce(0) { ($0 + Int($1)) & 0xFF } == 0)
+    }
+
     // MARK: Markdown
 
     @Test func markdownStripsControlCharacters() {

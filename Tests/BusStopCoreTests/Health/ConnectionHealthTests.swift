@@ -179,6 +179,17 @@ struct ConnectionHealthTests {
         #expect(glitch.last.isEmpty)
     }
 
+    @Test func aMissingPlugEventCountDropsTheBaseline() {
+        var run = HealthRun()
+        run.observe(0, [F.port(1, [F.drive()], plugEvents: 10)])
+        run.observe(20, [F.port(1, [F.drive()])])
+        run.observe(3_600, [F.port(1, [F.drive()])], afterGap: true)
+        run.observe(3_620, [F.port(1, [F.drive()], plugEvents: 14)])
+        #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 0)
+        run.observe(3_630, [F.port(1, [F.drive()], plugEvents: 16)])
+        #expect(run.health.history(ofDevice: F.drive().id)?.cycles == 1)
+    }
+
     @Test func findingHoldsUntilTheWindowIsQuiet() {
         var run = HealthRun()
         run.observe(0, [F.port(1)])

@@ -74,6 +74,9 @@ enum PortNodeReader {
         case controller
         case transportCC, transportUSB, transportDisplayPort, transportCIO
         case feature, component, transportProtocol
+        /// Thunderbolt switch that is also an `IOPort`-plane parent: common
+        /// keys only, since `ThunderboltReader` reads the switch in full.
+        case thunderboltSwitch
         /// Unrecognised class: per-key read of every known child key.
         case other
     }
@@ -90,6 +93,7 @@ enum PortNodeReader {
             if name.hasPrefix("IOPortFeature") || name.hasPrefix("AppleHPMLDCM") { return .feature }
             if name.hasPrefix("IOPortTransportComponent") { return .component }
             if name.hasPrefix("IOPortTransportProtocol") { return .transportProtocol }
+            if name.hasPrefix("IOThunderboltSwitch") { return .thunderboltSwitch }
             if name == "IOAccessoryManager" || name == "AppleHDMIPortController" || name == "IOPort" {
                 return .controller
             }
@@ -105,7 +109,7 @@ enum PortNodeReader {
         case .controller:
             let values = entry.allProperties() ?? entry.properties(keys: RegistryKeys.portController)
             return RegistryKeys.cleaned(values)
-        case .transportCC:
+        case .transportCC, .thunderboltSwitch:
             return entry.properties(keys: common)
         case .transportUSB:
             return entry.properties(keys: common + RegistryKeys.usbTransport)

@@ -368,14 +368,7 @@ enum PowerParser {
             }
             return nil
         }
-        let allocated = hostAllocatedMilliwatts(port)
+        let allocated = port.hostAllocatedMilliwatts
         return allocated > 0 ? PortPower(direction: .output, milliwatts: allocated, source: .usbAllocation) : nil
-    }
-
-    /// USB power the Mac itself supplies through a port
-    /// (`PhysicalPort.hostAllocatedMilliwatts`). The Mac's own draw toward a
-    /// dock or display shows up in the SMC instead.
-    static func hostAllocatedMilliwatts(_ port: PhysicalPort) -> Int {
-        port.hostAllocatedMilliwatts
     }
 }

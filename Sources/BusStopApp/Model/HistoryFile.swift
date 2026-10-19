@@ -27,6 +27,8 @@ nonisolated final class HistoryFile: Sendable {
         case missing
         /// The file could not be read; it was renamed `history-corrupt-<ms>.json`.
         case movedAside
+        /// The file could not be read, nor renamed: left as it is, so no save replaces it.
+        case unreadable
         /// Written by a newer Bus Stop: left as it is and never overwritten.
         case newerSchema(Int)
     }
@@ -40,7 +42,8 @@ nonisolated final class HistoryFile: Sendable {
                 return .newerSchema(version)
             } catch {
                 let ms = Int64(Date().timeIntervalSince1970 * 1000)
-                try? FileManager.default.moveItem(at: url, to: directory.appending(path: "history-corrupt-\(ms).json"))
+                let aside = directory.appending(path: "history-corrupt-\(ms).json")
+                guard (try? FileManager.default.moveItem(at: url, to: aside)) != nil else { return .unreadable }
                 return .movedAside
             }
         }

@@ -74,7 +74,7 @@ struct GlassIconButton: View {
 
 // MARK: - Chips and badges
 
-/// Capsule showing a link's speed, coloured by speed tier.
+/// Capsule showing a link's speed, coloured by speed tier (the accent when the rate is unknown).
 ///
 /// The capsule's fill and outline use the link-speed ramp; the text uses
 /// `Lagoon.linkTextColor`, which stays legible for the slowest tiers. Under
@@ -87,12 +87,14 @@ struct SpeedChip: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let color = Lagoon.linkColor(link.tier)
+        let tier = link.tier
+        let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
         let isIncreased = contrast == .increased
+        let textColor = isIncreased ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0) } ?? Lagoon.accent)
         Text(compact ? (link.rateLabel ?? link.generation) : link.label)
             .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
             .lineLimit(1)
-            .foregroundStyle(isIncreased ? Lagoon.textPrimary : Lagoon.linkTextColor(link.tier))
+            .foregroundStyle(textColor)
             .padding(.horizontal, 7)
             .padding(.vertical, 2.5)
             .background(Capsule().fill(color.opacity(0.12)))

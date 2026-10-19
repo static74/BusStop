@@ -80,14 +80,14 @@ struct PortHealthTests {
         #expect(ports.count == 1)
     }
 
-    @Test func decreasingCounterStartsANewEpoch() {
+    @Test func decreasingCounterKeepsItsBaseline() {
         var archive = HistoryArchive()
         archive.record(capture(0, plugs: 10), afterGap: true, calendar: calendar)
         archive.record(capture(10, plugs: 12), afterGap: false, calendar: calendar)
         archive.record(capture(20, plugs: 2), afterGap: false, calendar: calendar)
-        archive.record(capture(30, plugs: 5), afterGap: false, calendar: calendar)
+        archive.record(capture(30, plugs: 13), afterGap: false, calendar: calendar)
         #expect(archive.portHealth(model: model, now: start.addingTimeInterval(30), calendar: calendar)[key1]?
-            .plugEvents == 5)
+            .plugEvents == 3)
     }
 
     @Test func lastWeekFollowsLocalDays() throws {

@@ -95,7 +95,7 @@ busstop --version
 busstop --help
 ```
 
-Demo setups are `studioDesk`, `travel`, `dockStation`, `unplugged` and `flakyCable` (Travel with an iPhone that keeps dropping out); with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds, so after about 40 seconds a `!` line reports it as flaky. Serial numbers are redacted from JSON, Markdown, raw and watch output unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
+Demo setups are `studioDesk`, `travel`, `dockStation`, `unplugged` and `flakyCable` (Travel with an iPhone that keeps dropping out); with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds, so after about 40 seconds a `!` line reports it as flaky. Serial numbers are redacted from the text tree and from JSON, Markdown, raw and watch output, also where a device puts its serial in its name, unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
 
 The default output looks like this:
 

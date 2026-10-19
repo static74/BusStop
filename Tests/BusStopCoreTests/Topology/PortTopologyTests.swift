@@ -194,6 +194,20 @@ struct PortTopologyTests {
         #expect(info.pdRevision == 3)
     }
 
+    @Test(arguments: [
+        (UInt32(0), "USB 2.0 (480 Mb/s)", Int64(480_000_000)),
+        (1, "USB 3.2 Gen 1 (5 Gb/s)", 5_000_000_000),
+        (2, "USB 3.2 Gen 2 / USB4 Gen 2 (20 Gb/s)", 20_000_000_000),
+        (3, "USB4 Gen 3 (40 Gb/s)", 40_000_000_000),
+        (4, "USB4 Gen 4 (80 Gb/s)", 80_000_000_000),
+    ])
+    func cableSpeedCodes(code: UInt32, description: String, bps: Int64) throws {
+        // Passive cable header.
+        let cable = try #require(TransportParser.decodeCableVDOs([3 << 27, 0, 0, code]))
+        #expect(cable.speedDescription == description)
+        #expect(cable.maxBitsPerSecond == bps)
+    }
+
     @Test func cableNeedsAConnectionAndEvidence() {
         let marker = F.node(id: 5, parent: 1, className: "IOPortTransportComponentCCUSBPDSOPp", name: "SOP'",
                             properties: ["ParentPortType": 2, "ParentPortNumber": 1])

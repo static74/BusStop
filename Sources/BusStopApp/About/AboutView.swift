@@ -1,12 +1,13 @@
 import AppKit
+import BusStopCore
 import SwiftUI
 
 /// Root view of the About window: icon, name, version, what Bus Stop
 /// promises, credits and a link to the project. Text follows the Text Size
 /// setting; the window grows taller to fit it.
 struct AboutView: View {
-    /// The project page. A literal, so it always parses.
-    private static let repositoryURL = URL(string: "https://github.com/static74/BusStop")!
+    /// The project page. `BusStopVersion.projectURL` is a fixed literal, so it always parses.
+    private static let repositoryURL = URL(string: BusStopVersion.projectURL)!
 
     var body: some View {
         VStack(spacing: 10) {

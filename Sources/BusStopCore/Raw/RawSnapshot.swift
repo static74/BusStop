@@ -271,9 +271,10 @@ public struct SMCChannel: Sendable, Hashable, Codable {
     public var amps: Double?
     /// `DxPR`: whether a contract is present.
     public var present: Bool?
-    /// `DxMP` contract power in milliwatts, when published.
+    /// `DxMP` contract power in milliwatts. Live captures no longer read it;
+    /// it comes only from older captures and demo data.
     public var contractMilliwatts: Int?
-    /// `DxDE` description, when published.
+    /// `DxDE` description. Like `contractMilliwatts`, not read live.
     public var label: String?
 
     public init(index: Int, uuid: String? = nil, volts: Double? = nil, amps: Double? = nil,
