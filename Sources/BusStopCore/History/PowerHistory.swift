@@ -7,13 +7,17 @@ public struct PowerSample: Sendable, Hashable, Codable {
     public var systemInputMilliwatts: Int?
     /// Battery power (mW, + charging), when known.
     public var batteryMilliwatts: Int?
+    /// Power the Mac itself is consuming (mW), when known.
+    public var systemLoadMilliwatts: Int?
     /// Per-port power (mW) keyed by port key string; positive = out of the Mac, negative = into it.
     public var portMilliwatts: [String: Int]
 
-    public init(date: Date, systemInputMilliwatts: Int? = nil, batteryMilliwatts: Int? = nil, portMilliwatts: [String: Int] = [:]) {
+    public init(date: Date, systemInputMilliwatts: Int? = nil, batteryMilliwatts: Int? = nil,
+                systemLoadMilliwatts: Int? = nil, portMilliwatts: [String: Int] = [:]) {
         self.date = date
         self.systemInputMilliwatts = systemInputMilliwatts
         self.batteryMilliwatts = batteryMilliwatts
+        self.systemLoadMilliwatts = systemLoadMilliwatts
         self.portMilliwatts = portMilliwatts
     }
 
@@ -31,6 +35,7 @@ public struct PowerSample: Sendable, Hashable, Codable {
         self.init(date: snapshot.capturedAt,
                   systemInputMilliwatts: snapshot.power.systemInputMilliwatts,
                   batteryMilliwatts: snapshot.power.battery?.powerMilliwatts,
+                  systemLoadMilliwatts: snapshot.power.systemLoadMilliwatts,
                   portMilliwatts: ports)
     }
 }
