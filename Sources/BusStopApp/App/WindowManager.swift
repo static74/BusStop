@@ -27,7 +27,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// Bumped to rebuild the settings view on a requested tab.
     private var settingsGeneration = 0
     private var aboutWindow: NSWindow?
-    /// Whether the topology window is counted in `store.setUIVisible`.
+    /// Whether the topology window is counted in `store.setUIVisible`: only
+    /// while it is on screen and not fully covered, so fast polling stops
+    /// when it is minimised, hidden, behind other windows or on another Space.
     private var isTopologyCounted = false
 
     /// Re-applies the activation policy whenever the Dock icon setting changes.
@@ -58,7 +60,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
         let window = topologyWindow ?? makeTopologyWindow(store: store, page: page)
         topologyWindow = window
         present(window)
-        setTopologyCounted(true)
+        refreshTopologyCounted()
     }
 
     /// Shows the settings window. When it is already open and a tab is
@@ -315,6 +317,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
         store?.setUIVisible(counted)
     }
 
+    private func refreshTopologyCounted() {
+        guard let window = topologyWindow else { return }
+        setTopologyCounted(window.isVisible && window.occlusionState.contains(.visible))
+    }
+
     private var ourWindows: [NSWindow] {
         [topologyWindow, settingsWindow, aboutWindow].compactMap { $0 }
     }
@@ -329,15 +336,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
         applyActivationPolicy(closing: window)
     }
 
-    func windowDidMiniaturize(_ notification: Notification) {
+    /// Covers minimising, hiding with ⌘H, other windows on top and Space switches.
+    func windowDidChangeOcclusionState(_ notification: Notification) {
         if (notification.object as? NSWindow) === topologyWindow {
-            setTopologyCounted(false)
-        }
-    }
-
-    func windowDidDeminiaturize(_ notification: Notification) {
-        if (notification.object as? NSWindow) === topologyWindow {
-            setTopologyCounted(true)
+            refreshTopologyCounted()
         }
     }
 }
