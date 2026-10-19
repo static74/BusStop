@@ -73,7 +73,7 @@ struct GraphNodeView: View {
             .frame(width: node.frame.width, height: node.frame.height, alignment: .leading)
             .background(background)
             .overlay(border)
-            .shadow(color: isSelected ? Lagoon.accent.opacity(0.45) : .clear, radius: isSelected ? 12 : 0)
+            .lagoonGlow(isSelected ? Lagoon.accent.opacity(0.45) : .clear, radius: isSelected ? 12 : 0)
             .contentShape(RoundedRectangle(cornerRadius: Lagoon.cardRadius, style: .continuous))
             // Reported in the space the chips measure themselves in, so a
             // pointer and a chip always line up, whatever the zoom.

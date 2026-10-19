@@ -198,8 +198,9 @@ enum GraphPaint {
         }
     }
 
-    /// `color` at `opacity` over the map's black background, as one opaque
-    /// colour.
+    /// `color` at `opacity` over the map's background, as one opaque colour.
+    /// `mix` resolves where it is drawn, so it blends with the theme's
+    /// background (`ThemeContrastTests`).
     static func solid(_ color: Color, opacity: Double) -> Color {
         opacity >= 1 ? color : color.mix(with: Lagoon.background, by: 1 - opacity, in: .device)
     }
@@ -235,7 +236,7 @@ enum GraphPaint {
             return GraphPulseTrack(
                 id: edge.id,
                 curve: power.flowsToParent ? edge.curve.reversed : edge.curve,
-                color: Lagoon.powerColor(tier).mix(with: Lagoon.highlight, by: 0.25, in: .device),
+                color: Lagoon.powerColor(tier).mix(with: Lagoon.pulseMix, by: 0.25, in: .device),
                 radius: 1.8 + CGFloat(tier.rawValue) * 0.3,
                 period: 3.2 - Double(tier.rawValue) * 0.5,
                 phase: phase(for: edge.id),
@@ -273,17 +274,20 @@ enum GraphPaint {
 /// look like one link, not a brighter one. So every glow is drawn into one
 /// shared layer that is blurred and faded as a whole, and the strokes are
 /// solid colours pre-blended with the background instead of translucent
-/// ones, so overlapping strokes do not add up.
+/// ones, so overlapping strokes do not add up. Glows are drawn in Dark only;
+/// in Light, width and colour strength carry the meaning.
 struct GraphLinksLayer: View {
     /// Strokes already in view points (`GraphEdgeStroke.viewed(through:)`).
     var strokes: [GraphEdgeStroke]
     /// The zoom, for the glow's blur.
     var scale: CGFloat = 1
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        Canvas { context, _ in
+        let glowing = colorScheme == .dark ? strokes.filter(\.glows) : []
+        return Canvas { context, _ in
             // Glows first, one layer per fade level (normal and dimmed).
-            let glowing = strokes.filter(\.glows)
             for opacity in Set(glowing.map(\.opacity)).sorted() {
                 var glow = context
                 glow.opacity = 0.55 * opacity
@@ -318,8 +322,9 @@ struct GraphLinksLayer: View {
 }
 
 /// The hovered and the selected links, drawn over the others: a soft accent
-/// halo and a brighter, slightly wider stroke. The selected link also gets
-/// an accent outline, so it stays marked while the pointer is elsewhere.
+/// halo (Dark only) and a stronger, slightly wider stroke (brighter in Dark,
+/// darker in Light). The selected link also gets an accent outline, so it
+/// stays marked while the pointer is elsewhere.
 struct GraphLinkHighlightLayer: View {
     /// Only the strokes to highlight, in view points.
     var strokes: [GraphEdgeStroke]
@@ -328,21 +333,26 @@ struct GraphLinkHighlightLayer: View {
     /// The zoom, for the halo and outline widths.
     var scale: CGFloat = 1
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let accent = Lagoon.accentGlow
         let background = Lagoon.background
-        let highlight = Lagoon.highlight
-        Canvas { context, _ in
+        let highlight = Lagoon.linkHighlightMix
+        let drawsHalo = colorScheme == .dark
+        return Canvas { context, _ in
             for stroke in strokes {
                 let isSelected = selected.contains(stroke.id)
                 let isHovered = stroke.id == hovered
                 guard isSelected || isHovered else { continue }
 
-                var halo = context
-                halo.opacity = isSelected ? 0.5 : 0.32
-                halo.addFilter(.blur(radius: 4 * scale))
-                halo.stroke(stroke.path, with: .color(accent),
-                            style: StrokeStyle(lineWidth: stroke.width + 8 * scale, lineCap: .round))
+                if drawsHalo {
+                    var halo = context
+                    halo.opacity = isSelected ? 0.5 : 0.32
+                    halo.addFilter(.blur(radius: 4 * scale))
+                    halo.stroke(stroke.path, with: .color(accent),
+                                style: StrokeStyle(lineWidth: stroke.width + 8 * scale, lineCap: .round))
+                }
 
                 if isSelected {
                     context.stroke(stroke.path, with: .color(accent),
@@ -392,6 +402,8 @@ struct GraphPulseLayer: View {
     private func pulses(at time: TimeInterval) -> some View {
         Canvas { context, _ in
             for track in tracks {
+                // Resolved once per track, not three dynamic colours per dot.
+                let color = Color(track.color.resolve(in: context.environment))
                 for index in 0..<max(track.dots, 1) {
                     let raw = time / track.period + track.phase + Double(index) / Double(max(track.dots, 1))
                     let progress = raw - raw.rounded(.down)
@@ -403,7 +415,7 @@ struct GraphPulseLayer: View {
                     context.fill(
                         Path(ellipseIn: CGRect(x: point.x - halo, y: point.y - halo, width: halo * 2, height: halo * 2)),
                         with: .radialGradient(
-                            Gradient(colors: [track.color.opacity(0.5 * fade), track.color.opacity(0)]),
+                            Gradient(colors: [color.opacity(0.5 * fade), color.opacity(0)]),
                             center: point,
                             startRadius: 0,
                             endRadius: halo
@@ -412,7 +424,7 @@ struct GraphPulseLayer: View {
                     let core = radius
                     context.fill(
                         Path(ellipseIn: CGRect(x: point.x - core, y: point.y - core, width: core * 2, height: core * 2)),
-                        with: .color(track.color.opacity(0.95 * fade))
+                        with: .color(color.opacity(0.95 * fade))
                     )
                 }
             }
@@ -475,16 +487,21 @@ struct GraphChipsLayer: View {
 
 /// A faint dot grid and a soft glow behind the host, so the canvas reads as a
 /// map. The grid is fixed to the layout, so it moves and zooms with the
-/// graph, and only its visible dots are drawn.
+/// graph, and only its visible dots are drawn. Light needs stronger dots and
+/// a weaker tint than Dark to look the same.
 struct GraphBackdrop: View {
     /// The host card, in layout coordinates.
     var hostFrame: CGRect?
     var camera: GraphCamera
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        let dotColor = Lagoon.accent.opacity(0.07)
+        let isDark = colorScheme == .dark
+        let dotColor = Lagoon.accent.opacity(isDark ? 0.07 : 0.14)
         let glowColor = Lagoon.accent
-        Canvas { context, size in
+        let glowOpacity = isDark ? 0.10 : 0.06
+        return Canvas { context, size in
             // 24 layout points apart; zoomed far out, every second (fourth…)
             // dot, so the grid never gets denser than 12 points on screen.
             var spacing: CGFloat = 24
@@ -511,7 +528,7 @@ struct GraphBackdrop: View {
                 context.fill(
                     Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
                     with: .radialGradient(
-                        Gradient(colors: [glowColor.opacity(0.10), glowColor.opacity(0)]),
+                        Gradient(colors: [glowColor.opacity(glowOpacity), glowColor.opacity(0)]),
                         center: center,
                         startRadius: 0,
                         endRadius: radius

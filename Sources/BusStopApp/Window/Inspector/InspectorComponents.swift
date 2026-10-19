@@ -278,6 +278,7 @@ struct InspectorRawKeysSection: View {
     var showRawKeys: Bool
 
     @State private var isExpanded = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let count = properties?.values.count ?? 0
@@ -319,7 +320,7 @@ struct InspectorRawKeysSection: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(key)
                         .lagoonFont(.caption, weight: .semibold, design: .monospaced)
-                        .foregroundStyle(Lagoon.accent.opacity(0.85))
+                        .foregroundStyle(Lagoon.accent.opacity(Lagoon.textFade(0.85, colorScheme)))
                     Text(properties[key]?.displayString ?? "")
                         .lagoonFont(.caption, design: .monospaced)
                         .foregroundStyle(Lagoon.textPrimary)

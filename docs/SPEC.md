@@ -161,26 +161,40 @@ busstop --version
 
 ### 4.2 Colour tokens
 
-| Token | Hex | Use |
-|---|---|---|
-| `background` | `#000000` | Window and popover base |
-| `surface` | `#070D0E` | Cards |
-| `surfaceRaised` | `#0D1719` | Hover, selected rows, inspector groups |
-| `stroke` | `#3EE6D4` at 16% | Card borders, separators |
-| `accent` | `#3EE6D4` | Turquoise: active states, links, primary text accents |
-| `accentDeep` | `#0FA3A0` | Fills behind accent text, pressed states |
-| `accentGlow` | `#8AFFF3` | Link pulses, fastest links, focus rings |
-| `accentMuted` | `#1C5F5A` | Inactive links, empty-port rings |
-| `textPrimary` | `#EAFBF8` | Titles and values |
-| `textSecondary` | `#9BBAB5` | Labels and subtitles |
-| `textTertiary` | `#5E7B77` | Hints, disabled |
-| `powerIn` | `#7BF5B0` | Charging / power in |
-| `warning` | `#FFC266` | Warnings |
-| `critical` | `#FF6B7A` | Errors |
+Each token has a Dark value and a Light value (`Lagoon.themed(dark, light)`), and resolves to whichever appearance it is drawn in. The app still always shows Dark; the Light values are the light theme's palette. Dark values are frozen by `ThemeContrastTests`, which also holds the Light values to these minimum contrasts on `background`, `surface` and `surfaceRaised`: 12:1 for `textPrimary`, 6:1 for `textSecondary`, 4.5:1 for `textTertiary`, `accent`, status colours and chip text on its own tinted fill, and 3:1 for link and power strokes, `accentGlow` and chart series. The deliberately dim tiers (`accentMuted`, USB 2 links, no power) read at least as well in Light as in Dark. Card hairlines are exempt in both themes.
+
+| Token | Dark | Light | Use |
+|---|---|---|---|
+| `background` | `#000000` | `#F6FAF9` | Window and popover base |
+| `surface` | `#070D0E` | `#FFFFFF` | Cards |
+| `surfaceRaised` | `#0D1719` | `#E9F2F1` | Hover, selected rows, inspector groups |
+| `stroke` | `#3EE6D4` at 16% | `#096D68` at 18% | Card borders, separators |
+| `strokeStrong` | `#3EE6D4` at 34% | `#096D68` at 40% | Highlighted and Increase Contrast borders |
+| `accent` | `#3EE6D4` | `#096D68` | Turquoise: active states, links, primary text accents |
+| `accentDeep` | `#0FA3A0` | `#08635E` | Fills behind accent text, pressed states |
+| `accentGlow` | `#8AFFF3` | `#0A8F86` | Link pulses, fastest links, focus rings |
+| `accentMuted` | `#1C5F5A` | `#5E9E97` | Inactive links, empty-port rings |
+| `textPrimary` | `#EAFBF8` | `#0B1F1D` | Titles and values |
+| `textSecondary` | `#9BBAB5` | `#3D5A56` | Labels and subtitles |
+| `textTertiary` | `#5E7B77` | `#4D6763` | Hints, disabled |
+| `powerIn` | `#7BF5B0` | `#166E3D` | Charging / power in |
+| `warning` | `#FFC266` | `#8F5300` | Warnings |
+| `critical` | `#FF6B7A` | `#B22436` | Errors |
+| `onAccent` | `#000000` | `#FFFFFF` | Text and icons on accent fills |
+| `linkHighlightMix` | `#FFFFFF` | `#000000` | What a hovered or selected link's core mixes toward |
+| `pulseMix` | `#FFFFFF` | `#FFFFFF` | What power pulses mix toward |
+| `shadow` | black at 50% | black at 15% | Under map tooltips |
+| `well` | `#FFFFFF` at 6% | `#0B1F1D` at 6% | Faint fill behind small previews (menu bar icon tiles) |
+| `menuBarBackdrop` | `#1B2A3A` to `#0E1A1C` | `#E4ECEB` to `#F2F6F5` | Stand-in menu bar in the Settings › Menu Bar preview |
+| `menuBarItemHighlight` | `#FFFFFF` at 14% | `#0B1F1D` at 14% | Pressed-item highlight in that preview |
 
 Every colour in the app comes from `Theme.swift` (`Lagoon` and `PowerChartPalette`). The only literals elsewhere are the wallpaper in the Appearance preview and the menu bar icon's template ink.
 
-Link-speed ramp (colour and stroke width of topology links): USB 1/2 `#3C5E5A` 1.5 pt; 5 Gb/s `#22A69B` 2 pt; 10 Gb/s `#3EE6D4` 2.5 pt; 20 Gb/s `#5FF0E0` 3 pt; 40 Gb/s `#8AFFF3` 3.5 pt; 80 Gb/s and faster `#C9FFF9` 4 pt with glow.
+Link-speed ramp (colour and stroke width of topology links), Dark / Light: USB 1/2 `#3C5E5A` / `#7A9592` 1.5 pt; 5 Gb/s `#22A69B` / `#0B6961` 2 pt; 10 Gb/s `#3EE6D4` / `#005A52` 2.5 pt; 20 Gb/s `#5FF0E0` / `#004B44` 3 pt; 40 Gb/s `#8AFFF3` / `#003C37` 3.5 pt; 80 Gb/s and faster `#C9FFF9` / `#002E2A` 4 pt. In Dark the ramp gets brighter as speed rises and the two fastest tiers glow; in Light it gets darker and nothing glows.
+
+Power ramp, Dark / Light: none `#636363` / `#858585`; under 5 W `#B6322D` / `#9B7300`; 5–15 W `#DE6129` / `#994A00`; 15–45 W `#EF9D32` / `#9A2B16`; 45 W and more `#F6D653` / `#831922`. Dark runs from deep red to gold and Light from gold to deep red, so more power always means more ink.
+
+Power chart series, Dark / Light: system input `#0FA396` / `#00887B`, battery `#5E7CE2` / `#4A66CC`, system load `#45A86A` / `#2F8A50`, fourth port `#A56BD8` / `#8E52C2`, other ports `#7A8A88` / `#6B7A78`.
 
 ### 4.3 Typography
 
@@ -350,7 +364,7 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 - Per-key `IORegistryEntryCreateCFProperty` reads for volatile nodes (transport states, USB devices), to avoid crashes reported with bulk reads during teardown.
 - Every `io_object_t` is released. Iterators are checked with `IOIteratorIsValid` and re-walked if invalidated.
 - Keys starting with `Apple` are not API; every read tolerates missing keys and wrong types.
-- The UI layer is `@MainActor`; core types are `Sendable` value types.
+- The UI layer is `@MainActor`; core types are `Sendable` value types. Lagoon's dynamic colour providers are `nonisolated` and `@Sendable`, because AppKit resolves colours on any thread.
 
 ### 5.6 Persistence
 
@@ -390,7 +404,7 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 
 ## 8. Testing
 
-- Unit tests in `BusStopCoreTests` cover: `PlistValue` coding, property accessors, speed and power formatting, port parsing, label resolution (exact, rank fallback, user override), USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, the history archive (caps, local-day counter deltas, lossy decoding, newer-schema refusal), demo scenarios, JSON export round-trip. `BusStopAppTests` covers saving, restoring and clearing history with a temporary folder, including that demo mode leaves the file byte-identical.
+- Unit tests in `BusStopCoreTests` cover: `PlistValue` coding, property accessors, speed and power formatting, port parsing, label resolution (exact, rank fallback, user override), USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, the history archive (caps, local-day counter deltas, lossy decoding, newer-schema refusal), demo scenarios, JSON export round-trip. `BusStopAppTests` covers saving, restoring and clearing history with a temporary folder, including that demo mode leaves the file byte-identical. `ThemeContrastTests` resolves every Lagoon colour in both appearances: Dark matches its frozen hex values and Light meets the §4.2 contrast targets.
 - Fixtures are hand-built from real public IORegistry dumps (macOS 26.3 MacBook Neo `IOPort` plane, macOS 27 MacBook Air M2 `AppleSmartBattery`, Thunderbolt `system_profiler` captures) and from the demo scenarios. Redacted `busstop --raw` captures from real setups are kept as JSON test resources (`Tests/BusStopCoreTests/Fixtures/*.json`).
 - CI runs the CLI on the macOS runner (a virtual machine with few accessories) to prove that live capture does not crash and produces valid JSON.
 

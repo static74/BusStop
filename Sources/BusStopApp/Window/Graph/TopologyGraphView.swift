@@ -542,6 +542,7 @@ struct GraphZoomControl: View {
 /// Key for the power colours: one swatch per power tier, and what "≤" means.
 struct GraphPowerLegend: View {
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -550,7 +551,7 @@ struct GraphPowerLegend: View {
                     Capsule()
                         .fill(Lagoon.powerColor(tier))
                         .frame(width: 16, height: Lagoon.powerWidth(tier))
-                        .shadow(color: Lagoon.powerGlows(tier) ? Lagoon.powerColor(tier).opacity(0.7) : .clear, radius: 3)
+                        .lagoonGlow(Lagoon.powerGlows(tier) ? Lagoon.powerColor(tier).opacity(0.7) : .clear, radius: 3)
                     Text(Self.title(tier))
                         .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
@@ -567,7 +568,17 @@ struct GraphPowerLegend: View {
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
         .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Power colours: grey for no power, then deep red, orange, amber and gold as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements.")
+        .accessibilityLabel(Self.accessibilityText(colorScheme))
+    }
+
+    /// The legend's spoken text: the ramp runs the other way in Light.
+    static func accessibilityText(_ scheme: ColorScheme) -> String {
+        "Power colours: grey for no power, then \(rampWords(scheme)) as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements."
+    }
+
+    /// The power ramp's colours from low to high watts, shared with the Mac outline legend.
+    static func rampWords(_ scheme: ColorScheme) -> String {
+        scheme == .dark ? "deep red, orange, amber and gold" : "dark gold, amber, rust and deep red"
     }
 
     static func title(_ tier: PowerTier) -> String {
@@ -584,6 +595,7 @@ struct GraphPowerLegend: View {
 /// Key for the link colours: one swatch per speed tier.
 struct GraphSpeedLegend: View {
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -592,7 +604,7 @@ struct GraphSpeedLegend: View {
                     Capsule()
                         .fill(Lagoon.linkColor(tier))
                         .frame(width: 16, height: Lagoon.linkWidth(tier))
-                        .shadow(color: Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
+                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
                     Text(Self.title(tier))
                         .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
@@ -605,7 +617,14 @@ struct GraphSpeedLegend: View {
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
         .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Link colours: dim for USB 2, brighter and thicker for faster links, glowing at 40 gigabits per second and above")
+        .accessibilityLabel(Self.accessibilityText(colorScheme))
+    }
+
+    /// The legend's spoken text: Light draws faster links darker, with no glow.
+    static func accessibilityText(_ scheme: ColorScheme) -> String {
+        scheme == .dark
+            ? "Link colours: dim for USB 2, brighter and thicker for faster links, glowing at 40 gigabits per second and above"
+            : "Link colours: pale for USB 2, darker and thicker for faster links"
     }
 
     static func title(_ tier: SpeedTier) -> String {

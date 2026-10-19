@@ -14,7 +14,7 @@ struct AboutView: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 80, height: 80)
-                .shadow(color: Lagoon.accent.opacity(0.35), radius: 16)
+                .lagoonGlow(Lagoon.accent.opacity(0.35), radius: 16)
                 .accessibilityHidden(true)
 
             VStack(spacing: 2) {
