@@ -84,6 +84,12 @@ final class PortStore {
     /// The next capture follows launch, wake or a change of source, so the
     /// archive counts nothing across it.
     @ObservationIgnored private var nextCaptureAfterGap = true
+    /// Between `willSleep` and `didWake`. Captures can arrive before the wake
+    /// notification does, so every capture in between is a gap too.
+    @ObservationIgnored private var systemAsleep = false
+    /// Set when the screens wake. Many monitors drop off while the screens
+    /// sleep and come back when they wake, so health compares nothing across it.
+    @ObservationIgnored private var nextHealthGap = false
     /// Settings changes re-ingest the same capture; it is recorded once.
     @ObservationIgnored private var lastRecordedAt: Date?
     @ObservationIgnored private var eventsDirty = false
@@ -94,6 +100,10 @@ final class PortStore {
     @ObservationIgnored private var historyDeletedByUser = false
     @ObservationIgnored private var saveTimer: Timer?
     @ObservationIgnored private var overcurrentBaseline: [String: Int] = [:]
+    @ObservationIgnored private var connectionHealth = ConnectionHealth()
+    /// The health findings of the last new capture, reused when settings
+    /// changes re-ingest it.
+    @ObservationIgnored private var cachedHealth: [Diagnostic] = []
     @ObservationIgnored private var visibleClients = 0
     @ObservationIgnored private var isRunning = false
     @ObservationIgnored private var screensAsleep = false
@@ -130,13 +140,22 @@ final class PortStore {
             })
         }
         observe(NSWorkspace.screensDidSleepNotification) { $0.screensAsleep = true }
-        observe(NSWorkspace.screensDidWakeNotification) { $0.screensAsleep = false }
+        observe(NSWorkspace.screensDidWakeNotification) {
+            $0.screensAsleep = false
+            $0.nextHealthGap = true
+        }
         // Fast user switching: another user has the screen.
         observe(NSWorkspace.sessionDidResignActiveNotification) { $0.sessionInactive = true }
         observe(NSWorkspace.sessionDidBecomeActiveNotification) { $0.sessionInactive = false }
         // Counters may move while the Mac sleeps; count nothing across it.
-        observe(NSWorkspace.didWakeNotification) { $0.nextCaptureAfterGap = true }
-        observe(NSWorkspace.willSleepNotification) { $0.flushHistory() }
+        observe(NSWorkspace.didWakeNotification) {
+            $0.systemAsleep = false
+            $0.nextCaptureAfterGap = true
+        }
+        observe(NSWorkspace.willSleepNotification) {
+            $0.systemAsleep = true
+            $0.flushHistory()
+        }
     }
 
     var isDemo: Bool { settings.demoMode }
@@ -433,6 +452,11 @@ final class PortStore {
         historySummary = (archiveHoldsDemo ? heldLiveArchive : archive)?.summary ?? HistoryArchive.Summary()
     }
 
+    /// How often a device in the current snapshot has dropped, and its best link on this port.
+    func connectionHistory(ofDevice id: String) -> DeviceConnectionHistory? {
+        connectionHealth.history(ofDevice: id)
+    }
+
     // MARK: Export
 
     func exportJSON() throws -> Data { try Exporter.json(snapshot, redact: settings.redactExports) }
@@ -511,6 +535,8 @@ final class PortStore {
         history.removeAll()
         allDeparting.removeAll()
         overcurrentBaseline.removeAll()
+        connectionHealth = ConnectionHealth()
+        cachedHealth = []
         events.removeAll()
         hasLoaded = false
         selection = .host
@@ -542,8 +568,12 @@ final class PortStore {
         var built = TopologyBuilder.build(raw, options: options)
 
         if raw.capturedAt != lastRecordedAt {
-            archive.record(built, afterGap: nextCaptureAfterGap)
+            // A clock set back is a gap too.
+            let afterGap = nextCaptureAfterGap || systemAsleep || raw.capturedAt < (lastRecordedAt ?? .distantPast)
+            archive.record(built, afterGap: afterGap)
+            cachedHealth = connectionHealth.observe(built, afterGap: afterGap || nextHealthGap)
             nextCaptureAfterGap = false
+            nextHealthGap = false
             lastRecordedAt = raw.capturedAt
             if !built.isDemo { powerDirty = true }
         }
@@ -553,7 +583,8 @@ final class PortStore {
                 if let count = port.statistics?.overcurrentCount { overcurrentBaseline[port.id] = count }
             }
         }
-        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline)
+        built.diagnostics = DiagnosticsEngine.evaluate(built, raw: raw, baseline: overcurrentBaseline,
+                                                       extra: cachedHealth)
 
         let isFirstCapture = !hasLoaded
         let previous = hasLoaded ? snapshot : nil

@@ -20,8 +20,9 @@ struct DemoScenarioVariationTests {
     }
 
     /// Only power readings change from tick to tick: the registry records,
-    /// the device trees, labels, displays and diagnostics stay put.
-    @Test(arguments: DemoScenario.allCases)
+    /// the device trees, labels, displays and diagnostics stay put. Flaky
+    /// cable unplugs its iPhone on purpose (`DemoFlakyCableTests`).
+    @Test(arguments: DemoScenario.allCases.filter { $0 != .flakyCable })
     func onlyPowerReadingsVary(_ scenario: DemoScenario) {
         let first = scenario.raw(at: S.date, tick: 0)
         let base = S.withoutPowerReadings(S.snapshot(scenario, tick: 0))
@@ -175,8 +176,9 @@ struct DemoScenarioExportTests {
     }
 
     @Test func scenarioMetadata() {
-        #expect(DemoScenario.allCases.map(\.title) == ["Studio desk", "Travel", "Dock station", "Unplugged"])
-        #expect(DemoScenario.allCases.map(\.model) == ["Mac17,9", "Mac16,12", "Mac16,11", "Mac17,2"])
+        #expect(DemoScenario.allCases.map(\.title) == ["Studio desk", "Travel", "Dock station", "Unplugged",
+                                                        "Flaky cable"])
+        #expect(DemoScenario.allCases.map(\.model) == ["Mac17,9", "Mac16,12", "Mac16,11", "Mac17,2", "Mac16,12"])
         #expect(DemoScenario.allCases.allSatisfy { !$0.summary.isEmpty && $0.id == $0.rawValue })
         #expect(DemoScenario.allCases.allSatisfy { PortLocationCatalog.entry(for: $0.model) != nil })
     }

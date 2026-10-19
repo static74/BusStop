@@ -100,7 +100,7 @@ jobs:
             wait "$pid" 2>/dev/null || true
             sleep 1
           }
-          for scenario in studioDesk travel dockStation unplugged; do
+          for scenario in studioDesk travel dockStation unplugged flakyCable; do
             capture "$scenario-popover" popover -demoMode YES -demoScenario "$scenario"
             capture "$scenario-topology" topology -demoMode YES -demoScenario "$scenario"
             capture "$scenario-silhouette" topology:silhouette -demoMode YES -demoScenario "$scenario"

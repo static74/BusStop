@@ -93,6 +93,73 @@ struct HistoryStoreTests {
         #expect(store.archive.sections[raw.machine.model]?.pendingPower.count == 1)
     }
 
+    @Test func reIngestingTheSameCaptureDoesNotAdvanceHealth() throws {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.ingest(capture(0))
+        for t in stride(from: 20.0, through: 40, by: 10) {
+            store.ingest(capture(t))
+            store.ingest(capture(t + 5, unplugged: true))
+        }
+        store.ingest(capture(50))
+        let finding = try #require(store.snapshot.diagnostics.first { $0.kind == .flakyConnection })
+        let deviceID = try #require(finding.deviceID)
+        #expect(store.connectionHistory(ofDevice: deviceID)?.cycles == 3)
+
+        // Settings changes re-ingest the same capture: the finding stays and nothing more is counted.
+        store.applySettings()
+        store.renamePort(PortKey(type: PortKey.usbCType, number: 1), to: "Desk")
+        #expect(store.snapshot.diagnostics.contains { $0.id == finding.id })
+        #expect(store.connectionHistory(ofDevice: deviceID)?.cycles == 3)
+    }
+
+    @Test func aClockSetBackIsAGapForHealth() {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.ingest(capture(0))
+        store.ingest(capture(100))
+        // The clock goes back 50 s: the drops that follow fall in the settle time after a gap.
+        for t in stride(from: 50.0, through: 62, by: 6) {
+            store.ingest(capture(t, unplugged: true))
+            store.ingest(capture(t + 3))
+        }
+        #expect(!store.snapshot.diagnostics.contains { $0.kind == .flakyConnection })
+    }
+
+    @Test func capturesBeforeTheWakeNotificationAreGaps() {
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        let center = NSWorkspace.shared.notificationCenter
+        store.ingest(capture(0))
+        store.ingest(capture(100))
+        // Observers use the main queue, so a post from the main thread runs them inline.
+        center.post(name: NSWorkspace.willSleepNotification, object: nil)
+        // The device re-enumerates on wake before didWake arrives.
+        for t in stride(from: 200.0, through: 240, by: 20) {
+            store.ingest(capture(t, unplugged: true))
+            store.ingest(capture(t + 10))
+        }
+        center.post(name: NSWorkspace.didWakeNotification, object: nil)
+        #expect(!store.snapshot.diagnostics.contains { $0.kind == .flakyConnection })
+    }
+
+    @Test func aDeviceBackWithTheScreensIsNotACycle() {
+        // A monitor that drops off while the screens sleep comes back when they wake.
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        let center = NSWorkspace.shared.notificationCenter
+        store.ingest(capture(0))
+        store.ingest(capture(100))
+        for i in 0..<3 {
+            let t = 200 + Double(i) * 120
+            center.post(name: NSWorkspace.screensDidSleepNotification, object: nil)
+            store.ingest(capture(t, unplugged: true))
+            center.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+            store.ingest(capture(t + 60))
+        }
+        #expect(!store.snapshot.diagnostics.contains { $0.kind == .flakyConnection })
+    }
+
     @Test func launchingInDemoLeavesTheFileByteIdentical() throws {
         let sandbox = Sandbox()
         _ = storeWithSavedEvents(sandbox)

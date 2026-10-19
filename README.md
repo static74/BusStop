@@ -19,6 +19,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Topology window.** A graph of host, ports and devices with links drawn by speed, sortable port and device tables, power charts, the event log, diagnostics and an inspector with the raw IORegistry keys.
 - **Mac Outline.** An outline of the Mac with each port where it sits, coloured by what is plugged in and how fast it runs.
 - **Diagnostics in plain English.** A USB 3 device stuck at USB 2 speed, a Thunderbolt link slowed by its cable, a charger too weak for the Mac, a battery not charging, a bus-powered hub over its power budget, a very deep chain, liquid detected in a port.
+- **Flaky connections.** A device that keeps disconnecting, a link that keeps changing speed, or a drive slower than it has been on the same port, with the likely culprit: the cable, the port, a hub or the device. The Events page filters to problems.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
@@ -93,7 +94,7 @@ busstop --version
 busstop --help
 ```
 
-Demo setups are `studioDesk`, `travel`, `dockStation` and `unplugged`; with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds. Serial numbers are redacted from JSON, Markdown, raw and watch output unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
+Demo setups are `studioDesk`, `travel`, `dockStation`, `unplugged` and `flakyCable` (Travel with an iPhone that keeps dropping out); with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds, so after about 40 seconds a `!` line reports it as flaky. Serial numbers are redacted from JSON, Markdown, raw and watch output unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
 
 The default output looks like this:
 

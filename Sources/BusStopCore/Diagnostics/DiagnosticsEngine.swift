@@ -12,9 +12,12 @@ public enum DiagnosticsEngine {
     ///   - snapshot: the freshly built snapshot (its `diagnostics` are ignored).
     ///   - raw: the raw capture it came from (for keys the model does not carry).
     ///   - baseline: overcurrent counts per port key at app launch, to detect increases.
+    ///   - extra: findings made elsewhere from the capture history (`ConnectionHealth`),
+    ///     sorted and de-duplicated with the rest.
     /// - Returns: findings sorted by severity (critical first), then by id.
     ///   Ids are `"<kind>:<subject id>"` and stay the same while the finding holds.
-    public static func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot?, baseline: [String: Int] = [:]) -> [Diagnostic] {
+    public static func evaluate(_ snapshot: HostSnapshot, raw: RawSnapshot?, baseline: [String: Int] = [:],
+                                extra: [Diagnostic] = []) -> [Diagnostic] {
         var findings: [Diagnostic] = []
         findings += usb2Fallbacks(snapshot)
         findings += thunderboltBottlenecks(snapshot, raw: raw)
@@ -24,6 +27,7 @@ public enum DiagnosticsEngine {
         findings += liquidDetections(snapshot)
         findings += overcurrents(snapshot, baseline: baseline)
         findings += reducedDetail(snapshot, raw: raw)
+        findings += extra
 
         var seen = Set<String>()
         let unique = findings.filter { seen.insert($0.id).inserted }

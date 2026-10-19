@@ -169,7 +169,7 @@ enum ArgumentParser {
         name.lowercased().filter { $0 != "-" && $0 != "_" && $0 != " " }
     }
 
-    /// "studioDesk, travel, dockStation, unplugged".
+    /// "studioDesk, travel, dockStation, unplugged, flakyCable".
     static var scenarioList: String {
         DemoScenario.allCases.map(\.rawValue).joined(separator: ", ")
     }

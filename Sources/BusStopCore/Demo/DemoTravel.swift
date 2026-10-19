@@ -9,11 +9,14 @@ import Foundation
 ///   which carries USB 2 data only, so the iPhone (a USB 3 device) syncs at
 ///   480 Mb/s. The Mac charges it at about 4.5 W (`PowerOutDetails`).
 /// - The battery is at 82% and charging.
+///
+/// With `iPhoneConnected` false, port 2 is empty: no partner, cable, USB 2
+/// transport, iPhone or power out. The `flakyCable` scenario uses it.
 enum DemoTravel {
     static let model = "Mac16,12"
     static let soc = "T8132"
 
-    static func raw(at date: Date, tick: Int) -> RawSnapshot {
+    static func raw(at date: Date, tick: Int, iPhoneConnected: Bool = true) -> RawSnapshot {
         let wave = DemoWave(tick: tick)
         var r = DemoRegistry()
         let uuids = (magSafe: DemoPower.uuid(seed: 0x7A_0011), port1: DemoPower.uuid(seed: 0x7A_0021),
@@ -50,28 +53,30 @@ enum DemoTravel {
         // Port 2: the iPhone on a USB 2 cable with an e-marker (5 A, 2 m).
         let port2 = r.hpmPort(number: 2, uuid: uuids.port2,
                               state: DemoPortState(supported: ["CC", "USB2", "USB3", "DisplayPort", "CIO"],
-                                                   active: ["CC", "USB2"], plugEvents: 121))
-        r.partner(on: port2)
-        r.cableMarker(on: port2, typeDescription: "Passive Cable", vdos: [
-            DemoCableVDO.passiveHeader(vendorID: 0x05AC), 0,
-            DemoCableVDO.product(productID: 0x7306), DemoCableVDO.passiveCable(speed: 0, fiveAmps: true, latency: 2),
-        ])
-        let iPhoneSerial = "00008150-001A2C3E1E40801C"
-        let port2USB2 = r.transport("USB2", on: port2, parent: port2.id, active: true,
-                                    extra: DemoRegistry.usb2Keys(product: "iPhone", manufacturer: "Apple Inc.",
-                                                                 vendorID: 0x05AC, productID: 0x12A8,
-                                                                 serial: iPhoneSerial))
+                                                   active: iPhoneConnected ? ["CC", "USB2"] : [], plugEvents: 121))
+        if iPhoneConnected {
+            r.partner(on: port2)
+            r.cableMarker(on: port2, typeDescription: "Passive Cable", vdos: [
+                DemoCableVDO.passiveHeader(vendorID: 0x05AC), 0,
+                DemoCableVDO.product(productID: 0x7306), DemoCableVDO.passiveCable(speed: 0, fiveAmps: true, latency: 2),
+            ])
+            let iPhoneSerial = "00008150-001A2C3E1E40801C"
+            let port2USB2 = r.transport("USB2", on: port2, parent: port2.id, active: true,
+                                        extra: DemoRegistry.usb2Keys(product: "iPhone", manufacturer: "Apple Inc.",
+                                                                     vendorID: 0x05AC, productID: 0x12A8,
+                                                                     serial: iPhoneSerial))
 
-        let drd1 = r.nativeController(drd: 1, soc: soc, port: port2, hpm: 1)
-        r.usbRoot(DemoUSBDevice(
-            name: "iPhone", vendorName: "Apple Inc.", vendorID: 0x05AC, productID: 0x12A8, bcdDevice: 0x1A01,
-            bcdUSB: 0x0320, speed: LinkDecoding.highSpeed, allocation: 900, serial: iPhoneSerial,
-            interfaces: [RawUSBInterface(interfaceClass: 6, interfaceSubClass: 1, interfaceProtocol: 1, name: "PTP"),
-                         RawUSBInterface(interfaceClass: 0xFF, interfaceSubClass: 0xFE, interfaceProtocol: 2,
-                                         name: "Apple USB Multiplexor"),
-                         RawUSBInterface(interfaceClass: 0xFF, interfaceSubClass: 0xFD, interfaceProtocol: 1,
-                                         name: "Apple Mobile Device Ethernet")]),
-            on: drd1, transport: port2USB2)
+            let drd1 = r.nativeController(drd: 1, soc: soc, port: port2, hpm: 1)
+            r.usbRoot(DemoUSBDevice(
+                name: "iPhone", vendorName: "Apple Inc.", vendorID: 0x05AC, productID: 0x12A8, bcdDevice: 0x1A01,
+                bcdUSB: 0x0320, speed: LinkDecoding.highSpeed, allocation: 900, serial: iPhoneSerial,
+                interfaces: [RawUSBInterface(interfaceClass: 6, interfaceSubClass: 1, interfaceProtocol: 1, name: "PTP"),
+                             RawUSBInterface(interfaceClass: 0xFF, interfaceSubClass: 0xFE, interfaceProtocol: 2,
+                                             name: "Apple USB Multiplexor"),
+                             RawUSBInterface(interfaceClass: 0xFF, interfaceSubClass: 0xFD, interfaceProtocol: 1,
+                                             name: "Apple Mobile Device Ethernet")]),
+                on: drd1, transport: port2USB2)
+        }
 
         // Thunderbolt 4 host switches; idle lanes keep their 10 Gb/s defaults.
         let idle = DemoThunderboltLink(speedCode: 0x8, widthCode: 0x1, supportedMask: 0xC)
@@ -83,8 +88,9 @@ enum DemoTravel {
         let battery = DemoPower.laptopBattery(
             percent: 82, charging: true, adapter: adapter, flow: flow, voltage: 12_712, cycleCount: 148,
             minutesRemaining: 34,
-            powerOut: [DemoPower.powerOut(port: 2, milliwatts: DemoPower.milliwatts(phoneWatts * 1000),
-                                          millivolts: 5_000)])
+            powerOut: iPhoneConnected
+                ? [DemoPower.powerOut(port: 2, milliwatts: DemoPower.milliwatts(phoneWatts * 1000), millivolts: 5_000)]
+                : [])
 
         let displays = [
             RawDisplay(id: 1, name: "Built-in Liquid Retina Display", vendorID: 0x610, productID: 0xA04F,

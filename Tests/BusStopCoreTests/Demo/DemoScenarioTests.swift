@@ -397,3 +397,27 @@ struct DemoUnpluggedTests {
         #expect(snapshot.power.headlineMilliwatts == nil)
     }
 }
+
+@Suite("Demo scenarios: flaky cable")
+struct DemoFlakyCableTests {
+    typealias S = DemoTestSupport
+
+    @Test func flakyCableDropsTheIPhoneAndItsCableOnAFixedPattern() throws {
+        for tick in 0..<8 {
+            let snapshot = S.snapshot(.flakyCable, tick: tick)
+            let port = try #require(S.port(snapshot, 2, 2))
+            if tick % 4 == 2 {
+                #expect(port.devices.isEmpty)
+                #expect(port.cable == nil)
+                #expect(port.power == nil)
+                #expect(!port.isConnected)
+                #expect(snapshot.deviceCount == 0)
+            } else {
+                #expect(port.devices.map(\.name) == ["iPhone"])
+                #expect(port.cable != nil)
+                #expect(port.power?.direction == .output)
+                #expect(snapshot == S.snapshot(.travel, tick: tick))
+            }
+        }
+    }
+}
