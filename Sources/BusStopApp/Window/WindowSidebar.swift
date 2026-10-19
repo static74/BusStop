@@ -4,12 +4,26 @@ import SwiftUI
 /// What the topology window's sidebar can show.
 enum TopologySidebarItem: Hashable {
     case overview
+    /// The Mac Outline: each port drawn where it sits on the Mac.
+    case silhouette
     case allPorts
     case port(PortKey)
     case devices
     case power
     case events
     case diagnostics
+
+    /// The page a `topology:<page>` Automation value names: "overview",
+    /// "silhouette", "allPorts", "devices", "power", "events", "diagnostics".
+    /// Port pages have no name.
+    init?(automationName: String) {
+        let pages: [String: TopologySidebarItem] = [
+            "overview": .overview, "silhouette": .silhouette, "allPorts": .allPorts, "devices": .devices,
+            "power": .power, "events": .events, "diagnostics": .diagnostics,
+        ]
+        guard let page = pages[automationName] else { return nil }
+        self = page
+    }
 }
 
 /// Overview presentation: the drawn graph or an indented list.
@@ -46,6 +60,8 @@ struct WindowSidebar: View {
             Section("Map") {
                 Label("Overview", systemImage: "point.3.connected.trianglepath.dotted")
                     .tag(TopologySidebarItem.overview)
+                Label("Mac Outline", systemImage: "desktopcomputer")
+                    .tag(TopologySidebarItem.silhouette)
             }
 
             Section("Ports") {

@@ -125,7 +125,7 @@ Labels resolve in this order (SPEC §5.4):
 4. "Rear" or "Front" from the port's Thunderbolt capability, on a Mac mini, a Mac Studio or a model whose rows mix Thunderbolt and plain USB-C,
 5. a generic name such as "USB-C 2".
 
-The catalogue location is also stored as `PhysicalPort.catalogLocation`, which survives a rename; `ChassisLayout` places ports on the Mac's outline from it.
+The catalogue location is also stored as `PhysicalPort.catalogLocation`, which survives a rename; `ChassisLayout` places ports on the Mac's outline from it, and the window's Mac Outline page (`MacSilhouetteView` in the app) draws that layout.
 
 A Mac missing from the catalogue still works; it just shows generic names until someone adds it.
 

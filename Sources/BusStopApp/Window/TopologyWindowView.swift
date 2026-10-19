@@ -115,6 +115,8 @@ struct TopologyWindowView: View {
             switch sidebarSelection ?? .overview {
             case .overview:
                 overview(ports: store.visiblePorts, includeOther: true)
+            case .silhouette:
+                MacSilhouettePage(store: store, searchText: searchText, onSelect: showInInspector)
             case .port(let key):
                 if let port = store.snapshot.port(key) {
                     overview(ports: [port], includeOther: false)
@@ -178,8 +180,9 @@ struct TopologyWindowView: View {
 
     /// Pages with nothing that scrolls under the toolbar strip: the map; the
     /// two tables and Events, whose rows scroll only below their page header;
-    /// and Diagnostics while it has nothing to list. Every other page keeps
-    /// the opaque title bar, which hides or dims rows scrolled under it.
+    /// and Diagnostics while it has nothing to list. Every other page (Power,
+    /// the Mac Outline) keeps the opaque title bar, which hides or dims rows
+    /// scrolled under it.
     private var titlebarIsClear: Bool {
         switch sidebarSelection ?? .overview {
         case .overview, .port: return overviewMode == .graph
@@ -207,13 +210,16 @@ struct TopologyWindowView: View {
             sidebarSelection = page
             showInspector = true
         }
+        // Only the graph and the list scroll; a request left over would move
+        // the map on the next visit to the Overview.
+        guard page != .silhouette else { return }
         scrollRequest = TopologyScrollRequest(generation: generation, tag: SelectionTag.string(for: selection))
     }
 
-    /// The page that shows `selection`. A graph page that already contains it
-    /// stays; otherwise a port goes to its own page and everything else to the
-    /// Overview. A device never opens a port page, because opening one
-    /// selects the port.
+    /// The page that shows `selection`. A graph page, or the Mac Outline,
+    /// that already contains it stays; otherwise a port goes to its own page
+    /// and everything else to the Overview. A device never opens a port page,
+    /// because opening one selects the port.
     static func page(revealing selection: StoreSelection, from current: TopologySidebarItem,
                      store: PortStore) -> TopologySidebarItem {
         switch current {
@@ -221,6 +227,9 @@ struct TopologyWindowView: View {
             return .overview
         case .port(let key):
             if selection == .host || owningPort(of: selection, in: store.snapshot) == key { return current }
+            return .overview
+        case .silhouette:
+            if selection == .host || owningPort(of: selection, in: store.snapshot) != nil { return current }
             return .overview
         default:
             if case .port(let key) = selection, store.visiblePorts.contains(where: { $0.key == key }) {
@@ -231,7 +240,7 @@ struct TopologyWindowView: View {
     }
 
     /// The port a selection belongs to, if any.
-    private static func owningPort(of selection: StoreSelection, in snapshot: HostSnapshot) -> PortKey? {
+    static func owningPort(of selection: StoreSelection, in snapshot: HostSnapshot) -> PortKey? {
         switch selection {
         case .host: return nil
         case .port(let key): return key
