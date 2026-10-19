@@ -385,6 +385,8 @@ final class PortStore {
         portHealth = [:]
         historyFile?.delete()
         historyIsReadOnly = false
+        // The file is gone, so saving is safe even if it could not be loaded.
+        historyLoaded = true
         eventsDirty = false
         powerDirty = false
         refreshHistorySummary()

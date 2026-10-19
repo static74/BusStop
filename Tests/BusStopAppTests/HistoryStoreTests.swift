@@ -462,6 +462,14 @@ struct HistoryStoreTests {
         store.saveHistoryIfDue(now: start.addingTimeInterval(86_400))
         store.historyFile?.waitForWrites()
         #expect(sandbox.data() == garbage)
+
+        // Clear History deletes the file, and saving starts again.
+        try manager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: sandbox.directory.path)
+        store.clearHistory()
+        #expect(sandbox.names().isEmpty)
+        store.ingest(capture(4))
+        store.flushHistory()
+        #expect(sandbox.names() == ["history.json"])
     }
 
     @Test func newerSchemaFileIsNeverOverwritten() throws {
