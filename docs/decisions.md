@@ -2,6 +2,28 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-19: Port positions on the Mac outline come from the catalogue's location text
+
+**Question.** The planned Mac outline page has to put each port where it sits on the chassis. The port's label cannot be used, because `label.location` becomes the user's name once a port is renamed. Where does the position come from?
+
+**Decision.** `PortLabeler.label` also returns the catalogue location it used ("Left Front", "Rear (left)", or only "Rear" from the capability heuristic), and `TopologyBuilder` stores it as `PhysicalPort.catalogLocation`, which a rename leaves alone. `ChassisLayout.resolve` (Core) turns the text into slots:
+
+1. A live port goes where its `catalogLocation` says. It sorts at its catalogue row, found by connector and location; a port placed only by area sorts with the first row of its connector on that face, ties by port number.
+2. Catalogue rows become passive slots only when no live port has their connector (Ethernet, the power inlet, an SD slot macOS does not report). A connector with live ports never draws its rows a second time, even when the labeler placed those ports by area.
+3. Laptop sides sort rear, center, front, then catalogue order. Desktop faces sort by connector (first catalogue row on that face), then qualifier ("leftmost" to "rightmost"), then catalogue order. Slot `i` of `n` sits at `(i + 1) / (n + 1)`, so no two slots share a place.
+4. A port with no location, or one the parser cannot read, is unplaced.
+
+The chassis family (laptop, Mac mini, Mac Studio, Mac Pro, iMac, or another desktop) comes from the machine name, which is the catalogue's marketing name or the name guessed from the model prefix, and falls back to a laptop when the Mac has a battery.
+
+**Why.** The catalogue already carries the position, as text in a few fixed forms, and every one of the 326 rows parses. Desktop qualifiers are relative within one connector, not absolute: the Mac Studio lists USB-C and USB-A both at "Rear (left)", and the 27-inch iMac has USB-C at "Rear (left)" and USB-A at "Rear (leftmost)". So desktop faces group by connector before the qualifier. Connector and location are unique within every model, so the layout finds a port's row itself and the port needs no stored index. `HostSnapshot.worstSeverity(on:)` sits in Core next to it, so the outline's badge and the popover can share it.
+
+**Rejected alternatives.**
+
+- *Store the catalogue row index on `PhysicalPort`.* Redundant while connector and location are unique, which a test checks, and it would tie saved snapshots to the generated file's row order.
+- *Match the catalogue again inside the layout.* It would lose the builder's evidence (the Thunderbolt sockets and sibling capabilities) that decides when a row is rejected.
+- *Hand-edit `PortLocationCatalog+Data.swift` to add coordinates.* The file is generated from PortScope's data and is never edited by hand.
+- *Generic laptop and desktop fallbacks as separate families.* An unknown Mac with a battery already draws as a laptop; one `other` case covers the rest.
+
 ## 2026-10-16: Bus Stop builds on macOS only
 
 **Question.** `BusStopCore` was kept buildable on Linux, with a CI job in the `swift:6.4-noble` container, so that contributors without a Mac could work on parsing and topology. Is that still worth it?

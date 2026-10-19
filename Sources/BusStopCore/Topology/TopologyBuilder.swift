@@ -231,7 +231,8 @@ public enum TopologyBuilder {
                 cable: TransportParser.cable(for: record, index: index, ports: ports),
                 devices: sortedTree(portDevices), statistics: PortParser.statistics(record),
                 liquidDetected: TransportParser.liquidDetected(for: record, index: index, ports: ports),
-                properties: options.includeRawProperties ? record.properties.withoutPlumbing() : nil))
+                properties: options.includeRawProperties ? record.properties.withoutPlumbing() : nil,
+                catalogLocation: labelled.location))
         }
 
         // Power.
