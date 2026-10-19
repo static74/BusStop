@@ -83,6 +83,23 @@ enum PortOrder: String, CaseIterable, Identifiable {
     }
 }
 
+/// How the popover lists ports.
+enum PopoverLayout: String, CaseIterable, Identifiable {
+    /// A card per port with chips and the device tree (default).
+    case cards
+    /// One line per port; a disclosure shows the device tree.
+    case compact
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cards: return "Cards"
+        case .compact: return "Compact"
+        }
+    }
+}
+
 /// How many decimals the menu bar shows for power.
 enum PowerPrecision: String, CaseIterable, Identifiable {
     /// "38W" (one decimal below 10 W: "4.5W").
@@ -169,6 +186,7 @@ final class AppSettings {
     var showDockIconWithWindow: Bool { didSet { defaults.set(showDockIconWithWindow, forKey: Key.showDockIconWithWindow) } }
     var hideEmptyPorts: Bool { didSet { defaults.set(hideEmptyPorts, forKey: Key.hideEmptyPorts) } }
     var portOrder: PortOrder { didSet { defaults.set(portOrder.rawValue, forKey: Key.portOrder) } }
+    var popoverLayout: PopoverLayout { didSet { defaults.set(popoverLayout.rawValue, forKey: Key.popoverLayout) } }
 
     // MARK: Menu bar
 
@@ -233,6 +251,7 @@ final class AppSettings {
         showDockIconWithWindow = bool(Key.showDockIconWithWindow, true)
         hideEmptyPorts = bool(Key.hideEmptyPorts, false)
         portOrder = string(Key.portOrder).flatMap(PortOrder.init(rawValue:)) ?? .physical
+        popoverLayout = string(Key.popoverLayout).flatMap(PopoverLayout.init(rawValue:)) ?? .cards
         menuBarIcon = string(Key.menuBarIcon).flatMap(MenuBarIconStyle.init(rawValue:)) ?? .busStop
         menuBarText = string(Key.menuBarText).flatMap(MenuBarTextMode.init(rawValue:)) ?? .power
         menuBarPowerPrecision = string(Key.menuBarPowerPrecision).flatMap(PowerPrecision.init(rawValue:)) ?? .automatic
@@ -264,6 +283,7 @@ final class AppSettings {
         showDockIconWithWindow = fresh.showDockIconWithWindow
         hideEmptyPorts = fresh.hideEmptyPorts
         portOrder = fresh.portOrder
+        popoverLayout = fresh.popoverLayout
         menuBarIcon = fresh.menuBarIcon
         menuBarText = fresh.menuBarText
         menuBarPowerPrecision = fresh.menuBarPowerPrecision
@@ -292,6 +312,7 @@ final class AppSettings {
         static let showDockIconWithWindow = "showDockIconWithWindow"
         static let hideEmptyPorts = "hideEmptyPorts"
         static let portOrder = "portOrder"
+        static let popoverLayout = "popoverLayout"
         static let menuBarIcon = "menuBarIcon"
         static let menuBarText = "menuBarText"
         static let menuBarPowerPrecision = "menuBarPowerPrecision"
@@ -315,8 +336,8 @@ final class AppSettings {
         static let portNames = "portNames"
 
         static let all = [
-            showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, menuBarIcon, menuBarText,
-            menuBarPowerPrecision, menuBarPinnedPorts, menuBarPinnedValue,
+            showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, popoverLayout, menuBarIcon,
+            menuBarText, menuBarPowerPrecision, menuBarPinnedPorts, menuBarPinnedValue,
             backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
             notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
             demoScenario, portNames,

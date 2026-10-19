@@ -45,6 +45,20 @@ enum PopoverText {
         return unattributed > 0 ? unattributed : nil
     }
 
+    /// The compact row's middle text: "Samsung T9", "3 devices", the
+    /// charger's name, "Connected" or "Nothing connected". `devices` includes
+    /// ghosts (`PortStore.devicesWithGhosts(on:)`), so a device that just left
+    /// keeps its line until its ghost goes. "N devices" counts every level,
+    /// like `PhysicalPort.deviceCount`.
+    static func compactSummary(_ port: PhysicalPort, devices: [DeviceNode]) -> String {
+        if devices.count == 1, let device = devices.first { return device.name }
+        if devices.count > 1 {
+            return count(devices.reduce(0) { $0 + 1 + $1.descendantCount }, "device", "devices")
+        }
+        if let charger = port.charger { return charger.displayName }
+        return port.isConnected ? "Connected" : "Nothing connected"
+    }
+
     /// "3 devices · 7.5 W" for hubs and docks.
     static func rollUp(for device: DeviceNode) -> String? {
         guard !device.children.isEmpty else { return nil }

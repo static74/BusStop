@@ -13,8 +13,6 @@ struct PortCardView: View {
     var store: PortStore
 
     @State private var isRenaming = false
-    @State private var draftName = ""
-    @FocusState private var isNameFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -26,7 +24,7 @@ struct PortCardView: View {
             header
             chips
             if !devices.isEmpty {
-                deviceTree(devices, departingIDs: departingIDs)
+                PortDeviceTree(port: port, devices: devices, departingIDs: departingIDs)
             } else if let charger = port.charger {
                 chargerLine(charger)
             } else if !port.isConnected {
@@ -52,7 +50,7 @@ struct PortCardView: View {
             PortIcon(kind: port.kind, isActive: port.isConnected)
             VStack(alignment: .leading, spacing: 1) {
                 if isRenaming {
-                    renameField
+                    PortRenameField(port: port, store: store, isRenaming: $isRenaming)
                 } else {
                     HStack(spacing: 5) {
                         Text(port.label.title)
@@ -82,7 +80,7 @@ struct PortCardView: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: isRenaming ? .contain : .ignore)
         .accessibilityLabel(PopoverText.portAccessibilityLabel(port, isPinned: isPinned))
-        .portActions(port, store: store, rename: beginRenaming)
+        .portActions(port, store: store, rename: { isRenaming = true })
     }
 
     /// Capability text, or the editing hint while renaming.
@@ -90,51 +88,6 @@ struct PortCardView: View {
         // The field's placeholder shows the default name an empty entry restores.
         if isRenaming { return "Return to save, Esc to cancel" }
         return port.capabilityDescription
-    }
-
-    private var renameField: some View {
-        TextField("Port name", text: $draftName, prompt: Text(port.label.shortTitle))
-            .textFieldStyle(.plain)
-            .lagoonFont(.headline, weight: .semibold)
-            .foregroundStyle(Lagoon.textPrimary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Lagoon.surfaceRaised)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Lagoon.accent.opacity(0.6), lineWidth: 1)
-            )
-            .focused($isNameFieldFocused)
-            .onSubmit { commitRename() }
-            .onExitCommand { cancelRename() }
-            .onChange(of: isNameFieldFocused) { _, focused in
-                // Clicking elsewhere saves, like renaming in Finder.
-                if !focused && isRenaming { commitRename() }
-            }
-            .accessibilityLabel("Port name")
-    }
-
-    private func beginRenaming() {
-        draftName = port.label.source == .user ? (port.label.location ?? "") : ""
-        isRenaming = true
-        // Focus after the field exists.
-        Task { @MainActor in
-            isNameFieldFocused = true
-        }
-    }
-
-    private func commitRename() {
-        guard isRenaming else { return }
-        isRenaming = false
-        store.renamePort(port.key, to: draftName)
-    }
-
-    private func cancelRename() {
-        isRenaming = false
-        isNameFieldFocused = false
     }
 
     // MARK: Chips
@@ -178,16 +131,6 @@ struct PortCardView: View {
 
     // MARK: Devices
 
-    private func deviceTree(_ devices: [DeviceNode], departingIDs: Set<String>) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(devices) { device in
-                DeviceTreeNode(device: device, depth: 0, port: port, departingIDs: departingIDs)
-                    .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
-            }
-        }
-        .padding(.top, 2)
-    }
-
     private func chargerLine(_ charger: ChargerInfo) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "powerplug.fill")
@@ -208,6 +151,81 @@ struct PortCardView: View {
         devices.flatMap { $0.flattened() }.map { entry in
             departingIDs.contains(entry.device.id) ? "departing:" + entry.device.id : entry.device.id
         }
+    }
+}
+
+/// In-place port name field for the card and the compact row: Return saves,
+/// Escape cancels, clicking away saves, and an empty name restores the
+/// default label. Seeds its draft and takes focus when it appears.
+struct PortRenameField: View {
+    var port: PhysicalPort
+    var store: PortStore
+    @Binding var isRenaming: Bool
+
+    @State private var draftName = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("Port name", text: $draftName, prompt: Text(port.label.shortTitle))
+            .textFieldStyle(.plain)
+            .lagoonFont(.headline, weight: .semibold)
+            .foregroundStyle(Lagoon.textPrimary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Lagoon.surfaceRaised)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Lagoon.accent.opacity(0.6), lineWidth: 1)
+            )
+            .focused($isFocused)
+            .onSubmit { commit() }
+            .onExitCommand { cancel() }
+            .onChange(of: isFocused) { _, focused in
+                // Clicking elsewhere saves, like renaming in Finder.
+                if !focused && isRenaming { commit() }
+            }
+            .onAppear {
+                draftName = port.label.source == .user ? (port.label.location ?? "") : ""
+                // Focus after the field exists.
+                Task { @MainActor in
+                    isFocused = true
+                }
+            }
+            .accessibilityLabel("Port name")
+    }
+
+    private func commit() {
+        guard isRenaming else { return }
+        isRenaming = false
+        store.renamePort(port.key, to: draftName)
+    }
+
+    private func cancel() {
+        isRenaming = false
+        isFocused = false
+    }
+}
+
+/// A port's device trees, with devices that just left still in their slots
+/// (see `PortStore.devicesWithGhosts(on:)`), sliding in and fading out.
+struct PortDeviceTree: View {
+    var port: PhysicalPort
+    var devices: [DeviceNode]
+    var departingIDs: Set<String>
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(devices) { device in
+                DeviceTreeNode(device: device, depth: 0, port: port, departingIDs: departingIDs)
+                    .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
+            }
+        }
+        .padding(.top, 2)
     }
 }
 

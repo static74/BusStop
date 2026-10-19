@@ -15,6 +15,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 - `docs/ROADMAP.md` with the planned features after 1.0.
 - Pin one port to the menu bar, from Settings › Menu Bar or "Pin to Menu Bar" in a port card's context menu, and its link speed, its power or both show after the menu bar text: "5 · 38W · 40G ↓61W". "≤" marks a USB power budget or charger contract rather than a measurement. The pinned port's name is in the item's tooltip and VoiceOver label, and its card shows a pin. Pins are kept per Mac model, and a pin made in demo mode never replaces the live one.
+- A compact popover layout, in Settings › General › Ports, lists each port on one line: its name, what is connected ("Samsung T9", "3 devices" or the charger), its link speed and its power. An arrow beside a port shows the same device tree as the card, and the context menu and VoiceOver actions match the card's. The power card shrinks to one line in this layout. Cards stay the default.
 
 ### Changed
 
