@@ -4,7 +4,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 ## 2026-10-19: The Power page charts saved history in four fixed ranges
 
-**Question.** With power saved per minute for 7 days (previous entry), how does the Power page show it, and how do its lines handle the hours Bus Stop was not running or the Mac slept?
+**Question.** With power saved per minute for 7 days (see "History is a local JSON file" below), how does the Power page show it, and how do its lines handle the hours Bus Stop was not running or the Mac slept?
 
 **Decision.**
 
@@ -24,6 +24,24 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *Showing the minute in progress.* It would jump as samples arrive and needs a second path through the archive; a minute's lag on a 1-hour chart does not matter.
 - *Gaps by a dashed line or a grey band.* A break says the same with no new marks, and Swift Charts bodies must stay `ForEach` only for the macOS 26 build.
 - *Remembering the range.* A new setting key (and `Key.all`, `resetAll()`, a launch argument) for a choice that is quick to make again.
+## 2026-10-19: The compact popover keeps the card's actions and hides devices behind an arrow
+
+**Question.** Roadmap item 11 asks for a denser popover with one line per port. What goes on the line, what is left out, and how do the card and the line stay in step?
+
+**Decision.** A Popover layout setting (`popoverLayout`, cards or compact; cards by default) in Settings › General › Ports. In compact, `CompactPortList` puts every visible port in one card, one `CompactPortRow` each: arrow, icon, short name, pin, a one-line summary (`PopoverText.compactSummary`), speed chip and power badge. A single device is named even when it is a hub or dock with devices behind it; several trees show "N devices" counted at every level. The arrow starts closed each time the popover opens and reveals `PortDeviceTree`, the same tree the card draws; the popover's hosting controller is reused, so closing it bumps `PopoverView.closeCount`, which resets the rows. Each row is one VoiceOver element whose label adds the port's link speed, since its speed chip is not read on its own. The rename field (`PortRenameField`) and the device tree were moved out of `PortCardView` so both layouts use them, and both use `portActions`, so the context menu and VoiceOver actions cannot drift apart. The power card becomes one line with the charger name, battery state or "Accessories" and a power badge. The diagnostics banner, Other devices and Displays stay as they are.
+
+**Why.** The item is about density for people with many devices, not about showing less: every device is still one click away, and the port's speed and power stay on its line. Sharing the field, tree and actions keeps one copy of each behaviour.
+
+**Risks.**
+
+- In compact mode the battery percentage and the input sparkline are not shown while a charger is connected; VoiceOver still reads the battery state. Switch to cards for them.
+- Whether a port's devices are shown is not remembered between popover openings.
+
+**Rejected alternatives.**
+
+- *Remembering each port's arrow.* More state to persist and clean up for ports that come and go; the tree is one click away.
+- *A one-line banner and Displays section too.* Findings need their explanation, and both are usually short already.
+- *A third rename editor for the row.* The card's field moved into `PortRenameField`, which seeds its draft and takes focus when it appears.
 
 ## 2026-10-19: History is a local JSON file
 

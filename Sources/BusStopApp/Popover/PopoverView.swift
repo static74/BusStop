@@ -10,6 +10,9 @@ import SwiftUI
 /// the popover as its preferred content size.
 struct PopoverView: View {
     var store: PortStore
+    /// Bumped each time the popover closes, so compact rows start closed at
+    /// the next open: the hosting controller and its view state are reused.
+    var closeCount = 0
 
     // First-pass guesses; replaced by measurements on the first layout.
     @State private var headerHeight: CGFloat = 64
@@ -59,7 +62,7 @@ struct PopoverView: View {
             if !store.hasLoaded {
                 loading
             } else {
-                PowerStripView(store: store)
+                PowerStripView(store: store, isCompact: settings.popoverLayout == .compact)
 
                 let diagnostics = DiagnosticsBanner.relevant(store.snapshot.diagnostics)
                 if !diagnostics.isEmpty {
@@ -118,15 +121,20 @@ struct PopoverView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lagoonCard()
             }
-            ForEach(ports) { port in
-                PortCardView(port: port, store: store)
+            if settings.popoverLayout == .compact {
+                CompactPortList(ports: ports, store: store)
+                    .id(closeCount)
+            } else {
+                ForEach(ports) { port in
+                    PortCardView(port: port, store: store)
+                }
             }
         }
     }
 }
 
 /// A one-pixel turquoise separator.
-private struct Hairline: View {
+struct Hairline: View {
     var body: some View {
         Rectangle()
             .fill(Lagoon.stroke)
