@@ -4,6 +4,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-19
+
 ### Changed
 
 - Power polling speeds up to every 2 seconds only while the topology window can be seen. A window that is minimised, hidden, covered by other windows or on another Space no longer keeps it fast.
@@ -110,6 +112,7 @@ The first release.
 - `scripts/build-app.sh`, `scripts/install.sh` and `scripts/smoke-test.sh` for building, installing and checking the app bundle; CI on Linux, macOS 26 and macOS 27; tagged releases with a universal, ad-hoc-signed zip and its SHA-256 checksum. The app bundle and the zip carry Bus Stop's licence and the MIT notices of PortScope, WhatPort and WhatCable.
 - Screenshots of the app in demo mode, captured by CI on macOS 27 and published to the `screenshots` branch by a separate job that holds the only write token.
 
-[Unreleased]: https://github.com/static74/BusStop/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/static74/BusStop/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/static74/BusStop/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/static74/BusStop/releases/tag/v1.1.0
 [1.0.0]: https://github.com/static74/BusStop/releases/tag/v1.0.0
