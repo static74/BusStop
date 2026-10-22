@@ -179,7 +179,7 @@ Bus Stop.app/
                             and the BSD notice of the USB ID Repository
 ```
 
-The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed ad hoc with the hardened runtime (helper first, then the bundle). The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
+The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed with the hardened runtime (helper first, then the bundle): ad hoc by default, and with the Developer ID in `SIGN_IDENTITY` for releases, which `scripts/notarize.sh` then has Apple notarize. The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
 
 The MIT and BSD licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. The smoke test checks both.
 

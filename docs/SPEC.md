@@ -384,7 +384,7 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 
 - No network code, no analytics, no crash reporting. The app does not request the network client entitlement.
 - Reads only: IORegistry properties, the power-source API and the SMC read selectors.
-- Unsandboxed, hardened-runtime-compatible, ad-hoc signed in CI. Users who build from source run their own binary.
+- Unsandboxed, with the hardened runtime. Pull request builds are signed ad hoc; releases are signed with a Developer ID and notarized. Users who build from source run their own binary.
 - The saved history (§5.6) stays on the Mac, readable only by the user's account (mode 0600). It records the Mac's model identifier (`hw.model`), never its serial number or computer name. Like port names, it is not redacted: event titles carry device names, and event ids carry display serial numbers (`display:<vendor>:<product>:<serial>`) and Thunderbolt device UIDs (`tb:<UID>`). Clear History, or turning "Keep history between launches" off, deletes it.
 - Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default). Redaction also replaces per-unit identifiers: Thunderbolt router UIDs (also inside `tb:` device ids), HPM controller and SMC channel UUIDs, USB and DisplayID container IDs, `ConnectionUUID`, EDID and DisplayID serial fields, and the computer name. A known serial number is also removed wherever it appears as a whole word in names, diagnostic text and property strings, since some devices put it in their product name. EDID data shorter than one 128-byte block, and bytes after the last whole block, are dropped, and a DisplayID block whose structure cannot be walked is blanked, because their serial fields cannot be found. Stand-ins keep their shape so a redacted raw capture still builds the same topology. `busstop --watch`, the CLI's text tree and "Copy Details" apply the same redaction.
 
@@ -393,12 +393,12 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 ## 7. Build, packaging and distribution
 
 - `swift build` builds everything; `swift test` runs the core, Kit and app tests.
-- `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), ad-hoc signs it and zips it.
+- `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), signs it (ad hoc, or with the identity in `SIGN_IDENTITY`) and zips it. `scripts/notarize.sh` has Apple notarize the zip and staples the ticket to the app.
 - `scripts/install.sh` builds and copies the app to `/Applications`. A locally built app carries no quarantine attribute.
 - GitHub Actions, on pull requests:
   - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip. Runs only when the workflow is started by hand, because the runner is paid.
   - `macos-26`: `macos-26` runner with Xcode 26.6 for backward compatibility.
-- Releases: tagged builds attach the ad-hoc-signed zip. README explains "Open Anyway" in System Settings › Privacy & Security for downloaded builds.
+- Releases: tagged builds attach the Developer ID-signed, notarized zip. Without the signing secrets the release workflow signs ad hoc, and the release notes explain "Open Anyway" in System Settings › Privacy & Security.
 
 ---
 
