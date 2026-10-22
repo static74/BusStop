@@ -1,12 +1,26 @@
 name: Release
 
-# Pushing a tag such as v1.0.0 (made by scripts/release.sh) builds a universal, ad-hoc-signed app, runs the
-# smoke test and publishes a GitHub release with the zip and its SHA-256.
+# Pushing a tag such as v1.0.0 (made by scripts/release.sh) builds a universal app, signs it with the
+# maintainer's Developer ID, has Apple notarize it, runs the smoke test and publishes a GitHub release
+# with the zip and its SHA-256. Without the signing secrets it signs ad hoc, warns, and the release
+# notes keep the "Open Anyway" steps. Starting the workflow by hand does everything except publish,
+# and uploads the zip as a workflow artifact: a way to check the signing secrets without a release.
+#
+# The job runs in the `release` environment (Settings › Environments), which holds the secrets
+# below, admits only `main` and `v*` tags, and waits for the maintainer to approve each run:
+#   DEVELOPER_ID_P12_BASE64     the Developer ID Application certificate and its private key,
+#   DEVELOPER_ID_P12_PASSWORD   exported from Keychain Access as .p12, in base64, and its password
+# and, for notarization, either an App Store Connect API key:
+#   NOTARY_KEY_P8               the contents of the AuthKey_<id>.p8 file
+#   NOTARY_KEY_ID, NOTARY_ISSUER_ID
+# or an Apple ID with an app-specific password:
+#   NOTARY_APPLE_ID, NOTARY_PASSWORD, APPLE_TEAM_ID
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,6 +33,7 @@ jobs:
   release:
     name: Build and publish
     runs-on: xcode-27
+    environment: release
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,28 +48,117 @@ jobs:
           xcodebuild -version
           swift --version
           sw_vers
-      - name: Read the version from the tag
+      - name: Read the version
         id: version
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
           source_version="$(sed -nE 's/.*static let string = "([^"]+)".*/\1/p' Sources/BusStopCore/Version.swift | head -n 1)"
-          if [ "$version" != "$source_version" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match BusStopVersion.string ($source_version). Tag with scripts/release.sh."
-            exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$source_version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match BusStopVersion.string ($source_version). Tag with scripts/release.sh."
+              exit 1
+            fi
+          else
+            version="$source_version"
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Test
         run: swift test
+      - name: Import the Developer ID certificate
+        id: signing
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$P12_BASE64$P12_PASSWORD$NOTARY_KEY_P8$NOTARY_KEY_ID$NOTARY_ISSUER_ID$NOTARY_APPLE_ID$NOTARY_PASSWORD$APPLE_TEAM_ID" ]; then
+            echo "::warning::No signing secrets are set, so this build is signed ad hoc and not notarized."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Some secrets but not a working set is a mistake, not a choice: stop
+          # rather than publish an ad-hoc build by accident.
+          if [ -z "$P12_BASE64" ] || [ -z "$P12_PASSWORD" ]; then
+            echo "::error::Set both DEVELOPER_ID_P12_BASE64 and DEVELOPER_ID_P12_PASSWORD."
+            exit 1
+          fi
+          if ! { [ -n "$NOTARY_KEY_P8" ] && [ -n "$NOTARY_KEY_ID" ] && [ -n "$NOTARY_ISSUER_ID" ]; } &&
+             ! { [ -n "$NOTARY_APPLE_ID" ] && [ -n "$NOTARY_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; }; then
+            echo "::error::Notarization needs NOTARY_KEY_P8, NOTARY_KEY_ID and NOTARY_ISSUER_ID, or NOTARY_APPLE_ID, NOTARY_PASSWORD and APPLE_TEAM_ID."
+            exit 1
+          fi
+
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          echo "keychain=$keychain" >> "$GITHUB_OUTPUT"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+
+          p12="$RUNNER_TEMP/developer-id.p12"
+          (umask 077; printf '%s' "$P12_BASE64" | base64 --decode > "$p12")
+          security import "$p12" -k "$keychain" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$p12"
+          # The intermediate certificate, in case this runner image lacks it.
+          if curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"; then
+            security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain" || true
+          fi
+          # Lets codesign use the private key without a keychain prompt.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
+          # codesign finds identities through the user's keychain search list.
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+          security find-identity -v -p codesigning "$keychain"
+          identity="$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application: / { print $2; exit }')"
+          if [ -z "$identity" ]; then
+            echo "::error::The .p12 in DEVELOPER_ID_P12_BASE64 holds no valid Developer ID Application identity. Export the certificate together with its private key."
+            exit 1
+          fi
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
       - name: Assemble app bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
           ARCHS: universal
         run: ./scripts/build-app.sh
+      - name: Notarize
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # The API key wins when both kinds of credentials are set.
+          if [ -n "$NOTARY_KEY_P8" ] && [ -n "$NOTARY_KEY_ID" ] && [ -n "$NOTARY_ISSUER_ID" ]; then
+            export NOTARY_KEY_PATH="$RUNNER_TEMP/notary-key.p8"
+            (umask 077; printf '%s\n' "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH")
+          fi
+          ./scripts/notarize.sh
+      # Gone before any later step runs, so the third-party release action and
+      # the rest of the job never run while the signing identity is usable.
+      - name: Remove the signing keychain and API key
+        if: always()
+        env:
+          KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+        run: |
+          if [ -n "$KEYCHAIN" ]; then
+            security delete-keychain "$KEYCHAIN" || true
+          fi
+          rm -f "$RUNNER_TEMP/notary-key.p8" "$RUNNER_TEMP/developer-id.p12"
       - name: Smoke-test
         run: ./scripts/smoke-test.sh
       - name: Checksum and release notes
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
           cd build
           shasum -a 256 BusStop.zip | tee BusStop.zip.sha256
@@ -69,8 +173,13 @@ jobs:
             echo "## Install"
             echo
             echo "1. Download BusStop.zip, open it and move Bus Stop to Applications."
-            echo "2. Bus Stop is signed ad hoc, not notarized. The first time, open it, then go to"
-            echo "   System Settings › Privacy & Security and click Open Anyway next to the Bus Stop message."
+            if [ "$SIGNED" = "true" ]; then
+              echo "2. Open Bus Stop. It is signed with a Developer ID and notarized by Apple, so macOS"
+              echo "   opens it without a warning."
+            else
+              echo "2. Bus Stop is signed ad hoc, not notarized. The first time, open it, then go to"
+              echo "   System Settings › Privacy & Security and click Open Anyway next to the Bus Stop message."
+            fi
             echo "3. The command-line tool is inside the app at"
             echo "   \`Bus Stop.app/Contents/Helpers/busstop\`."
             echo
@@ -81,6 +190,7 @@ jobs:
           } >> notes.md
           cat notes.md
       - name: Publish the release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v3
         with:
           name: Bus Stop ${{ steps.version.outputs.version }}
@@ -90,3 +200,11 @@ jobs:
           files: |
             build/BusStop.zip
             build/BusStop.zip.sha256
+      - name: Upload the app (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: BusStop-${{ steps.version.outputs.version }}
+          path: |
+            build/BusStop.zip
+            build/notes.md

@@ -50,7 +50,7 @@ A CI workflow captures these images from the real app, running in demo mode on m
 
 1. Download `BusStop.zip` from the [latest release](https://github.com/static74/BusStop/releases/latest).
 2. Open the zip and move **Bus Stop** to your Applications folder. The zip also holds `LICENSE.txt` and `THIRD_PARTY_NOTICES.md`; the app carries its own copies, so you can leave them behind.
-3. Open Bus Stop. Release builds are signed ad hoc and not notarized, so the first time macOS says it cannot check the app. Click **Done**, open **System Settings › Privacy & Security**, scroll down to the message about Bus Stop and click **Open Anyway**. Confirm with your password or Touch ID. You only need to do this once.
+3. Open Bus Stop. Releases after 1.1.1 are signed with a Developer ID and notarized by Apple, so macOS opens them without a warning. Version 1.1.1 and earlier are signed ad hoc: the first time, macOS says it cannot check the app. Click **Done**, open **System Settings › Privacy & Security**, scroll down to the message about Bus Stop and click **Open Anyway**. Confirm with your password or Touch ID. You only need to do this once.
 
 Each release also lists the SHA-256 checksum of the zip. To check it, download `BusStop.zip.sha256` next to the zip and run `shasum -a 256 -c BusStop.zip.sha256`.
 
@@ -67,7 +67,7 @@ scripts/install.sh              # build, copy to /Applications and open
 scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 ```
 
-`install.sh` builds for your Mac's architecture and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. A build made on your own Mac carries no quarantine attribute, so it opens without the "Open Anyway" step.
+`install.sh` builds for your Mac's architecture and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. A build made on your own Mac is signed ad hoc, but it carries no quarantine attribute, so macOS opens it without asking.
 
 To build without installing:
 

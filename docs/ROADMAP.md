@@ -22,12 +22,13 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Distribution and reach
 
-17. **Notarized builds and Sparkle updates.** Notarized releases remove the "Open Anyway" step; Sparkle gives in-app updates with signed appcasts. Both need a maintainer with an Apple Developer ID.
+17. **Sparkle updates.** In-app updates with signed appcasts, now that releases are signed with a Developer ID.
 18. **Homebrew tap.** `brew install --cask busstop` from a project tap, with the CLI linked automatically.
 19. **Localisation.** Move user-facing strings into string catalogues and accept translations, starting with the languages contributors offer.
 
 ## Done since 1.0
 
+- Releases are signed with a Developer ID and notarized, so they open without the "Open Anyway" step.
 - The topology map pans freely by dragging, zooms with the scroll wheel or a pinch, stays sharp at every zoom, and shows a cable's details in the inspector when its link is clicked.
 - Devices behind a Thunderbolt dock are drawn under the dock, and a dock's monitors hang off the dock on the map, in the list and in the command-line tree.
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.

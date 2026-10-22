@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Builds "build/Bus Stop.app" from the Swift package, signs it ad hoc and zips
-# it, with the licence and third-party notices beside it, to build/BusStop.zip.
+# Builds "build/Bus Stop.app" from the Swift package, signs it and zips it,
+# with the licence and third-party notices beside it, to build/BusStop.zip.
 #
 # Usage: scripts/build-app.sh
 #
@@ -14,6 +14,10 @@
 #                  Several architectures are built one by one and merged with
 #                  lipo.
 #   CONFIGURATION  release (default) or debug.
+#   SIGN_IDENTITY  The codesign identity. Default "-", which signs ad hoc. A
+#                  Developer ID Application identity (its name or SHA-1 hash)
+#                  also gets a secure timestamp, which notarization needs; see
+#                  scripts/notarize.sh.
 #
 # Layout of the bundle:
 #   Contents/Info.plist            from Support/Info.plist, version stamped
@@ -167,9 +171,17 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 # Extended attributes (quarantine, Finder info) make codesign refuse the bundle.
 xattr -cr "$APP"
 
-log "Signing ad hoc with the hardened runtime"
-codesign --force --options runtime --identifier "$HELPER_IDENTIFIER" --sign - "$APP/Contents/Helpers/busstop"
-codesign --force --options runtime --sign - "$APP"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+sign_args=(--force --options runtime --sign "$SIGN_IDENTITY")
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+    log "Signing ad hoc with the hardened runtime"
+else
+    # Apple's notary service rejects code without a secure timestamp.
+    sign_args+=(--timestamp)
+    log "Signing as $SIGN_IDENTITY with the hardened runtime"
+fi
+codesign "${sign_args[@]}" --identifier "$HELPER_IDENTIFIER" "$APP/Contents/Helpers/busstop"
+codesign "${sign_args[@]}" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # MARK: Package
@@ -191,3 +203,4 @@ printf '  Zip:       %s (%s bytes)\n' "$ZIP" "$(wc -c < "$ZIP" | tr -d ' ')"
 printf '  Version:   %s (build %s)\n' "$VERSION" "$BUILD"
 printf '  App archs: %s\n' "$(lipo -archs "$APP/Contents/MacOS/BusStop")"
 printf '  CLI archs: %s\n' "$(lipo -archs "$APP/Contents/Helpers/busstop")"
+printf '  Signed:    %s\n' "$([[ "$SIGN_IDENTITY" == "-" ]] && echo "ad hoc" || echo "$SIGN_IDENTITY")"

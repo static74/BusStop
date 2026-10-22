@@ -2,6 +2,20 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-22: Releases are signed with a Developer ID and notarized
+
+**Question.** A downloaded release was signed ad hoc, so every new user met Gatekeeper's "could not verify" dialog and had to find Open Anyway in System Settings. The maintainer now has an Apple Developer ID. How should releases use it?
+
+**Decision.** `release.yml` runs in a `release` environment that holds the secrets, admits only `main` and `v*` tags, and waits for the maintainer to approve each run. It imports the Developer ID Application certificate into a temporary keychain, deleted right after notarization so no later step, the third-party release action included, can sign with it. It passes the identity to `scripts/build-app.sh` as `SIGN_IDENTITY`, which signs both binaries with a secure timestamp. `scripts/notarize.sh` then submits the zip to Apple's notary service, staples the ticket to the app, checks it with `spctl` and zips the stapled app again. Notarization takes either an App Store Connect API key or an Apple ID with an app-specific password. With no signing secrets at all, the workflow signs ad hoc, warns, and keeps the Open Anyway steps in the release notes. Some secrets without a working set stop the release. Starting the workflow by hand runs everything except publishing and uploads the zip, so the secrets can be checked without a release. Pull request builds stay ad hoc.
+
+**Why.** Notarization is the only way a downloaded app opens without the dialog. Stapling lets Gatekeeper accept the app offline. Keeping ad hoc as the default leaves contributors and forks able to build and release with no Apple account.
+
+**Rejected alternatives.**
+
+- *Sign and notarize every pull request.* Each submission takes minutes, and pull requests from forks get no secrets.
+- *Fail any release without the secrets.* Forks could not release at all. A partial set still fails, because it means a mistake.
+- *An Xcode project with automatic signing, or fastlane.* The package plus a bundling script already builds the app; both add tooling for steps `codesign` and `notarytool` do directly.
+
 ## 2026-10-19: One script prepares each release, and the tag starts the build
 
 **Question.** How should Bus Stop number its versions, and how does a built app reach users?
