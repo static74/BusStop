@@ -140,6 +140,17 @@ jobs:
             (umask 077; printf '%s\n' "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH")
           fi
           ./scripts/notarize.sh
+      # Gone before any later step runs, so the third-party release action and
+      # the rest of the job never run while the signing identity is usable.
+      - name: Remove the signing keychain and API key
+        if: always()
+        env:
+          KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+        run: |
+          if [ -n "$KEYCHAIN" ]; then
+            security delete-keychain "$KEYCHAIN" || true
+          fi
+          rm -f "$RUNNER_TEMP/notary-key.p8" "$RUNNER_TEMP/developer-id.p12"
       - name: Smoke-test
         run: ./scripts/smoke-test.sh
       - name: Checksum and release notes
@@ -195,12 +206,3 @@ jobs:
           path: |
             build/BusStop.zip
             build/notes.md
-      - name: Remove the signing keychain and API key
-        if: always()
-        env:
-          KEYCHAIN: ${{ steps.signing.outputs.keychain }}
-        run: |
-          if [ -n "$KEYCHAIN" ]; then
-            security delete-keychain "$KEYCHAIN" || true
-          fi
-          rm -f "$RUNNER_TEMP/notary-key.p8" "$RUNNER_TEMP/developer-id.p12"
