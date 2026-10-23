@@ -46,9 +46,9 @@ enum DisplayParser {
     ///    only when the port shows enough display links for all of them.
     ///    The count is the larger of its DisplayPort transports and its live
     ///    Thunderbolt display tunnels, less the displays already tied to it.
-    ///    This keeps Sidecar, AirPlay and DisplayLink displays, which use no
-    ///    port link, off physical ports. Each display takes the next unused
-    ///    transport on the port, native before tunnelled.
+    ///    This keeps displays that use no port link off physical ports. Each
+    ///    display takes the next unused transport on the port, native before
+    ///    tunnelled.
     ///
     /// - Parameters:
     ///   - displays: built display records, sorted.

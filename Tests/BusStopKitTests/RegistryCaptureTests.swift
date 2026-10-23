@@ -143,6 +143,16 @@ struct RegistryCaptureTests {
         #expect(DisplayReader.name(vendor: 0x610, model: 0x9999, serial: 0, in: products) == nil)
     }
 
+    @Test func softwareDisplaysHaveNoFramebuffer() {
+        let products = [DisplayReader.FramebufferProduct(name: "Dell U4924DW", productID: 0xA1FC)]
+        #expect(DisplayReader.hasFramebuffer(model: 0xA1FC, isBuiltin: false, in: products) == true)
+        // A BetterDisplay virtual display and a Sidecar iPad.
+        #expect(DisplayReader.hasFramebuffer(model: 0xC9FC, isBuiltin: false, in: products) == false)
+        #expect(DisplayReader.hasFramebuffer(model: 0x6950_6164, isBuiltin: false, in: products) == false)
+        #expect(DisplayReader.hasFramebuffer(model: 0xC9FC, isBuiltin: true, in: products) == nil)
+        #expect(DisplayReader.hasFramebuffer(model: 0xC9FC, isBuiltin: false, in: []) == nil)
+    }
+
     /// Prints what the machine running the tests exposes, so CI logs show the
     /// runner's capture.
     @Test func printCaptureForCILog() throws {
