@@ -2,6 +2,20 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-23: Releases ship a plain disk image
+
+**Question.** Releases attached `BusStop.zip`. Should they ship a disk image instead, and how should it look?
+
+**Decision.** Releases attach `BusStop.dmg` in place of the zip. `scripts/make-dmg.sh` builds it with `hdiutil` from the app, a link to `/Applications` and the licence notices, and signs it when `SIGN_IDENTITY` names a Developer ID. The release workflow notarizes and staples the app first (through the zip, as before), builds the image from the stapled app, then notarizes and staples the image. `build-app.sh` still makes the zip, which pull request CI uploads and the app's notarization uses. The window is plain: no background image or fixed icon positions.
+
+**Why.** A disk image with an Applications link is how most Mac apps are installed, and it opens without extracting anything. Notarizing both the app and the image costs a second submission of a few minutes, but a copy dragged out of the image then opens offline on its first launch, which a stapled image alone does not give.
+
+**Rejected alternatives.**
+
+- *Ship the zip and the disk image.* Two downloads to explain for one app.
+- *A styled window with a background and icon positions.* It needs Finder scripting or another tool on the runner, which is slow and unreliable in CI, and a background image to keep in step with the icon.
+- *Notarize only the disk image.* One submission fewer, but the app copied to Applications carries no ticket, so its first launch needs a network connection to pass Gatekeeper.
+
 ## 2026-10-22: Releases are signed with a Developer ID and notarized
 
 **Question.** A downloaded release was signed ad hoc, so every new user met Gatekeeper's "could not verify" dialog and had to find Open Anyway in System Settings. The maintainer now has an Apple Developer ID. How should releases use it?
