@@ -1,10 +1,12 @@
 name: Release
 
 # Pushing a tag such as v1.0.0 (made by scripts/release.sh) builds a universal app, signs it with the
-# maintainer's Developer ID, has Apple notarize it, runs the smoke test and publishes a GitHub release
-# with the zip and its SHA-256. Without the signing secrets it signs ad hoc, warns, and the release
-# notes keep the "Open Anyway" steps. Starting the workflow by hand does everything except publish,
-# and uploads the zip as a workflow artifact: a way to check the signing secrets without a release.
+# maintainer's Developer ID, has Apple notarize it, packs it into a disk image that is signed and
+# notarized in turn, runs the smoke test and publishes a GitHub release with BusStop.dmg and its
+# SHA-256. Without the signing secrets it signs ad hoc, leaves the image unsigned, warns, and the
+# release notes keep the "Open Anyway" steps. Starting the workflow by hand does everything except
+# publish, and uploads the image as a workflow artifact: a way to check the signing secrets without
+# a release.
 #
 # The job runs in the `release` environment (Settings › Environments), which holds the secrets
 # below, admits only `main` and `v*` tags, and waits for the maintainer to approve each run:
@@ -126,9 +128,11 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           ARCHS: universal
         run: ./scripts/build-app.sh
-      - name: Notarize
-        if: steps.signing.outputs.signed == 'true'
+      # The app is notarized and stapled before it goes into the image, so a copy dragged out of the
+      # image opens offline too; then the image itself is notarized and stapled.
+      - name: Notarize and make the disk image
         env:
+          SIGNED: ${{ steps.signing.outputs.signed }}
           NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
@@ -136,12 +140,18 @@ jobs:
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
           NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # The API key wins when both kinds of credentials are set.
-          if [ -n "$NOTARY_KEY_P8" ] && [ -n "$NOTARY_KEY_ID" ] && [ -n "$NOTARY_ISSUER_ID" ]; then
-            export NOTARY_KEY_PATH="$RUNNER_TEMP/notary-key.p8"
-            (umask 077; printf '%s\n' "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH")
+          if [ "$SIGNED" = "true" ]; then
+            # The API key wins when both kinds of credentials are set.
+            if [ -n "$NOTARY_KEY_P8" ] && [ -n "$NOTARY_KEY_ID" ] && [ -n "$NOTARY_ISSUER_ID" ]; then
+              export NOTARY_KEY_PATH="$RUNNER_TEMP/notary-key.p8"
+              (umask 077; printf '%s\n' "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH")
+            fi
+            ./scripts/notarize.sh
           fi
-          ./scripts/notarize.sh
+          ./scripts/make-dmg.sh
+          if [ "$SIGNED" = "true" ]; then
+            ./scripts/notarize.sh build/BusStop.dmg
+          fi
       # Gone before any later step runs, so the third-party release action and
       # the rest of the job never run while the signing identity is usable.
       - name: Remove the signing keychain and API key
@@ -161,8 +171,8 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
           cd build
-          shasum -a 256 BusStop.zip | tee BusStop.zip.sha256
-          checksum="$(cut -d ' ' -f 1 BusStop.zip.sha256)"
+          shasum -a 256 BusStop.dmg | tee BusStop.dmg.sha256
+          checksum="$(cut -d ' ' -f 1 BusStop.dmg.sha256)"
           # The CHANGELOG section for this version, without its heading.
           awk -v v="$VERSION" '
             /^## / { if (found) exit; if (index($0, "[" v "]") || index($0, " " v " ") || $0 == "## " v) { found = 1; next } }
@@ -172,7 +182,7 @@ jobs:
             echo
             echo "## Install"
             echo
-            echo "1. Download BusStop.zip, open it and move Bus Stop to Applications."
+            echo "1. Download BusStop.dmg, open it and drag Bus Stop onto the Applications folder beside it."
             if [ "$SIGNED" = "true" ]; then
               echo "2. Open Bus Stop. It is signed with a Developer ID and notarized by Apple, so macOS"
               echo "   opens it without a warning."
@@ -183,10 +193,10 @@ jobs:
             echo "3. The command-line tool is inside the app at"
             echo "   \`Bus Stop.app/Contents/Helpers/busstop\`."
             echo
-            echo "The zip also holds LICENSE.txt and THIRD_PARTY_NOTICES.md, the licences of Bus Stop"
+            echo "The disk image also holds LICENSE.txt and THIRD_PARTY_NOTICES.md, the licences of Bus Stop"
             echo "and of the MIT-licensed projects it builds on. The app carries copies in Contents/Resources."
             echo
-            echo "SHA-256 of BusStop.zip: \`$checksum\`"
+            echo "SHA-256 of BusStop.dmg: \`$checksum\`"
           } >> notes.md
           cat notes.md
       - name: Publish the release
@@ -198,13 +208,13 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           files: |
-            build/BusStop.zip
-            build/BusStop.zip.sha256
+            build/BusStop.dmg
+            build/BusStop.dmg.sha256
       - name: Upload the app (manual run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: BusStop-${{ steps.version.outputs.version }}
           path: |
-            build/BusStop.zip
+            build/BusStop.dmg
             build/notes.md

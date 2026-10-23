@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Checks a bundle made by scripts/build-app.sh: layout, licence notices,
-# Info.plist, signature and icon; the zip next to it; the bundled CLI against
+# Info.plist, signature and icon; the zip and disk image next to it; the bundled CLI against
 # every demo scenario and against this Mac; and that the app is still running
 # a few seconds after launch.
 #
@@ -36,6 +36,7 @@ CLI="$APP/Contents/Helpers/busstop"
 APP_BINARY="$APP/Contents/MacOS/BusStop"
 PLIST="$APP/Contents/Info.plist"
 ZIP="$(dirname "$APP")/BusStop.zip"
+DMG="$(dirname "$APP")/BusStop.dmg"
 OUT="$ROOT/build/smoke"
 DEMOS=(studioDesk travel dockStation unplugged flakyCable)
 CLI_TIME_LIMIT=120
@@ -260,6 +261,36 @@ if [[ -f "$ZIP" ]]; then
     fi
 else
     printf 'No zip next to the app; skipping the zip checks.\n'
+fi
+
+section "Disk image: $DMG"
+if [[ -f "$DMG" ]]; then
+    MOUNT="$OUT/dmg"
+    mkdir -p "$MOUNT"
+    if hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$MOUNT" "$DMG" > "$OUT/dmg-attach.txt" 2>&1; then
+        ls -la "$MOUNT"
+        for entry in "Bus Stop.app/Contents/MacOS/BusStop" "Bus Stop.app/Contents/Helpers/busstop" \
+            "Bus Stop.app/Contents/Resources/LICENSE.txt" "Bus Stop.app/Contents/Resources/THIRD_PARTY_NOTICES.md" \
+            "LICENSE.txt" "THIRD_PARTY_NOTICES.md"; do
+            if [[ -e "$MOUNT/$entry" ]]; then pass "the disk image holds $entry"; else failed "the disk image lacks $entry"; fi
+        done
+        if [[ "$(readlink "$MOUNT/Applications" 2> /dev/null)" == "/Applications" ]]; then
+            pass "the disk image links Applications to /Applications"
+        else
+            failed "the disk image has no Applications link"
+        fi
+        if codesign --verify --deep --strict "$MOUNT/Bus Stop.app"; then
+            pass "the app in the disk image verifies"
+        else
+            failed "the app in the disk image does not verify"
+        fi
+        hdiutil detach "$MOUNT" > /dev/null 2>&1 || hdiutil detach -force "$MOUNT" > /dev/null 2>&1 || true
+    else
+        show "hdiutil attach" "$OUT/dmg-attach.txt"
+        failed "hdiutil cannot attach $DMG"
+    fi
+else
+    printf 'No disk image next to the app; skipping the disk image checks.\n'
 fi
 
 if [[ ! -x "$CLI" ]]; then

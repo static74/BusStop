@@ -7,6 +7,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 ### Changed
 
 - Release builds are signed with a Developer ID and notarized by Apple, so macOS opens a downloaded copy without the "Open Anyway" step in System Settings.
+- Releases come as a disk image, `BusStop.dmg`, instead of a zip: open it and drag Bus Stop onto the Applications folder beside it.
 
 ## [1.1.1] - 2026-10-19
 

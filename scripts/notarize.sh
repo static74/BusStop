@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 #
-# Sends build/BusStop.zip to Apple's notary service, staples the ticket to
-# "build/Bus Stop.app" and zips the stapled app again, so the app opens on
-# other Macs without a Gatekeeper warning, even offline.
+# Has Apple's notary service check a build and staples the ticket to it, so it
+# opens on other Macs without a Gatekeeper warning, even offline.
 #
-# Usage: scripts/notarize.sh
+# Usage: scripts/notarize.sh [build/BusStop.zip | build/BusStop.dmg]
 #
-# Run it after scripts/build-app.sh with SIGN_IDENTITY set to a Developer ID
-# Application identity. The notary credentials come from the environment, in
-# one of three forms (the first one set wins):
+#   build/BusStop.zip   (the default) Notarizes the app: submits the zip made by
+#                       scripts/build-app.sh, staples the ticket to
+#                       "build/Bus Stop.app" and zips the stapled app again.
+#   build/BusStop.dmg   Notarizes the disk image made by scripts/make-dmg.sh
+#                       and staples the ticket to it.
+#
+# Build with SIGN_IDENTITY set to a Developer ID Application identity. The
+# notary credentials come from the environment, in one of three forms (the
+# first one set wins):
 #
 #   NOTARY_PROFILE      a profile saved with `xcrun notarytool store-credentials`
 #   NOTARY_KEY_PATH     an App Store Connect API key (.p8), with
@@ -24,7 +29,7 @@ cd "$ROOT"
 APP_NAME="Bus Stop"
 BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/$APP_NAME.app"
-ZIP="$BUILD_DIR/BusStop.zip"
+SUBMISSION="${1:-$BUILD_DIR/BusStop.zip}"
 ZIP_ROOT="$BUILD_DIR/notarize-root"
 RESULT="$BUILD_DIR/notarize-result.plist"
 
@@ -35,7 +40,17 @@ fail() { printf 'notarize.sh: %s\n' "$*" >&2; exit 1; }
 for tool in xcrun codesign spctl ditto plutil; do
     command -v "$tool" >/dev/null 2>&1 || fail "$tool was not found; install Xcode 27 or Xcode 26.6"
 done
-[[ -d "$APP" && -f "$ZIP" ]] || fail "$APP or $ZIP is missing; run scripts/build-app.sh first"
+[[ -f "$SUBMISSION" ]] || fail "$SUBMISSION is missing; run scripts/build-app.sh (and scripts/make-dmg.sh for the disk image) first"
+
+# What gets the ticket: the app for the zip, the image itself for a disk image.
+case "$SUBMISSION" in
+    *.zip)
+        [[ -d "$APP" ]] || fail "$APP is missing; run scripts/build-app.sh first"
+        TARGET="$APP"
+        ;;
+    *.dmg) TARGET="$SUBMISSION" ;;
+    *) fail "cannot notarize $SUBMISSION; pass the zip or the disk image" ;;
+esac
 
 # MARK: Credentials
 
@@ -54,18 +69,18 @@ fi
 
 # The notary service accepts only code signed with a Developer ID; checking
 # first saves a round trip that would end in "Invalid".
-signature="$(codesign --display --verbose=2 "$APP" 2>&1)"
+signature="$(codesign --display --verbose=2 "$TARGET" 2>&1)"
 if ! grep -q '^Authority=Developer ID Application:' <<< "$signature"; then
     printf '%s\n' "$signature"
-    fail "$APP is not signed with a Developer ID Application identity; build it with SIGN_IDENTITY set"
+    fail "$TARGET is not signed with a Developer ID Application identity; build it with SIGN_IDENTITY set"
 fi
 
 # MARK: Submit
 
-log "Submitting $ZIP to Apple's notary service (this usually takes a few minutes)"
+log "Submitting $SUBMISSION to Apple's notary service (this usually takes a few minutes)"
 # notarytool's exit status does not say whether Apple accepted the build, so
 # the status in its output decides.
-xcrun notarytool submit "$ZIP" "${credentials[@]}" --wait --timeout 1h --output-format plist > "$RESULT" || true
+xcrun notarytool submit "$SUBMISSION" "${credentials[@]}" --wait --timeout 1h --output-format plist > "$RESULT" || true
 cat "$RESULT"
 submission_id="$(plutil -extract id raw -o - "$RESULT" 2>/dev/null || true)"
 status="$(plutil -extract status raw -o - "$RESULT" 2>/dev/null || true)"
@@ -79,36 +94,43 @@ fi
 
 # MARK: Staple
 
-log "Stapling the ticket to $APP"
+log "Stapling the ticket to $TARGET"
 # The ticket can take a short while to reach Apple's servers after the
 # submission is accepted.
 for attempt in 1 2 3 4 5; do
-    if xcrun stapler staple "$APP"; then
+    if xcrun stapler staple "$TARGET"; then
         break
     fi
     (( attempt < 5 )) || fail "stapling failed after $attempt attempts"
     sleep 20
 done
-xcrun stapler validate "$APP"
+xcrun stapler validate "$TARGET"
 
-log "Checking the app with Gatekeeper"
-spctl --assess --type execute --verbose=4 "$APP"
+log "Checking $TARGET with Gatekeeper"
+if [[ "$TARGET" == "$APP" ]]; then
+    spctl --assess --type execute --verbose=4 "$APP"
+else
+    spctl --assess --type open --context context:primary-signature --verbose=4 "$TARGET"
+fi
 
 # MARK: Package
 
-log "Zipping the stapled app"
-# The zip keeps build-app.sh's layout, with the licence notices beside the
-# app; only the app inside it is replaced by the stapled copy.
-rm -rf "$ZIP_ROOT"
-mkdir -p "$ZIP_ROOT"
-ditto -x -k "$ZIP" "$ZIP_ROOT"
-[[ -d "$ZIP_ROOT/$APP_NAME.app" ]] || fail "$ZIP does not hold $APP_NAME.app"
-rm -rf "$ZIP_ROOT/$APP_NAME.app"
-ditto "$APP" "$ZIP_ROOT/$APP_NAME.app"
-rm -f "$ZIP"
-ditto -c -k "$ZIP_ROOT" "$ZIP"
-rm -rf "$ZIP_ROOT" "$RESULT"
+if [[ "$TARGET" == "$APP" ]]; then
+    log "Zipping the stapled app"
+    # The zip keeps build-app.sh's layout, with the licence notices beside the
+    # app; only the app inside it is replaced by the stapled copy.
+    rm -rf "$ZIP_ROOT"
+    mkdir -p "$ZIP_ROOT"
+    ditto -x -k "$SUBMISSION" "$ZIP_ROOT"
+    [[ -d "$ZIP_ROOT/$APP_NAME.app" ]] || fail "$SUBMISSION does not hold $APP_NAME.app"
+    rm -rf "$ZIP_ROOT/$APP_NAME.app"
+    ditto "$APP" "$ZIP_ROOT/$APP_NAME.app"
+    rm -f "$SUBMISSION"
+    ditto -c -k "$ZIP_ROOT" "$SUBMISSION"
+    rm -rf "$ZIP_ROOT"
+fi
+rm -f "$RESULT"
 
 log "Done"
 printf '  Submission: %s\n' "$submission_id"
-printf '  Zip:        %s (%s bytes)\n' "$ZIP" "$(wc -c < "$ZIP" | tr -d ' ')"
+printf '  Notarized:  %s (%s bytes)\n' "$SUBMISSION" "$(wc -c < "$SUBMISSION" | tr -d ' ')"
