@@ -116,7 +116,9 @@ public enum TopologyBuilder {
 
         // Displays.
         var displayIDs = Set<String>()
-        let displays = raw.displays.sorted { $0.id < $1.id }.map { display -> DisplayInfo in
+        // Software displays (Sidecar, AirPlay, virtual, DisplayLink) use no port
+        // and mirror or stand in for hardware shown elsewhere, so they are dropped.
+        let displays = raw.displays.filter { $0.hasFramebuffer != false }.sorted { $0.id < $1.id }.map { display -> DisplayInfo in
             var info = DisplayParser.info(display)
             // Two identical panels without serial numbers would share an ID.
             if !displayIDs.insert(info.id).inserted {

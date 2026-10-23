@@ -302,10 +302,15 @@ public struct RawDisplay: Sendable, Hashable, Codable, Identifiable {
     public var pixelWidth: Int?
     public var pixelHeight: Int?
     public var refreshHz: Double?
+    /// Whether a hardware framebuffer drives the display. `false` marks a
+    /// software display (Sidecar, AirPlay, a virtual display, DisplayLink);
+    /// nil when unknown (built-in displays, Intel Macs, older captures).
+    public var hasFramebuffer: Bool?
 
     public init(id: UInt32, name: String? = nil, vendorID: Int? = nil, productID: Int? = nil,
                 serialNumber: Int? = nil, isBuiltin: Bool, isMain: Bool = false,
-                pixelWidth: Int? = nil, pixelHeight: Int? = nil, refreshHz: Double? = nil) {
+                pixelWidth: Int? = nil, pixelHeight: Int? = nil, refreshHz: Double? = nil,
+                hasFramebuffer: Bool? = nil) {
         self.id = id
         self.name = name
         self.vendorID = vendorID
@@ -316,5 +321,6 @@ public struct RawDisplay: Sendable, Hashable, Codable, Identifiable {
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
         self.refreshHz = refreshHz
+        self.hasFramebuffer = hasFramebuffer
     }
 }

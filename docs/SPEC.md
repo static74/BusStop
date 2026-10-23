@@ -331,7 +331,7 @@ Anything that matches no rule moves up to the dock with its subtree. Every rule 
 - System input: `PowerTelemetryData.SystemPowerIn` (mW), `SystemLoad`, `BatteryPower`.
 - Per-port output, best source first: SMC `DxJV × DxJI` joined by HPM `UUID` = `DxUI`; then `PowerOutDetails[].Watts` (mW) joined by `PortIndex` = USB-C port number; then the sum of USB allocations.
 
-**Displays.** A display is attached to a port through `IOPortTransportStateDisplayPort` (`ProductName`) or a Thunderbolt "DP or HDMI Adapter" with a non-empty `Hop Table`. If exactly one port carries video and exactly one external display is left, it goes there. Several remaining displays go to the single video port only when that port shows enough display links for all of them (DisplayPort transports or live Thunderbolt display tunnels). Otherwise displays without a confident port are listed under "Other displays" (this keeps Sidecar and AirPlay displays off physical ports).
+**Displays.** A display is attached to a port through `IOPortTransportStateDisplayPort` (`ProductName`) or a Thunderbolt "DP or HDMI Adapter" with a non-empty `Hop Table`. If exactly one port carries video and exactly one external display is left, it goes there. Several remaining displays go to the single video port only when that port shows enough display links for all of them (DisplayPort transports or live Thunderbolt display tunnels). Otherwise displays without a confident port are listed under "Other displays". Software displays, which no framebuffer publishes (Sidecar, AirPlay, virtual displays, DisplayLink), are dropped before attribution, so they never reach a port or "Other displays".
 
 **Diagnostics.**
 

@@ -177,6 +177,19 @@ struct DisplayTopologyTests {
         #expect(sidecar.representingDeviceID == nil)
     }
 
+    @Test func softwareDisplaysAreDropped() {
+        let raw = F.raw(ports: Self.dpPort(id: 10, number: 1, product: nil), displays: [
+            Self.dell,
+            RawDisplay(id: 9, vendorID: 0x896, productID: 0xC9FC, isBuiltin: false, pixelWidth: 10240,
+                       pixelHeight: 2880, hasFramebuffer: false),
+            RawDisplay(id: 7, vendorID: 0x6161_706C, productID: 0x6950_6164, isBuiltin: false, pixelWidth: 2648,
+                       pixelHeight: 1986, hasFramebuffer: false),
+        ])
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.displays.map(\.name) == [Self.dell.name])
+        #expect(snapshot.displays.first?.portKey == PortKey(type: 2, number: 1))
+    }
+
     // MARK: Refresh rates
 
     @Test func hugeRefreshRateCannotTrap() throws {

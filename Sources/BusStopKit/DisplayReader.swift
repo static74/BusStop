@@ -25,14 +25,16 @@ enum DisplayReader {
             let vendor = Int(CGDisplayVendorNumber(id))
             let model = Int(CGDisplayModelNumber(id))
             let serial = Int(CGDisplaySerialNumber(id))
+            let isBuiltin = CGDisplayIsBuiltin(id) != 0
             var display = RawDisplay(
                 id: id,
                 name: name(vendor: vendor, model: model, serial: serial, in: framebuffers),
                 vendorID: vendor,
                 productID: model,
                 serialNumber: serial == 0 ? nil : serial,
-                isBuiltin: CGDisplayIsBuiltin(id) != 0,
-                isMain: CGDisplayIsMain(id) != 0
+                isBuiltin: isBuiltin,
+                isMain: CGDisplayIsMain(id) != 0,
+                hasFramebuffer: hasFramebuffer(model: model, isBuiltin: isBuiltin, in: framebuffers)
             )
             if let mode = CGDisplayCopyDisplayMode(id) {
                 display.pixelWidth = mode.pixelWidth > 0 ? mode.pixelWidth : nil
@@ -72,6 +74,14 @@ enum DisplayReader {
             }
         }
         return result
+    }
+
+    /// Whether a framebuffer publishes the display's product ID. nil when
+    /// no framebuffer publishes products (Intel Macs) and for built-in
+    /// panels, which may not publish one.
+    static func hasFramebuffer(model: Int, isBuiltin: Bool, in products: [FramebufferProduct]) -> Bool? {
+        guard !isBuiltin, !products.isEmpty else { return nil }
+        return products.contains { $0.productID == model }
     }
 
     /// The framebuffer product name for a display, when exactly one name

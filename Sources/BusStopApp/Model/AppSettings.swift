@@ -270,7 +270,7 @@ final class AppSettings {
         showMenuBarItem = bool(Key.showMenuBarItem, true)
         showDockIconWithWindow = bool(Key.showDockIconWithWindow, true)
         hideEmptyPorts = bool(Key.hideEmptyPorts, false)
-        portOrder = string(Key.portOrder).flatMap(PortOrder.init(rawValue:)) ?? .physical
+        portOrder = string(Key.portOrder).flatMap(PortOrder.init(rawValue:)) ?? .connectedFirst
         popoverLayout = string(Key.popoverLayout).flatMap(PopoverLayout.init(rawValue:)) ?? .cards
         menuBarIcon = string(Key.menuBarIcon).flatMap(MenuBarIconStyle.init(rawValue:)) ?? .busStop
         menuBarText = string(Key.menuBarText).flatMap(MenuBarTextMode.init(rawValue:)) ?? .power
