@@ -139,6 +139,16 @@ struct CompactPopoverTests {
                 == "Left Rear USB-C port, Mouse connected at 480 megabits per second, link at 40 gigabits per second")
     }
 
+    @Test func connectedPortsComeFirstByDefault() {
+        // Dock station lists the empty Front (right) before the busy Rear (left).
+        withDemoStore(.dockStation) { store in
+            let all = store.snapshot.ports
+            let expected = all.filter(\.isConnected) + all.filter { !$0.isConnected }
+            #expect(all.contains { !$0.isConnected })
+            #expect(store.visiblePorts.map(\.key) == expected.map(\.key))
+        }
+    }
+
     @Test func popoverLayoutPersistsAndResets() {
         let suite = "BusStopAppTests.CompactPopover.layout"
         defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
