@@ -48,7 +48,7 @@ A CI workflow captures these images from the real app, running in demo mode on m
 
 ### From a release
 
-1. Download `BusStop.dmg` from the [latest release](https://github.com/static74/BusStop/releases/latest). 
+1. Download [`BusStop.dmg`](https://github.com/static74/BusStop/releases/latest/download/BusStop.dmg) from the [latest release](https://github.com/static74/BusStop/releases/latest). 
 2. Open the disk image and drag **Bus Stop** onto the Applications folder beside it.
 
 Each release also lists the SHA-256 checksum of the disk image. To check it, download `BusStop.dmg.sha256` next to the image and run `shasum -a 256 -c BusStop.dmg.sha256`.
