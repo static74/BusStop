@@ -48,9 +48,8 @@ A CI workflow captures these images from the real app, running in demo mode on m
 
 ### From a release
 
-1. Download `BusStop.dmg` from the [latest release](https://github.com/static74/BusStop/releases/latest). Version 1.1.1 and earlier come as `BusStop.zip` instead.
-2. Open the disk image and drag **Bus Stop** onto the Applications folder beside it. The image also holds `LICENSE.txt` and `THIRD_PARTY_NOTICES.md`; the app carries its own copies, so you can leave them behind.
-3. Open Bus Stop. Releases after 1.1.1 are signed with a Developer ID and notarized by Apple, so macOS opens them without a warning. Version 1.1.1 and earlier are signed ad hoc: the first time, macOS says it cannot check the app. Click **Done**, open **System Settings › Privacy & Security**, scroll down to the message about Bus Stop and click **Open Anyway**. Confirm with your password or Touch ID. You only need to do this once.
+1. Download `BusStop.dmg` from the [latest release](https://github.com/static74/BusStop/releases/latest). 
+2. Open the disk image and drag **Bus Stop** onto the Applications folder beside it.
 
 Each release also lists the SHA-256 checksum of the disk image. To check it, download `BusStop.dmg.sha256` next to the image and run `shasum -a 256 -c BusStop.dmg.sha256`.
 
