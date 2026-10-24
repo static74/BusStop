@@ -4,6 +4,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Fixed
+
+- A USB 3 port now shows the rate the Mac reports for it. A Mac mini with M4 says "Gen 1" signalling for a 10 Gb/s hub, and Bus Stop showed the port at 5 Gb/s while the hub on it showed 10 Gb/s. A real capture of that Mac is now a test fixture.
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed
