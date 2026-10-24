@@ -4,13 +4,19 @@ import Foundation
 ///
 /// Order of precedence:
 /// 1. A name the user gave the port.
-/// 2. The catalogue row for this model with the same connector and number.
-/// 3. The catalogue row at the same rank among same-connector ports, when the
+/// 2. The Mac's own `port-location` for the port ("back-left" reads
+///    "Rear (left)"), which the firmware publishes on the controller of
+///    each port it can place.
+/// 3. The catalogue row for this model with the same connector and number.
+/// 4. The catalogue row at the same rank among same-connector ports, when the
 ///    Mac numbers its ports differently from the catalogue (an M5 MacBook Pro
 ///    publishes USB-C ports 1, 2 and 4; the catalogue lists 1, 2 and 3).
-/// 4. A location from the port's capability: on a Mac mini or Mac Studio,
+/// 5. A location from the port's capability: on a Mac mini or Mac Studio,
 ///    Thunderbolt ports are at the rear and plain USB-C ports at the front.
-/// 5. A generic name such as "USB-C 2".
+/// 6. A generic name such as "USB-C 2".
+///
+/// Ports left with the same title by steps 2 to 5 are numbered in physical
+/// order by `TopologyBuilder` ("Front · USB-C 1", "Front · USB-C 2").
 ///
 /// Catalogue numbers are not always the kernel's numbers, so a catalogue row
 /// is rejected when its capability contradicts the port's (a Thunderbolt row
@@ -18,8 +24,8 @@ import Foundation
 /// that connector mix both kinds. One such contradiction shows that this Mac
 /// does not number that connector the catalogue's way, so when the
 /// capabilities of the sibling ports are known, every port of the connector
-/// then falls to step 4 together: they read "Rear" and "Front" alike rather
-/// than some precise and some general. Step 4 ports sort where the
+/// then falls to step 5 together: they read "Rear" and "Front" alike rather
+/// than some precise and some general. Step 5 ports sort where the
 /// catalogue's first row with their capability sits.
 public enum PortLabeler {
     /// Label for one port.
@@ -38,13 +44,14 @@ public enum PortLabeler {
     ///     ports of this kind whose support is known (the port itself
     ///     included). Used to tell whether the Mac follows the catalogue's
     ///     numbering for this connector.
+    ///   - registryLocation: the port's `port-location` ("back-left"), if any.
     /// - Returns: the label; the catalogue's capability text for the port
     ///   ("Thunderbolt 5") when the catalogue describes it; and where the
-    ///   catalogue places it ("Left Front", or only "Rear" from step 4), for
+    ///   catalogue places it ("Left Front", or only "Rear" from step 5), for
     ///   `PhysicalPort.catalogLocation`. A user-named port keeps both.
     public static func label(kind: PortKind, number: Int, key: PortKey, siblings: [Int], model: String,
                              userNames: [String: String], supportsThunderbolt: Bool? = nil,
-                             siblingCapabilities: [Int: Bool] = [:])
+                             siblingCapabilities: [Int: Bool] = [:], registryLocation: String? = nil)
         -> (label: PortLabel, capability: String?, location: String?) {
         let connector = kind.displayName
         let match = acceptedMatch(kind: kind, number: number, siblings: siblings, model: model,
@@ -52,10 +59,15 @@ public enum PortLabeler {
         let guess = match == nil
             ? capabilityLocation(kind: kind, model: model, supportsThunderbolt: supportsThunderbolt)
             : nil
-        let location = match?.row.location ?? guess?.location
+        let hardware = registryLocation.flatMap(location(fromRegistry:))
+        let location = hardware ?? match?.row.location ?? guess?.location
 
         if let name = userNames[key.description]?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
             let label = PortLabel(location: name, source: .user, connector: connector, number: number)
+            return (label, match?.row.capability ?? guess?.capability, location)
+        }
+        if let hardware {
+            let label = PortLabel(location: hardware, source: .hardware, connector: connector, number: number)
             return (label, match?.row.capability ?? guess?.capability, location)
         }
         if let match {
@@ -76,13 +88,21 @@ public enum PortLabeler {
     ///
     /// Ports matched to a catalogue row sort first, in the catalogue's order
     /// (left side rear to front, then right side, as PortScope lists them).
-    /// A port named from its capability (step 4 of `label`) sorts at the
+    /// A port named from its capability (step 5 of `label`) sorts at the
     /// catalogue's first row with that capability, so the rear Thunderbolt
     /// ports of a desktop stay together. Other ports follow, by kind rank and
-    /// then number. Pass the same capability arguments as to `label`.
+    /// then number. A port placed by its `port-location` sorts at the
+    /// catalogue row with that location, when there is one. Pass the same
+    /// capability and location arguments as to `label`.
     public static func sortKey(kind: PortKind, number: Int, siblings: [Int], model: String,
-                               supportsThunderbolt: Bool? = nil,
-                               siblingCapabilities: [Int: Bool] = [:]) -> (Int, Int, Int) {
+                               supportsThunderbolt: Bool? = nil, siblingCapabilities: [Int: Bool] = [:],
+                               registryLocation: String? = nil) -> (Int, Int, Int) {
+        if let hardware = registryLocation.flatMap(location(fromRegistry:)),
+           let index = PortLocationCatalog.entry(for: model)?.ports.firstIndex(where: { row in
+               row.connector == kind.catalogConnector && row.location == hardware
+           }) {
+            return (0, index, number)
+        }
         if let match = acceptedMatch(kind: kind, number: number, siblings: siblings, model: model,
                                      supportsThunderbolt: supportsThunderbolt,
                                      siblingCapabilities: siblingCapabilities) {
@@ -96,6 +116,31 @@ public enum PortLabeler {
             return (0, index, number)
         }
         return (1, kind.sortRank, number)
+    }
+
+    // MARK: Hardware locations
+
+    /// A `port-location` value in the catalogue's words: "back-left" →
+    /// "Rear (left)", "back-middle" → "Rear (center)", "left-back" →
+    /// "Left Rear", "front" → "Front". Words outside that vocabulary are kept
+    /// as they are, capitalised ("io-card" → "Io card"). Nil for empty text.
+    static func location(fromRegistry text: String) -> String? {
+        let words = text.lowercased().split { !$0.isLetter }.map(String.init)
+        guard let first = words.first else { return nil }
+        let names = ["back": "Rear", "rear": "Rear", "front": "Front", "top": "Top", "bottom": "Bottom",
+                     "left": "Left", "right": "Right", "middle": "Center", "center": "Center", "centre": "Center"]
+        guard words.allSatisfy({ names[$0] != nil }) else {
+            let joined = words.joined(separator: " ")
+            return joined.prefix(1).uppercased() + joined.dropFirst()
+        }
+        let rest = words.dropFirst().compactMap { names[$0] }
+        if rest.isEmpty { return names[first] }
+        if first == "left" || first == "right" {
+            // A laptop side, then where along it: "Left Rear".
+            return ([names[first]!] + rest).joined(separator: " ")
+        }
+        // A desktop face, then where across it: "Rear (left-center)".
+        return "\(names[first]!) (\(rest.map { $0.lowercased() }.joined(separator: "-")))"
     }
 
     // MARK: Catalogue matching

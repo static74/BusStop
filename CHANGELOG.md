@@ -4,6 +4,11 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- Ports are named from where the Mac itself says they are. Recent Macs publish each Thunderbolt port's position in the IORegistry ("back-left"), and Bus Stop now uses it ahead of its model catalogue, so a Mac mini with M4 shows "Rear (left)", "Rear (center)" and "Rear (right)" instead of three ports named "Rear". Ports without it use the catalogue as before. Raw captures (`busstop --raw`) include these positions.
+- Ports that would share a name are numbered, such as "Front · USB-C 1" and "Front · USB-C 2".
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed

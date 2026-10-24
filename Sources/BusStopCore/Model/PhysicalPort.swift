@@ -114,6 +114,8 @@ public struct PortKey: Sendable, Hashable, Codable, Comparable, CustomStringConv
 public enum LabelSource: String, Sendable, Hashable, Codable {
     /// The user renamed the port.
     case user
+    /// The Mac's own `port-location` for the port ("back-left").
+    case hardware
     /// Exact (connector, number) match in the model catalogue.
     case catalog
     /// Matched by rank among same-connector ports (non-contiguous numbering).
@@ -131,30 +133,35 @@ public struct PortLabel: Sendable, Hashable, Codable {
     public var connector: String
     /// The port number shown in generic names.
     public var number: Int
+    /// 1, 2, … in physical order when other ports would get the same title
+    /// ("Front · USB-C 1", "Front · USB-C 2"); nil otherwise.
+    public var ordinal: Int?
 
-    public init(location: String?, source: LabelSource, connector: String, number: Int) {
+    public init(location: String?, source: LabelSource, connector: String, number: Int, ordinal: Int? = nil) {
         self.location = location
         self.source = source
         self.connector = connector
         self.number = number
+        self.ordinal = ordinal
     }
 
-    /// "Left Front · USB-C", a user name as-is, or "USB-C 2".
+    /// "Left Front · USB-C", "Front · USB-C 2", a user name as-is, or "USB-C 2".
     public var title: String {
         switch source {
         case .user:
             return location ?? "\(connector) \(number)"
-        case .catalog, .catalogRank:
-            if let location { return "\(location) · \(connector)" }
-            return "\(connector) \(number)"
+        case .hardware, .catalog, .catalogRank:
+            guard let location else { return "\(connector) \(number)" }
+            return "\(location) · \(connector)" + (ordinal.map { " \($0)" } ?? "")
         case .generic:
             return "\(connector) \(number)"
         }
     }
 
-    /// Short form for chips and graph nodes: "Left Front" or "USB-C 2".
+    /// Short form for chips and graph nodes: "Left Front", "Front 2" or "USB-C 2".
     public var shortTitle: String {
-        location ?? "\(connector) \(number)"
+        guard let location else { return "\(connector) \(number)" }
+        return location + (ordinal.map { " \($0)" } ?? "")
     }
 }
 

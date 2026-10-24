@@ -49,6 +49,7 @@ public enum RegistryCapture {
             machine: machine,
             portNodes: ports.nodes,
             portControllerUUIDs: ports.controllerUUIDs,
+            portLocations: ports.locations,
             usbDevices: usbDevices,
             thunderboltSwitches: switches,
             battery: battery,

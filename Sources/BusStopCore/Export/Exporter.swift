@@ -72,6 +72,7 @@ enum RawDefaults {
             fill(&result, key, .array([]))
         }
         fill(&result, "portControllerUUIDs", .dict([:]))
+        fill(&result, "portLocations", .dict([:]))
         if case .dict(var machine)? = result["machine"] {
             fill(&machine, "osVersion", .string(""))
             fill(&machine, "hasBattery", .bool(false))

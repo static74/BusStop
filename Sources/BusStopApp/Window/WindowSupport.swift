@@ -199,6 +199,7 @@ enum WindowText {
     static func labelSource(_ source: LabelSource) -> String {
         switch source {
         case .user: return "Your name"
+        case .hardware: return "This Mac's hardware"
         case .catalog: return "Model catalogue"
         case .catalogRank: return "Model catalogue (by order)"
         case .generic: return "Generic"
