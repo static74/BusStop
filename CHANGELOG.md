@@ -4,6 +4,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Settings › Ports › Identify a Port: plug something into a port, or unplug it, and Bus Stop highlights that port so you can confirm or correct its name. Copy Catalogue Entry puts this Mac's port names on the clipboard as a catalogue entry you can send upstream. Nothing is sent over the network.
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed

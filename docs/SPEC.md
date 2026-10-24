@@ -52,7 +52,7 @@ Public description of ViewPorts (search snippets of viewports.app; the site itse
 
 These close gaps users reported against similar tools (WhatCable, WhatPort and PortScope issue trackers):
 
-- Physical port names from a per-model catalogue ("Left Rear", "Right Center"), with user renaming.
+- Physical port names from a per-model catalogue ("Left Rear", "Right Center"), with user renaming. Settings › Ports › Identify a Port highlights the one port whose connection, transports or devices change after the user plugs into it or unplugs from it, and offers its name for confirming or correcting; Copy Catalogue Entry puts the ports' names on the clipboard as a PortScope `MacPortLocations.json` entry. Nothing is sent.
 - Charger card: name, rated watts, active PD contract (volts and amps), full list of offered power profiles.
 - Cable information when the port exposes it: active or passive, optical.
 - Diagnostics with plain-English explanations:

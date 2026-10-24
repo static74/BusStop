@@ -5,7 +5,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 ## Correctness on real hardware
 
 1. **Validation on real Macs and capture fixtures.** Collect raw captures (`busstop --raw`) from as many Mac models, docks, displays, hubs and chargers as possible, and turn each into a regression fixture under `Tests/BusStopCoreTests/Fixtures`. Every topology rule that was written from documentation alone gets a real capture behind it. Start with the setups already reported: a Thunderbolt dock feeding monitors and USB hubs. The first one is in: an Anker Prime Thunderbolt 5 dock with two monitors and USB hubs on a MacBook Pro (`Fixtures/AnkerPrimeTB5.json`).
-2. **"Identify this port" flow.** A guided check in Settings: "plug something into the port you want to name" lights up the port that changed and lets the user confirm or correct its name. It fixes the catalogue for Macs whose port locations are wrong or missing, and can produce a catalogue entry to send upstream.
 
 ## Cables and power
 
@@ -43,3 +42,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - Devices that keep disconnecting, links that keep changing speed and devices slower than before on the same port raise a warning that names the likely culprit (cable, port, hub or device).
 - Each port shows its plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days next to the hardware's all-time counts, with a gentle note when a port has far more problems than its siblings; the overcurrent warning now lasts 24 hours across relaunches.
 - A light Lagoon theme in Settings › Appearance (Dark, Light or Match System), with Dark as the default.
+- Settings › Ports › Identify a Port: plug into or unplug from a port and Bus Stop highlights it, so its name can be confirmed or corrected; Copy Catalogue Entry puts the port names on the clipboard as a catalogue entry to send upstream.

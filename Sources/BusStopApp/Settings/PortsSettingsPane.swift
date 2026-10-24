@@ -1,11 +1,16 @@
 import BusStopCore
 import SwiftUI
 
-/// Ports: rename each of this Mac's ports, or reset every name.
+/// Ports: rename each of this Mac's ports, find a port by plugging into it,
+/// or reset every name.
 struct PortsSettingsPane: View {
     var store: PortStore
 
     @State private var confirmReset = false
+    /// The snapshot from when "Identify a Port" was pressed; nil when not identifying.
+    @State private var identifyBaseline: HostSnapshot?
+    /// The port that changed since `identifyBaseline`.
+    @State private var identifiedKey: PortKey?
 
     var body: some View {
         let ports = store.snapshot.ports
@@ -17,12 +22,26 @@ struct PortsSettingsPane: View {
                 } else {
                     ForEach(ports) { port in
                         PortsSettingsRow(store: store, port: port)
+                            .listRowBackground(port.key == identifiedKey ? Lagoon.accent.opacity(0.18) : nil)
                     }
                 }
             } header: {
                 Text("Ports on \(store.snapshot.machine.name)")
             } footer: {
                 SettingsCaption("Names are saved for this Mac model. Leave a name empty to use the default from the model catalogue.")
+            }
+
+            identifySection
+
+            Section {
+                Button("Copy Catalogue Entry") {
+                    if let entry = try? PortIdentification.catalogEntry(for: store.snapshot) {
+                        PopoverText.copyToPasteboard(entry)
+                    }
+                }
+                .disabled(store.snapshot.isDemo || ports.isEmpty)
+            } footer: {
+                SettingsCaption("Copies this Mac's port names as a PortScope catalogue entry, for a pull request to the Bus Stop or PortScope catalogue. Nothing is sent.")
             }
 
             Section {
@@ -33,12 +52,58 @@ struct PortsSettingsPane: View {
             }
         }
         .settingsPaneStyle()
+        .onChange(of: store.snapshot) { _, snapshot in
+            guard let identifyBaseline, identifiedKey == nil else { return }
+            identifiedKey = PortIdentification.changedPort(from: identifyBaseline, to: snapshot)
+        }
         .confirmationDialog("Reset every port name?", isPresented: $confirmReset) {
             Button("Reset Names", role: .destructive) { store.resetPortNames() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Ports go back to their catalogue or generic names.")
         }
+    }
+
+    @ViewBuilder
+    private var identifySection: some View {
+        Section {
+            if let key = identifiedKey, let port = store.snapshot.port(key) {
+                HStack(spacing: 12) {
+                    PortIcon(kind: port.kind, isActive: true, size: 28)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("That was \(port.label.title) (\(port.registryName)).")
+                        PortNameEditor(store: store, port: port)
+                    }
+                }
+                HStack {
+                    Button("Identify Another") { startIdentifying() }
+                    Button("Done") { stopIdentifying() }
+                }
+            } else if identifyBaseline != nil {
+                HStack(spacing: 12) {
+                    ProgressView().controlSize(.small)
+                    Text("Plug something into the port you want to name, or unplug it.")
+                }
+                Button("Cancel") { stopIdentifying() }
+            } else {
+                Button("Identify a Port…") { startIdentifying() }
+                    .disabled(store.snapshot.ports.isEmpty)
+            }
+        } header: {
+            Text("Identify a Port")
+        } footer: {
+            SettingsCaption("Bus Stop highlights the port whose state changes. Confirm its name, or type where it really is.")
+        }
+    }
+
+    private func startIdentifying() {
+        identifyBaseline = store.snapshot
+        identifiedKey = nil
+    }
+
+    private func stopIdentifying() {
+        identifyBaseline = nil
+        identifiedKey = nil
     }
 
     private func hasCustomNames(_ ports: [PhysicalPort]) -> Bool {
