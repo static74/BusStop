@@ -181,6 +181,6 @@ Bus Stop.app/
 
 The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed with the hardened runtime (helper first, then the bundle): ad hoc by default, and with the Developer ID in `SIGN_IDENTITY` for releases, which `scripts/notarize.sh` then has Apple notarize. The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
 
-The MIT and BSD licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` and `build/BusStop.dmg` hold them a second time next to `Bus Stop.app`. The smoke test checks all three.
+The MIT and BSD licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. `build/BusStop.dmg` does not repeat them, since the app inside it already carries them. The smoke test checks the bundle and the zip.
 
 When `busstop` runs from inside the bundle (directly or through the symbolic link `scripts/install.sh --link-cli` makes), `--version` reads the bundle's `Info.plist`, so it reports the same version and build as the app.

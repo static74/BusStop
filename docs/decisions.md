@@ -6,7 +6,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 
 **Question.** Releases attached `BusStop.zip`. Should they ship a disk image instead, and how should it look?
 
-**Decision.** Releases attach `BusStop.dmg` in place of the zip. `scripts/make-dmg.sh` builds it with `hdiutil` from the app, a link to `/Applications` and the licence notices, and signs it when `SIGN_IDENTITY` names a Developer ID. The release workflow notarizes and staples the app first (through the zip, as before), builds the image from the stapled app, then notarizes and staples the image. `build-app.sh` still makes the zip, which pull request CI uploads and the app's notarization uses. The window is plain: no background image or fixed icon positions.
+**Decision.** Releases attach `BusStop.dmg` in place of the zip. `scripts/make-dmg.sh` builds it with `hdiutil` from the app and a link to `/Applications`, and signs it when `SIGN_IDENTITY` names a Developer ID. The image does not repeat the licence notices beside the app, because the app carries them in `Contents/Resources`. The release workflow notarizes and staples the app first (through the zip, as before), builds the image from the stapled app, then notarizes and staples the image. `build-app.sh` still makes the zip, which pull request CI uploads and the app's notarization uses. The window is plain: no background image or fixed icon positions.
 
 **Why.** A disk image with an Applications link is how most Mac apps are installed, and it opens without extracting anything. Notarizing both the app and the image costs a second submission of a few minutes, but a copy dragged out of the image then opens offline on its first launch, which a stapled image alone does not give.
 

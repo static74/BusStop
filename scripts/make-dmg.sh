@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
 # Packs "build/Bus Stop.app" into build/BusStop.dmg, the disk image releases
-# ship. The image opens to the app, a link to /Applications to drag it onto,
-# and the licence and third-party notices:
+# ship. The image opens to the app and a link to /Applications to drag it onto:
 #   Bus Stop.app
 #   Applications -> /Applications
-#   LICENSE.txt
-#   THIRD_PARTY_NOTICES.md
+#
+# The licence notices travel inside the app, in Contents/Resources.
 #
 # Usage: scripts/make-dmg.sh
 #
@@ -35,19 +34,11 @@ for tool in hdiutil ditto codesign; do
     command -v "$tool" >/dev/null 2>&1 || fail "$tool was not found; install Xcode 27 or Xcode 26.6"
 done
 [[ -d "$APP" ]] || fail "$APP is missing; run scripts/build-app.sh first"
-# The MIT and BSD licences of the projects Bus Stop builds on require their
-# notices in every copy, so the image carries them next to the app, as the
-# zip does.
-for notice in LICENSE THIRD_PARTY_NOTICES.md; do
-    [[ -s "$notice" ]] || fail "$notice is missing or empty; every copy of the app must carry it"
-done
 
 log "Staging the disk image"
 rm -rf "$STAGE" "$DMG"
 mkdir -p "$STAGE"
 ditto "$APP" "$STAGE/$APP_NAME.app"
-cp LICENSE "$STAGE/LICENSE.txt"
-cp THIRD_PARTY_NOTICES.md "$STAGE/THIRD_PARTY_NOTICES.md"
 ln -s /Applications "$STAGE/Applications"
 
 log "Creating $DMG"

@@ -393,7 +393,7 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 ## 7. Build, packaging and distribution
 
 - `swift build` builds everything; `swift test` runs the core, Kit and app tests.
-- `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), signs it (ad hoc, or with the identity in `SIGN_IDENTITY`) and zips it. `scripts/make-dmg.sh` packs the app, a link to `/Applications` and the licence notices into `build/BusStop.dmg`. `scripts/notarize.sh` has Apple notarize the zip or the disk image and staples the ticket to the app or the image.
+- `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), signs it (ad hoc, or with the identity in `SIGN_IDENTITY`) and zips it. `scripts/make-dmg.sh` packs the app and a link to `/Applications` into `build/BusStop.dmg`. `scripts/notarize.sh` has Apple notarize the zip or the disk image and staples the ticket to the app or the image.
 - `scripts/install.sh` builds and copies the app to `/Applications`. A locally built app carries no quarantine attribute.
 - GitHub Actions, on pull requests:
   - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip. Runs only when the workflow is started by hand, because the runner is paid.
