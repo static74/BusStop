@@ -85,12 +85,14 @@ struct SpeedChip: View {
     var compact: Bool = true
 
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dataPalette) private var palette
 
     var body: some View {
         let tier = link.tier
-        let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
+        let color = tier.map { Lagoon.linkColor($0, palette) } ?? palette.colors.accent
         let isIncreased = contrast == .increased
-        let textColor = isIncreased ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0) } ?? Lagoon.accent)
+        let textColor = isIncreased
+            ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0, palette) } ?? palette.colors.accent)
         Text(compact ? (link.rateLabel ?? link.generation) : link.label)
             .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
             .lineLimit(1)
@@ -147,12 +149,14 @@ struct TransportChip: View {
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dataPalette) private var palette
 
     var body: some View {
         let tier = transport.link?.tier
-        let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
+        let color = tier.map { Lagoon.linkColor($0, palette) } ?? palette.colors.accent
         let isIncreased = contrast == .increased
-        let textColor = isIncreased ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0) } ?? Lagoon.accent)
+        let textColor = isIncreased
+            ? Lagoon.textPrimary : (tier.map { Lagoon.linkTextColor($0, palette) } ?? palette.colors.accent)
         // The rate is a little softer than the name only where the colour is
         // bright enough to stay legible that way.
         let rateOpacity = !isIncreased && (tier ?? .legacy) >= .gbps10 ? 0.8 : 1

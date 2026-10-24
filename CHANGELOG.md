@@ -4,6 +4,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Settings › Appearance › Data colours: colour links by speed with a preset instead of Lagoon's turquoise. Sky, Iris, Orchid, Ember, Tangerine, Citrine, Fern and Graphite keep Lagoon's shift from dim to bright, and Match System follows the accent colour in System Settings. The map, its pulses and key, speed chips and the Mac Outline all follow; Power mode keeps its colours. Lagoon stays the default.
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed

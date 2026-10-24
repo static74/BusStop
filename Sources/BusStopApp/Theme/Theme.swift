@@ -91,22 +91,10 @@ enum Lagoon {
 
     // MARK: Link-speed ramp
 
-    /// Link-stroke colour: brighter as speed rises in Dark, darker in Light,
-    /// so faster links always carry more contrast.
-    static func linkColor(_ tier: SpeedTier) -> Color { linkRamp[tier.rawValue] }
-
-    /// Built once: each `themed` call makes a new dynamic colour that never
-    /// compares equal to another, and the map asks for these on every frame.
-    /// The exhaustive `switch` keeps a new tier a compile error, not an index crash.
-    private static let linkRamp: [Color] = SpeedTier.allCases.map { tier in
-        switch tier {
-        case .legacy: return themed(0x3C5E5A, 0x7A9592)
-        case .gbps5: return themed(0x22A69B, 0x0B6961)
-        case .gbps10: return themed(0x3EE6D4, 0x005A52)
-        case .gbps20: return themed(0x5FF0E0, 0x004B44)
-        case .gbps40: return themed(0x8AFFF3, 0x003C37)
-        case .gbps80: return themed(0xC9FFF9, 0x002E2A)
-        }
+    /// Link-stroke colour in `palette`: brighter as speed rises in Dark,
+    /// darker in Light, so faster links always carry more contrast.
+    static func linkColor(_ tier: SpeedTier, _ palette: DataPalette) -> Color {
+        palette.colors.ramp[tier.rawValue]
     }
 
     static func linkWidth(_ tier: SpeedTier) -> CGFloat {
@@ -128,8 +116,8 @@ enum Lagoon {
     /// text (about 2.7:1 on a card), so that tier uses secondary text; from
     /// 5 Gb/s up the ramp colour itself reads at 5:1 or better. The light ramp
     /// was chosen so the same rule holds in both themes (`ThemeContrastTests`).
-    static func linkTextColor(_ tier: SpeedTier) -> Color {
-        tier == .legacy ? textSecondary : linkColor(tier)
+    static func linkTextColor(_ tier: SpeedTier, _ palette: DataPalette) -> Color {
+        tier == .legacy ? textSecondary : linkColor(tier, palette)
     }
 
     /// Power-mode link colour: a heat ramp that gets brighter as watts rise
@@ -231,6 +219,8 @@ extension EnvironmentValues {
     /// Text scale from the Text Size setting (1 = medium). Set once at the root
     /// of the popover and each window; read by `lagoonFont`.
     @Entry var lagoonTextScale: CGFloat = 1
+    /// Data mode's colours, set at view roots from Settings › Appearance.
+    @Entry var dataPalette: DataPalette = .lagoon
 }
 
 extension Lagoon {
@@ -306,6 +296,12 @@ extension View {
     /// Sets the text scale for everything below (use at view roots).
     func lagoonTextScale(_ setting: TextSizeSetting) -> some View {
         environment(\.lagoonTextScale, setting.scale)
+    }
+
+    /// Sets data mode's colours for everything below (use at view roots).
+    /// Reading the system accent here redraws the views when it changes.
+    func dataPalette(_ setting: DataColorSetting) -> some View {
+        environment(\.dataPalette, setting.resolved(system: SystemAccentPalette.shared.palette))
     }
 }
 

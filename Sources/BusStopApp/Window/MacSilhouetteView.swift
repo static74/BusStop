@@ -76,6 +76,8 @@ struct MacSilhouetteView: View {
     var searchText: String
     var onSelect: (PortKey) -> Void
 
+    @Environment(\.dataPalette) private var palette
+
     var body: some View {
         let layout = ChassisLayout.resolve(machine: snapshot.machine, ports: snapshot.ports)
         let faces = Self.faces(for: layout)
@@ -195,7 +197,7 @@ struct MacSilhouetteView: View {
     /// The port's connector with its selection ring and diagnostic dot.
     private func marked(_ port: PhysicalPort, connector: String, vertical: Bool) -> some View {
         SilhouetteConnector(connector: connector, vertical: vertical,
-                            fill: SilhouettePaint.paint(for: port, mode: mode).color)
+                            fill: SilhouettePaint.paint(for: port, mode: mode).color(palette))
             .padding(3)
             .overlay {
                 if port.key == selectedPort {
@@ -284,11 +286,11 @@ enum SilhouettePaint: Equatable {
         }
     }
 
-    var color: Color {
+    func color(_ palette: DataPalette) -> Color {
         switch self {
         case .empty: return Lagoon.textTertiary
-        case .link(let tier): return Lagoon.linkColor(tier)
-        case .noRate: return Lagoon.accent
+        case .link(let tier): return Lagoon.linkColor(tier, palette)
+        case .noRate: return palette.colors.accent
         case .charger: return Lagoon.powerIn
         case .power(let tier): return Lagoon.powerColor(tier)
         }
@@ -440,6 +442,7 @@ struct SilhouetteStateLegend: View {
     var mode: GraphLinkMode
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dataPalette) private var palette
 
     var body: some View {
         let swatches: [(String, SilhouettePaint)] = mode == .data
@@ -449,7 +452,7 @@ struct SilhouetteStateLegend: View {
             ForEach(swatches, id: \.0) { title, paint in
                 HStack(spacing: 5) {
                     Capsule()
-                        .fill(paint.color)
+                        .fill(paint.color(palette))
                         .frame(width: 16, height: 6)
                     Text(title)
                         .lagoonFont(.caption2, weight: .medium)
