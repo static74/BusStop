@@ -11,6 +11,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - For the widgets, the app writes what they show to `widget-payload.json` in its App Group container, atomically and readable only by your user account. The snapshot in it is redacted like an export and leaves out the raw IORegistry properties, so it holds no serial numbers. Clear History and turning off "Keep history between launches" delete it; with history off it leaves out the events, the 24-hour power and the port health.
 - Widgets appear only in builds signed by a team and installed in `/Applications`. Release builds are; a build from source signed ad hoc bundles the widgets, but macOS leaves them out of Edit Widgets.
 
+### Fixed
+
+- The app icon no longer shows as coloured noise at 16 and 32 px, as in the widget gallery's app list. The icon file stored those sizes in slots macOS reads as raw pixels; it is now made with `iconutil`.
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed
