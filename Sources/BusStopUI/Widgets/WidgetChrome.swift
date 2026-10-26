@@ -23,15 +23,10 @@ public struct WidgetChrome<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             header
             if let payload = entry.payload {
+                if entry.state == .stale { staleBanner(payload.capturedAt) }
                 content(payload)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .opacity(entry.state == .stale ? 0.35 : 1)
-                    .overlay {
-                        if entry.state == .stale {
-                            WidgetNotice("Bus Stop isn't running",
-                                         detail: "Last updated \(payload.capturedAt.formatted(date: .omitted, time: .shortened))")
-                        }
-                    }
+                    .opacity(entry.state == .stale ? 0.4 : 1)
             } else {
                 WidgetNotice("Open Bus Stop", detail: "Your ports show here once Bus Stop is running.")
             }
@@ -50,6 +45,24 @@ public struct WidgetChrome<Content: View>: View {
             if entry.state == .demo { DemoBadge() }
         }
         .lagoonFont(.headline, weight: .semibold)
+    }
+
+    /// Sits above the dimmed last data, so the two never overlap.
+    private func staleBanner(_ capturedAt: Date) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "moon.zzz")
+                .widgetAccentable()
+            Text("Bus Stop isn't running")
+                .fontWeight(.semibold)
+            Spacer(minLength: 4)
+            Text("Last updated \(capturedAt.formatted(date: .omitted, time: .shortened))")
+                .foregroundStyle(Lagoon.textSecondary)
+        }
+        .lagoonFont(.callout)
+        .lineLimit(1)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Lagoon.well))
     }
 }
 
