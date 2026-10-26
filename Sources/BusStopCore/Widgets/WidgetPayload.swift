@@ -29,9 +29,13 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
     public var events: [ConnectionEvent]
     /// Each port's last 7 days, as `HistoryArchive.portHealth` gives it.
     public var portHealth: [PortKey: PortHealth]
+    /// The same 7 days one by one, oldest first, as `HistoryArchive.dailyPortHealth` gives
+    /// them, for the Health widget's strip. Nil when the user keeps no history.
+    public var portDays: [PortKey: [PortHealth]]?
 
     public init(snapshot: HostSnapshot, recentPower: [PowerSample] = [], dayPower: [PowerSample] = [],
-                events: [ConnectionEvent] = [], portHealth: [PortKey: PortHealth] = [:]) {
+                events: [ConnectionEvent] = [], portHealth: [PortKey: PortHealth] = [:],
+                portDays: [PortKey: [PortHealth]]? = nil) {
         schemaVersion = Self.currentSchemaVersion
         capturedAt = snapshot.capturedAt
         isDemo = snapshot.isDemo
@@ -40,6 +44,7 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
         self.dayPower = dayPower
         self.events = events.prefix(Self.eventLimit).map { Exporter.redacted($0, serialsFrom: [snapshot]) }
         self.portHealth = portHealth
+        self.portDays = portDays
     }
 
     /// The snapshot without the raw IORegistry properties the inspector shows.
