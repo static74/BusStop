@@ -58,6 +58,7 @@ struct SettingsView: View {
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(store.settings.textSize)
+        .dataPalette(store.settings.dataColor)
         .onChange(of: initialTab) { chosenTab = nil }
     }
 

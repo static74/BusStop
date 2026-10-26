@@ -45,6 +45,7 @@ struct PopoverView: View {
         // macOS ignores dynamicTypeSize, so the Text Size setting scales every
         // lagoonFont below through the environment instead.
         .lagoonTextScale(settings.textSize)
+        .dataPalette(settings.dataColor)
     }
 
     /// The scroll area shows all content until the popover reaches its

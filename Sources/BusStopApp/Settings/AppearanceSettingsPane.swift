@@ -2,7 +2,7 @@ import BusStopCore
 import BusStopUI
 import SwiftUI
 
-/// Appearance: theme, background opacity, glass tint, text size and link animation.
+/// Appearance: theme, data colours, background opacity, glass tint, text size and link animation.
 struct AppearanceSettingsPane: View {
     var store: PortStore
 
@@ -20,6 +20,18 @@ struct AppearanceSettingsPane: View {
                 }
                 .pickerStyle(.segmented)
                 SettingsCaption("Dark is the Lagoon look. Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
+            }
+
+            Section("Data colours") {
+                Picker("Colours", selection: $settings.dataColor) {
+                    ForEach(DataColorSetting.allCases) { setting in
+                        Text(setting.title).tag(setting)
+                    }
+                }
+                DataPaletteSwatch()
+                SettingsCaption(settings.dataColor == .system
+                    ? "Follows the accent colour in System Settings › Appearance. Links by speed, speed chips and the Mac Outline use it; Power mode keeps its own colours."
+                    : "Colours links by speed, speed chips and the Mac Outline. Power mode keeps its own colours.")
             }
 
             Section("Background") {
@@ -79,6 +91,27 @@ struct AppearanceSettingsPane: View {
 
     private func percent(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
+    }
+}
+
+/// The chosen data colours, one swatch per speed tier, as the map's key draws them.
+struct DataPaletteSwatch: View {
+    @Environment(\.dataPalette) private var palette
+
+    var body: some View {
+        LabeledContent("Preview") {
+            HStack(spacing: 6) {
+                ForEach(SpeedTier.allCases, id: \.self) { tier in
+                    Capsule()
+                        .fill(Lagoon.linkColor(tier, palette))
+                        .frame(width: 22, height: Lagoon.linkWidth(tier) + 2)
+                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier, palette).opacity(0.7) : .clear,
+                                    radius: 3)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(palette.title) data colours, from USB 2 to 80 gigabits per second")
     }
 }
 

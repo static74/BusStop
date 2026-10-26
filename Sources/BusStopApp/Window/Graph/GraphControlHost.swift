@@ -47,6 +47,7 @@ struct GraphControlHost<Content: View>: NSViewRepresentable {
     private func root(_ environment: EnvironmentValues) -> AnyView {
         AnyView(content
             .environment(\.lagoonTextScale, environment.lagoonTextScale)
+            .environment(\.dataPalette, environment.dataPalette)
             .tint(Lagoon.accent))
     }
 }

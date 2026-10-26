@@ -21,6 +21,7 @@ struct TopologyGraphView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
+    @Environment(\.dataPalette) private var palette
     /// Links show data rates or power.
     @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
 
@@ -50,8 +51,10 @@ struct TopologyGraphView: View {
     private func graph(_ layout: GraphLayout) -> some View {
         let dimmed = dimmedNodeIDs(in: layout)
         let powers = linkMode == .power ? GraphPaint.powers(for: layout) : [:]
-        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
-        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
+        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
+                                         palette: palette)
+        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
+                                            palette: palette)
         return GeometryReader { proxy in
             GraphMap(
                 layout: layout,
@@ -597,15 +600,17 @@ struct GraphPowerLegend: View {
 struct GraphSpeedLegend: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dataPalette) private var palette
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(SpeedTier.allCases, id: \.self) { tier in
                 HStack(spacing: 5) {
                     Capsule()
-                        .fill(Lagoon.linkColor(tier))
+                        .fill(Lagoon.linkColor(tier, palette))
                         .frame(width: 16, height: Lagoon.linkWidth(tier))
-                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
+                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier, palette).opacity(0.7) : .clear,
+                                    radius: 3)
                     Text(Self.title(tier))
                         .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)

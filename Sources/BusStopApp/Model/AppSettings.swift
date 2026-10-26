@@ -244,6 +244,8 @@ final class AppSettings {
     var glassTint: Double { didSet { defaults.set(glassTint, forKey: Key.glassTint) } }
     var textSize: TextSizeSetting { didSet { defaults.set(textSize.rawValue, forKey: Key.textSize) } }
     var animateLinks: Bool { didSet { defaults.set(animateLinks, forKey: Key.animateLinks) } }
+    /// Data mode's colours: Lagoon by default.
+    var dataColor: DataColorSetting { didSet { defaults.set(dataColor.rawValue, forKey: Key.dataColor) } }
 
     // MARK: Notifications
 
@@ -298,6 +300,7 @@ final class AppSettings {
         glassTint = min(max(double(Key.glassTint, 0.22), 0), 0.5)
         textSize = string(Key.textSize).flatMap(TextSizeSetting.init(rawValue:)) ?? .medium
         animateLinks = bool(Key.animateLinks, true)
+        dataColor = string(Key.dataColor).flatMap(DataColorSetting.init(rawValue:)) ?? .preset(.lagoon)
         notifyConnect = bool(Key.notifyConnect, true)
         notifyDisconnect = bool(Key.notifyDisconnect, true)
         notifyDowngrade = bool(Key.notifyDowngrade, true)
@@ -332,6 +335,7 @@ final class AppSettings {
         glassTint = fresh.glassTint
         textSize = fresh.textSize
         animateLinks = fresh.animateLinks
+        dataColor = fresh.dataColor
         notifyConnect = fresh.notifyConnect
         notifyDisconnect = fresh.notifyDisconnect
         notifyDowngrade = fresh.notifyDowngrade
@@ -363,6 +367,7 @@ final class AppSettings {
         static let glassTint = "glassTint"
         static let textSize = "textSize"
         static let animateLinks = "animateLinks"
+        static let dataColor = "dataColor"
         static let notifyConnect = "notifyConnect"
         static let notifyDisconnect = "notifyDisconnect"
         static let notifyDowngrade = "notifyDowngrade"
@@ -380,9 +385,9 @@ final class AppSettings {
         static let all = [
             showMenuBarItem, showDockIconWithWindow, hideEmptyPorts, portOrder, popoverLayout, menuBarIcon,
             menuBarText, menuBarPowerPrecision, menuBarPinnedPorts, menuBarPinnedValue,
-            theme, backgroundOpacity, glassTint, textSize, animateLinks, notifyConnect, notifyDisconnect, notifyDowngrade,
-            notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports, demoMode,
-            demoScenario, keepHistory, portNames,
+            theme, backgroundOpacity, glassTint, textSize, animateLinks, dataColor, notifyConnect, notifyDisconnect,
+            notifyDowngrade, notifyCharger, notifyDiagnostics, powerPollInterval, readSMC, showRawKeys, redactExports,
+            demoMode, demoScenario, keepHistory, portNames,
         ]
     }
 }
