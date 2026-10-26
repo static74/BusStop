@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 // Building blocks for the inspector: titled groups of key/value rows, a

@@ -1,7 +1,9 @@
 import AppKit
+import BusStopUI
 import SwiftUI
 
-// The map's own tooltips for its chips and badges. The system's tooltips on
+// The map's own tooltips for its chips and badges; chips publish their
+// regions through `graphTooltip` in BusStopUI. The system's tooltips on
 // a card's chips never appeared, and AppKit's tooltip tracking for the map's
 // hosting view can stall (see `GraphControlHost`), so the map finds the chip
 // under the pointer and draws the tooltip itself (see docs/decisions.md).
@@ -10,28 +12,11 @@ import SwiftUI
 // the zoom. The pointer is turned into a layout point the same way, so
 // finding the chip under it needs no geometry from the drawing group.
 
-/// A chip or badge on the map and its tooltip, in layout coordinates.
-nonisolated struct GraphTooltipRegion: Equatable, Sendable {
-    /// Unique on the map: the card or link, then the chip ("port:3/power").
-    var id: String
-    var text: String
-    var rect: CGRect
-}
-
-/// Every chip on the map that has a tooltip.
-nonisolated struct GraphTooltipRegionsKey: PreferenceKey {
-    static let defaultValue: [GraphTooltipRegion] = []
-
-    static func reduce(value: inout [GraphTooltipRegion], nextValue: () -> [GraphTooltipRegion]) {
-        value += nextValue()
-    }
-}
-
 /// The geometry and timing of the map's tooltips.
 nonisolated enum GraphTooltip {
     /// The coordinate space of one card (or one link chip) before the zoom.
     /// Chips measure themselves in it, and a card reports the pointer in it.
-    static let space = "graphTooltipSpace"
+    static let space = GraphTooltipRegion.space
 
     /// How long the pointer rests on a chip before its tooltip appears: the
     /// system's `NSInitialToolTipDelay` (milliseconds), one second if unset.
@@ -80,30 +65,6 @@ nonisolated enum GraphTooltip {
         let x = anchor.midX - size.width / 2
         return CGPoint(x: min(max(x, margin), max(margin, bounds.width - margin - size.width)),
                        y: max(y, margin))
-    }
-}
-
-extension View {
-    /// Publishes this view as a tooltip region, measured in the enclosing
-    /// `GraphTooltip.space`.
-    func graphTooltip(_ text: String, id: String) -> some View {
-        modifier(GraphTooltipModifier(text: text, id: id))
-    }
-}
-
-/// Keeps the view's rectangle in `GraphTooltip.space` and publishes it.
-/// That rectangle moves only when the card's content does, not when the map
-/// pans or zooms, so nothing here runs for a frame of a pan or zoom.
-struct GraphTooltipModifier: ViewModifier {
-    var text: String
-    var id: String
-    @State private var rect: CGRect?
-
-    func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(GraphTooltip.space)) } action: { rect = $0 }
-            .preference(key: GraphTooltipRegionsKey.self,
-                        value: rect.map { [GraphTooltipRegion(id: id, text: text, rect: $0)] } ?? [])
     }
 }
 

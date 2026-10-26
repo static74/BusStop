@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 // Layers drawn behind the graph's nodes: a dotted backdrop, the links, the

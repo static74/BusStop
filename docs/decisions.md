@@ -2,6 +2,46 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-26: The widget extension is a SwiftPM target, not an Xcode project
+
+**Question.** Desktop widgets need a WidgetKit app extension. Xcode builds one from an app extension target in a project. Bus Stop has no Xcode project (SPEC §9). Can the package build the extension?
+
+**Decision.** `BusStopWidgets` is a SwiftPM executable target that links BusStopCore and BusStopUI. `scripts/build-app.sh` builds it, wraps it in `Contents/PlugIns/BusStopWidgets.appex` with `Support/Widgets-Info.plist` (extension point `com.apple.widgetkit-extension`), stamps it with the app's version, and signs it sandboxed (`Support/Widgets.entitlements`) before the app. It links with `-e _NSExtensionMain`, as Xcode links app extensions and as Apple's own widgets are built. `scripts/smoke-test.sh` checks the bundle, the signature, the sandbox, the architectures and that the entry point jumps to `_NSExtensionMain`.
+
+**Why.** A placeholder widget built this way showed in Edit Widgets in all four sizes on macOS 27.0.1, so the extension needs no project file, and the app, the CLI and the extension still build the same way in CI and locally. A widget that starts in its `WidgetBundle`'s own `main` crashes at launch.
+
+**Rejected alternatives.**
+
+- *An Xcode project for the extension alone, or for everything.* A project file to maintain beside `Package.swift`, and two build systems to keep in step.
+- *Start in the `WidgetBundle`'s `@main`.* It crashes at launch.
+
+What SwiftPM does not do is generate App Intents metadata, so a configurable widget (a "Port Focus" where the user picks the port) waits for ROADMAP 13.
+
+## 2026-10-26: Widgets appear only in team-signed builds
+
+**Question.** The widget extension built and was bundled, but in an ad hoc signed build no widget showed in Edit Widgets. What does a build need for its widgets to appear?
+
+**Decision.** Widgets are supported only in builds signed by a team: releases (Developer ID) and builds a developer signs with an Apple Development certificate, installed in `/Applications`. Ad hoc builds (pull request CI, other people's source builds) still bundle the extension, and their tests cover the widgets' data and views, but no widget appears. The README and CONTRIBUTING.md say so.
+
+**Why.** chronod, which runs widgets, leaves ad hoc signed extensions out of the gallery and logs "Requested to add extension, but purging instead because we shouldn't cache it". An Apple Development certificate from the maintainer's team was enough. The App Group the widgets read from needs a team ID anyway.
+
+**Rejected alternatives.**
+
+- *Leave the extension out of ad hoc builds.* The smoke test then could not check its layout and entry point on pull requests, and source builds would differ from releases for no gain.
+
+## 2026-10-26: The widgets read their data from a team-prefixed App Group
+
+**Question.** The sandboxed extension cannot read the SMC or parts of IOKit, so the app has to hand it the data. Where should the app put it?
+
+**Decision.** The app writes `widget-payload.json` into the App Group container `<team>.io.github.static74.busstop`, which both processes find with `containerURL(forSecurityApplicationGroupIdentifier:)`. `scripts/build-app.sh` reads the team ID from the signature, writes it into both Info.plists as `BusStopTeamID`, and adds the group to both entitlements, the unsandboxed app's included, since macOS 15 requires both to claim it. An ad hoc build has no team, no group and no key, and the app writes nothing. The file is written atomically, mode 0600, holds a redacted snapshot, and goes with the history (SPEC §6).
+
+**Why.** On macOS a group prefixed with the team ID needs no provisioning profile, so the bundling script can still sign everything with `codesign` alone. Apple's guidance is that such a group also avoids the "access data from other apps" prompt; the release gate checks that on a clean Mac.
+
+**Rejected alternatives.**
+
+- *Write into the extension's own sandbox container* (`~/Library/Containers/io.github.static74.busstop.widgets/Data`). It works only because the app is unsandboxed, relies on a container path Apple does not document as shared, and is the kind of cross-app access macOS 15 and later can prompt for.
+- *A `group.`-prefixed App Group.* On macOS it needs a provisioning profile, which the bundling script would have to fetch and embed.
+
 ## 2026-10-23: Releases ship a plain disk image
 
 **Question.** Releases attached `BusStop.zip`. Should they ship a disk image instead, and how should it look?

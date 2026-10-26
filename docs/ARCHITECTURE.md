@@ -17,11 +17,14 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 |---|---|---|---|
 | `BusStopCore` | library | macOS | No IOKit, AppKit or SwiftUI. Raw capture model, output model, topology builder, port labels and catalogue, formatting, diagnostics, event diffing, power history, the saved history's format, export, demo scenarios, version. |
 | `BusStopKit` | library | macOS | IOKit capture (`RegistryCapture`), live monitoring (`LiveMonitor`), the SMC power channel reader, power-source and display readers. |
-| `BusStopApp` | `BusStopApp` executable, renamed `BusStop` in the bundle | macOS | AppKit status item and popover, SwiftUI windows and settings, notifications, launch at login, export. |
+| `BusStopUI` | library | macOS | The Lagoon tokens and the SwiftUI views that draw plain values (cards, chips, badges, icons, sparkline, power charts, device rows, popover text, the widgets' shared chrome), linked by the app and the widget extension. |
+| `BusStopApp` | `BusStopApp` executable, renamed `BusStop` in the bundle | macOS | AppKit status item and popover, SwiftUI windows and settings, notifications, launch at login, export, the widget payload writer, `busstop://` links. |
 | `BusStopCLI` | `busstop` executable | macOS | The command-line tool. |
+| `BusStopWidgets` | `BusStopWidgets` executable, wrapped in `BusStopWidgets.appex` | macOS | The desktop widget extension. Reads the widget payload; never touches hardware. |
 | `BusStopCoreTests` | | macOS | Unit tests for the core, with fixtures. |
 | `BusStopKitTests` | | macOS | Tests for the CF-to-`PlistValue` bridge, capture and monitor lifecycles. |
 | `BusStopAppTests` | | macOS | Tests for app-side logic with no UI to drive, such as the map's camera math. |
+| `BusStopUITests` | | macOS | Tests for the shared views, rendered off screen. |
 | `BusStopCLITests` | | macOS | Tests for the command-line tool's argument parser. |
 
 ### Inside BusStopCore
@@ -29,7 +32,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | Folder | Contents |
 |---|---|
 | `Raw/` | `PlistValue` (a `Sendable`, `Codable` mirror of CoreFoundation property-list values), `PropertyBag` (forgiving typed accessors), `RawSnapshot` and its records (`RawNode`, `RawUSBDevice`, `RawThunderboltSwitch`, `SMCChannel`, `RawDisplay`). |
-| `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. |
+| `Model/` | The interpreted result: `HostSnapshot`, `PhysicalPort`, `DeviceNode`, `LinkInfo`, power types, `ConnectionEvent`, `Diagnostic`. Also `BusStopLink`, the `busstop://` deep links. |
 | `Topology/` | `TopologyBuilder` and its parsers: ports, transports, USB device trees, Thunderbolt chains, a dock's built-in USB parts (`DockParts`), link decoding, power, displays, device classification. |
 | `Labels/` | `PortLabeler` (user name, catalogue, catalogue by rank, capability heuristic, generic name), `ChassisLayout` (where each port sits on the Mac's outline), the generated `PortLocationCatalog` and the generated `USBVendorCatalog`. |
 | `Diagnostics/` | `DiagnosticsEngine`, one function per rule in SPEC §5.4. |
@@ -37,6 +40,7 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 | `Health/` | `DeviceIdentity`, one in-memory key per physical device that survives a change of controller, and `ConnectionHealth`, which watches consecutive snapshots for devices that keep dropping, links that keep changing speed and devices slower than before on the same port (SPEC §5.4 "Connection health"), and `PortHealth`, each port's last 7 days read from the history archive for the overcurrent and stands-out rules and the inspector (SPEC §5.4 "Port health"). |
 | `History/` | `PowerHistory`, the in-memory samples behind the sparklines. `HistoryArchive`, what is saved between launches (SPEC §5.6): the event log, power per minute and per-port counter increases per day, one section per Mac model, with its caps and a decoder that drops a bad entry instead of the whole file. |
 | `Export/` | `Exporter`: JSON, Markdown, raw capture JSON, the CLI text tree, redaction. |
+| `Widgets/` | `WidgetPayload`, what the widgets show; `WidgetPayloadFile`, its file in the App Group container; `WidgetTimeline`, which turns it into the widgets' live, demo, stale and empty entries. |
 | `Demo/` | `DemoScenario`, which builds realistic `RawSnapshot`s. |
 | `Formatting/` | `Format`: locale-independent units ("10 Gb/s", "4.5 W", "20 V × 4.7 A") and the menu bar's short forms ("40G", "38W"). |
 | `Version.swift` | `BusStopVersion`, the marketing version. |
@@ -77,6 +81,27 @@ The project is a single Swift package (`Package.swift`, tools version 6.2, macOS
 
 The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or asks a demo scenario), builds, evaluates and prints with `Exporter`. `busstop --watch` keeps the previous snapshot, a `ConnectionHealth` and an in-memory `HistoryArchive` that is never saved, and prints the output of `SnapshotDiffer` for each new one.
 
+### Widgets
+
+The widget extension is sandboxed, so it cannot reach the SMC or parts of IOKit. It never reads hardware: the app publishes everything the widgets show, and the extension only decodes it.
+
+```
+PortStore.ingest ──► WidgetWriteGate ──► WidgetPayload (redacted, JSON)
+                                                │  WidgetPayloadFile.write (atomic, 0600)
+                                                ▼
+                     <team>.io.github.static74.busstop/widget-payload.json   (App Group container)
+                                                │  WidgetCenter.reloadAllTimelines()
+                                                ▼
+                     BusStopWidgets: PayloadProvider ──► WidgetTimeline.entries ──► views (BusStopUI)
+```
+
+- **The payload.** `WidgetPayload` holds the snapshot through `Exporter.redacted` with the raw property bags left out, the in-memory last 10 minutes of power (`PowerHistory`), the last 24 hours at 5-minute steps (`HistoryArchive.powerSamples`), the newest 20 events, each port's `PortHealth`, `capturedAt`, `isDemo` and a schema version. With "Keep history between launches" off it leaves out the events, the 24 hours and the port health. The extension ignores a payload with a newer schema version.
+- **When it is written.** At the end of `PortStore.ingest`, which every live and demo capture, rename and settings change passes through, `WidgetWriteGate` decides: at once when what the widgets show changes, at most once a minute when only the power moves in whole watts, and every 4 minutes regardless. Each write asks WidgetKit to reload every timeline. Clear History and turning history off delete the file.
+- **Stale and empty.** The app's reloads drive the extension's timeline. In case the system holds a reload back, the timeline also reads the payload again when its data goes stale (`WidgetTimeline.reloadDate`), so a running app's widgets recover by themselves. `WidgetTimeline` adds a second entry 5 minutes after `capturedAt`, when the data reads as "Bus Stop isn't running". The 4-minute heartbeat keeps a running app's widgets from reaching it. No payload shows "Open Bus Stop".
+- **The App Group.** `WidgetPayloadFile` finds the group from the `BusStopTeamID` key that `scripts/build-app.sh` writes into both Info.plists. An ad hoc build has no team, no group and no key, so the app writes nothing (`PortStore.widgetFile` is nil).
+- **Widgets.** Ports, Power and Health, each in Large and Extra Large. `WidgetChrome` in `BusStopUI` draws what they share: the title row, the Demo badge and the empty and stale notices.
+- **Deep links.** `BusStopLink` builds and parses `busstop://topology/<page>` (the page names `BUSSTOP_AUTOMATION` uses: `overview`, `silhouette`, `allPorts`, `devices`, `power`, `events`, `diagnostics`) and `busstop://port/<type>/<number>`. It lives in the core so the extension can build links without the app. `Support/Info.plist` registers the scheme; `AppDelegate.application(_:open:)` opens a page link on that page and a port link with the port selected, holding a link that arrives before launch finishes. Anything else is ignored.
+
 ### Why a raw snapshot
 
 `RawSnapshot` keeps each IORegistry entry's properties as a `PropertyBag` (`[String: PlistValue]`) instead of a fixed schema:
@@ -92,7 +117,7 @@ The CLI runs the same pipeline: `busstop` captures once (or decodes a file, or a
 | Where | What runs there |
 |---|---|
 | `LiveMonitor`'s private serial queue | IOKit matching and interest notifications (`IONotificationPortSetDispatchQueue`), the power-source notification, the polling timer, the 250 ms debounce, and every capture. Captures never overlap. |
-| Main thread / main actor | Display reconfiguration callbacks (they only post work to the monitor's queue), snapshot delivery, `PortStore`, all AppKit and SwiftUI code. The app target uses `.defaultIsolation(MainActor.self)`. |
+| Main thread / main actor | Display reconfiguration callbacks (they only post work to the monitor's queue), snapshot delivery, `PortStore`, all AppKit and SwiftUI code. The app and `BusStopUI` targets use `.defaultIsolation(MainActor.self)`. |
 | `HistoryFile`'s serial queue | Encoding and writing `history.json`. The class is `nonisolated` and `Sendable`; the store hands it a copy of the archive. Will-sleep and quit wait for the write. |
 | Anywhere | `BusStopCore` functions. Every core type is a `Sendable` value type and every core function is pure, so they need no isolation. Also Lagoon's dynamic colour providers (`Lagoon.themedNS`), which are `nonisolated` and `@Sendable` because AppKit resolves colours on any thread. |
 
@@ -145,11 +170,12 @@ A USB device that reports a vendor ID but no vendor name gets the name from `USB
 
 | Layer | How it is tested |
 |---|---|
-| `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures), from redacted `busstop --raw` captures kept as JSON resources, and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, determinism and robustness against missing or wrongly typed keys. History, port placement and health have their own suites: `HistoryArchiveTests` (caps, local-day counter deltas, lossy decoding, newer-schema refusal, minute resampling, a clock set back or ahead, a counter that goes down keeping its baseline), `PowerHistoryTests` (the live window and splitting at gaps), `ChassisLayoutTests` (every catalogue location parses and every demo port is placed), `DeviceIdentityTests` (a device keeps its key across controller changes; without a unique serial it falls back to port and route), `ConnectionHealthTests` (speed regressions, cycling, flapping and the likely culprit, with wake and dock noise ignored) and `PortHealthTests` (plug, error and overcurrent counts per local day, and a port standing out from its siblings). |
+| `BusStopCore` | Unit tests with Swift Testing in `Tests/BusStopCoreTests`. Fixtures are built from public IORegistry dumps (a macOS 26.3 MacBook `IOPort` plane, a macOS 27 `AppleSmartBattery`, Thunderbolt `system_profiler` captures), from redacted `busstop --raw` captures kept as JSON resources, and from the demo scenarios. Covered: `PlistValue` coding, accessors, formatting, port parsing, label resolution, USB attribution order, hub roll-ups, Thunderbolt link decoding, charger and PDO parsing, per-port power joins, diagnostics, event diffing, export round trips, the widget payload (round trips, no serial numbers or property bags, a size bound for every demo scenario, the owner-only file, no App Group without a team) and its timeline states, `busstop://` link parsing, determinism and robustness against missing or wrongly typed keys. History, port placement and health have their own suites: `HistoryArchiveTests` (caps, local-day counter deltas, lossy decoding, newer-schema refusal, minute resampling, a clock set back or ahead, a counter that goes down keeping its baseline), `PowerHistoryTests` (the live window and splitting at gaps), `ChassisLayoutTests` (every catalogue location parses and every demo port is placed), `DeviceIdentityTests` (a device keeps its key across controller changes; without a unique serial it falls back to port and route), `ConnectionHealthTests` (speed regressions, cycling, flapping and the likely culprit, with wake and dock noise ignored) and `PortHealthTests` (plug, error and overcurrent counts per local day, and a port standing out from its siblings). |
 | `BusStopCLI` | `Tests/BusStopCLITests` on macOS: the argument parser (option values, `-` for standard input, unknown and conflicting options, what `--watch` refuses, repeated sources, demo names). |
 | `BusStopKit` | `Tests/BusStopKitTests` on macOS: the CF bridge, a live capture on the CI machine, rapid `LiveMonitor` start and stop cycles. |
-| `BusStopApp` | `Tests/BusStopAppTests` on macOS: the map camera (screen and layout points round-trip, the point under the pointer stays put through a zoom, centring, clamping, fitting), the compact popover (its rows and one-line power card fit the popover at every text size, and the list is shorter than the cards), and the map's tooltips (the chip under the pointer, placement under or above the chip and inside the map, the texts, the delay and hiding, and, in a hosting view, chip regions passing through the drawing group with only the chips a `ViewThatFits` shows), and the theme (every Lagoon colour resolved in Dark matches its frozen hex value, Light meets the contrast targets in SPEC §4.2, both ramps are monotonic in lightness, and a blended link colour blends with the theme's background inside a `Canvas`), and the theme setting (stored under `theme`, Dark by default and after Reset All, and the app appearance each choice sets). Also: `HistoryStoreTests` (saving, restoring and clearing history in a temporary folder, demo mode leaving the file byte-identical, Keep History off deleting it, save throttling, a corrupt or newer file, a corrupt file that cannot be moved aside never being overwritten), `PortStoreTests` (demo port names kept apart from the real Mac's, a capture's demo flag following the running source, a re-plugged child leaving a hub's ghost), `EventGroupingTests` (grouping by day, filter and search before grouping, the Problems filter), `MenuBarTitleTests` (the pinned port's segment, its spoken label and its per-model setting), `MacSilhouetteTests` (Data and Power paint, reveal, search, ports a button apart, every demo port drawn, each face in its own hosting view), the Mac Outline cases in `TopologyWindowLayoutTests` (a narrow window with the inspector settles), `NotificationManagerTests` (which findings notify, bursts settling, the cooldown) and `PowerChartDataTests` (series break across sleep). Interaction itself is checked by hand. |
-| Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle, the zip and the disk image, `Info.plist`, signature, icon, the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
+| `BusStopApp` | `Tests/BusStopAppTests` on macOS: the map camera (screen and layout points round-trip, the point under the pointer stays put through a zoom, centring, clamping, fitting), the compact popover (its rows and one-line power card fit the popover at every text size, and the list is shorter than the cards), and the map's tooltips (the chip under the pointer, placement under or above the chip and inside the map, the texts, the delay and hiding, and, in a hosting view, chip regions passing through the drawing group with only the chips a `ViewThatFits` shows), and the theme (every Lagoon colour resolved in Dark matches its frozen hex value, Light meets the contrast targets in SPEC §4.2, both ramps are monotonic in lightness, and a blended link colour blends with the theme's background inside a `Canvas`), and the theme setting (stored under `theme`, Dark by default and after Reset All, and the app appearance each choice sets). Also: `HistoryStoreTests` (saving, restoring and clearing history in a temporary folder, demo mode leaving the file byte-identical, Keep History off deleting it, save throttling, a corrupt or newer file, a corrupt file that cannot be moved aside never being overwritten), `PortStoreTests` (demo port names kept apart from the real Mac's, a capture's demo flag following the running source, a re-plugged child leaving a hub's ghost), `EventGroupingTests` (grouping by day, filter and search before grouping, the Problems filter), `MenuBarTitleTests` (the pinned port's segment, its spoken label and its per-model setting), `MacSilhouetteTests` (Data and Power paint, reveal, search, ports a button apart, every demo port drawn, each face in its own hosting view), the Mac Outline cases in `TopologyWindowLayoutTests` (a narrow window with the inspector settles), `NotificationManagerTests` (which findings notify, bursts settling, the cooldown), `WidgetWriterTests` (the write gate's change detection, throttle and heartbeat, Clear History and Keep History off deleting the payload, no App Group writing nothing) and `DeepLinkRoutingTests` (every link page is a topology page). Interaction itself is checked by hand. |
+| `BusStopUI` | `Tests/BusStopUITests` on macOS: `PowerChartDataTests` (series break across sleep, system load from the samples) and `WidgetChromeTests` (every widget state draws at the desktop widget sizes, rendered off screen from a demo payload). |
+| Bundle and CLI | `scripts/smoke-test.sh` after `scripts/build-app.sh`: bundle layout, the licence notices in the bundle, the zip and the disk image, `Info.plist`, signature, icon, the widget extension (present, signed with the hardened runtime, sandboxed, built for the app's architectures and starting in `_NSExtensionMain`), the CLI against every demo scenario (text, JSON, Markdown, raw capture and read-back), exit status 1 when standard output cannot be written, `--watch` and `--watch --json` printing events and stopping cleanly on Control-C, a live capture of the CI machine (a virtual Mac with few accessories), and the app still running 8 seconds after launch. It prints every output, so the CI log shows what the runner saw. |
 | App UI | Built on both supported Xcode versions in CI; checked by hand with demo mode. |
 
 CI runs on every pull request, and again on each push to it. Plain branch pushes and merges to `main` run nothing. Starting the workflow by hand (Actions › CI › Run workflow) also runs the macOS 27 job, which needs the paid `xcode-27` runner:
@@ -163,7 +189,7 @@ Starting `.github/workflows/screenshots.yml` by hand captures new screenshots on
 
 ## Packaging
 
-There is no Xcode project. `scripts/build-app.sh` builds the `BusStopApp` and `busstop` products in release mode and assembles the bundle by hand:
+There is no Xcode project. `scripts/build-app.sh` builds the `BusStopApp`, `busstop` and `BusStopWidgets` products in release mode and assembles the bundle by hand:
 
 ```
 Bus Stop.app/
@@ -172,6 +198,10 @@ Bus Stop.app/
     PkgInfo                 APPL????
     MacOS/BusStop           the app
     Helpers/busstop         the command-line tool
+    PlugIns/BusStopWidgets.appex/
+      Contents/Info.plist   Support/Widgets-Info.plist, with the app's version
+      Contents/MacOS/BusStopWidgets
+                            the widget extension
     Resources/AppIcon.icns  drawn by scripts/make-icon.py
     Resources/LICENSE.txt   Bus Stop's MIT License
     Resources/THIRD_PARTY_NOTICES.md
@@ -179,7 +209,9 @@ Bus Stop.app/
                             and the BSD notice of the USB ID Repository
 ```
 
-The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Both binaries are signed with the hardened runtime (helper first, then the bundle): ad hoc by default, and with the Developer ID in `SIGN_IDENTITY` for releases, which `scripts/notarize.sh` then has Apple notarize. The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
+The CLI lives in `Contents/Helpers` because `Contents/MacOS/busstop` and `Contents/MacOS/BusStop` would be the same file on a case-insensitive volume. Everything is signed with the hardened runtime, nested code first (helper, extension, then the bundle): ad hoc by default, and with the Developer ID in `SIGN_IDENTITY` for releases, which `scripts/notarize.sh` then has Apple notarize. The app is not sandboxed: the App Sandbox blocks the SMC user client and some IOKit notifications Bus Stop relies on.
+
+The widget extension is a plain SwiftPM executable linked with `-e _NSExtensionMain`, as Xcode links app extensions; a widget that starts in its `WidgetBundle`'s own `main` crashes at launch. It carries the app's version, so the system does not keep an old copy, and `com.apple.security.app-sandbox` (`Support/Widgets.entitlements`), without which macOS does not load it. With a team's identity, the script reads the team ID from the signature, writes it into both Info.plists as `BusStopTeamID`, and gives the app and the extension the App Group `<team>.io.github.static74.busstop`; since macOS 15 both must claim it, the unsandboxed app included. An ad hoc build bundles the extension without a group, and macOS leaves ad hoc signed extensions out of the widget gallery, so its widgets do not appear. They also need the app in `/Applications`.
 
 The MIT and BSD licences of the projects Bus Stop adapts code and data from require their notices in every copy, so the licence files are copied into the bundle before signing, and `build/BusStop.zip` holds them a second time next to `Bus Stop.app`. `build/BusStop.dmg` does not repeat them, since the app inside it already carries them. The smoke test checks the bundle and the zip.
 

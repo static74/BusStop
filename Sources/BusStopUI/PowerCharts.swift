@@ -7,14 +7,22 @@ import SwiftUI
 // happy when deploying to macOS 26.
 
 /// One plotted sample.
-nonisolated struct PowerChartPoint: Identifiable, Sendable {
-    var id: String
-    var date: Date
-    var watts: Double
-    var series: String
+public nonisolated struct PowerChartPoint: Identifiable, Sendable {
+    public var id: String
+    public var date: Date
+    public var watts: Double
+    public var series: String
     /// Points of one series in different segments are not joined, so a line
     /// breaks across a gap such as sleep.
-    var segment = 0
+    public var segment = 0
+
+    public init(id: String, date: Date, watts: Double, series: String, segment: Int = 0) {
+        self.id = id
+        self.date = date
+        self.watts = watts
+        self.series = series
+        self.segment = segment
+    }
 }
 
 /// The values under the pointer, for the tooltip.
@@ -32,21 +40,32 @@ nonisolated struct PowerChartHover: Identifiable, Sendable {
 
 /// A line chart of watts over time with an optional filled series, a zero
 /// line and a hover crosshair with a tooltip.
-struct PowerLineChart: View {
-    var points: [PowerChartPoint]
+public struct PowerLineChart: View {
+    public var points: [PowerChartPoint]
     /// `PowerChartData.isolated(points)`, passed in so hovering does not redo it.
-    var isolatedPoints: [PowerChartPoint]
+    public var isolatedPoints: [PowerChartPoint]
     /// Series names in legend order, with matching colours.
-    var domain: [String]
-    var colors: [Color]
+    public var domain: [String]
+    public var colors: [Color]
     /// Series drawn with a soft area fill under its line.
-    var areaSeries: String?
-    var showsZeroLine: Bool = false
-    var range: PowerRange = .tenMinutes
+    public var areaSeries: String?
+    public var showsZeroLine: Bool = false
+    public var range: PowerRange = .tenMinutes
 
     @State private var hoverDate: Date?
 
-    var body: some View {
+    public init(points: [PowerChartPoint], isolatedPoints: [PowerChartPoint], domain: [String], colors: [Color],
+                areaSeries: String? = nil, showsZeroLine: Bool = false, range: PowerRange = .tenMinutes) {
+        self.points = points
+        self.isolatedPoints = isolatedPoints
+        self.domain = domain
+        self.colors = colors
+        self.areaSeries = areaSeries
+        self.showsZeroLine = showsZeroLine
+        self.range = range
+    }
+
+    public var body: some View {
         let areaPoints = points.filter { $0.series == areaSeries }
         let areaColor = colorFor(areaSeries)
         let hover = hoverValues()
@@ -189,12 +208,12 @@ struct PowerChartTooltip: View {
 
 /// How far back the Power page's charts reach. Ten minutes is the live
 /// buffer; the longer ranges read the saved history.
-enum PowerRange: CaseIterable, Identifiable {
+public enum PowerRange: CaseIterable, Identifiable {
     case tenMinutes, hour, day, week
 
-    var id: Self { self }
+    public var id: Self { self }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .tenMinutes: "10 min"
         case .hour: "1 h"
@@ -203,7 +222,7 @@ enum PowerRange: CaseIterable, Identifiable {
         }
     }
 
-    var spanText: String {
+    public var spanText: String {
         switch self {
         case .tenMinutes: "Last 10 minutes"
         case .hour: "Last hour"
@@ -212,7 +231,7 @@ enum PowerRange: CaseIterable, Identifiable {
         }
     }
 
-    var span: TimeInterval {
+    public var span: TimeInterval {
         switch self {
         case .tenMinutes: 600
         case .hour: 3_600
@@ -223,13 +242,13 @@ enum PowerRange: CaseIterable, Identifiable {
 
     /// Seconds averaged into one point of the saved history; a week of
     /// minutes would be 10,080 points per series.
-    var step: TimeInterval { self == .week ? 600 : 60 }
+    public var step: TimeInterval { self == .week ? 600 : 60 }
 
     /// A longer silence than this breaks the lines. Live power arrives every
     /// 2 to 10 s while the screens are on; saved points are `step` apart.
-    var maxGap: TimeInterval { self == .tenMinutes ? 30 : step * 2.5 }
+    public var maxGap: TimeInterval { self == .tenMinutes ? 30 : step * 2.5 }
 
-    var axisFormat: Date.FormatStyle {
+    public var axisFormat: Date.FormatStyle {
         switch self {
         case .tenMinutes: .dateTime.hour().minute().second()
         case .hour, .day: .dateTime.hour().minute()
@@ -237,7 +256,7 @@ enum PowerRange: CaseIterable, Identifiable {
         }
     }
 
-    var tooltipFormat: Date.FormatStyle {
+    public var tooltipFormat: Date.FormatStyle {
         switch self {
         case .tenMinutes: .dateTime.hour().minute().second()
         case .hour: .dateTime.hour().minute()
@@ -247,21 +266,21 @@ enum PowerRange: CaseIterable, Identifiable {
 }
 
 /// Builds chart series from power samples, oldest first.
-enum PowerChartData {
-    static let inputName = "System input"
-    static let batteryName = "Battery"
-    static let loadName = "System load"
-    static let otherPortsName = "Other ports"
+public enum PowerChartData {
+    public static let inputName = "System input"
+    public static let batteryName = "Battery"
+    public static let loadName = "System load"
+    public static let otherPortsName = "Other ports"
 
     /// System input, battery and system load, in legend order.
-    static func systemPoints(_ samples: [PowerSample], maxGap: TimeInterval) -> [PowerChartPoint] {
+    public static func systemPoints(_ samples: [PowerSample], maxGap: TimeInterval) -> [PowerChartPoint] {
         points(samples.systemInputSeries, series: inputName, id: "in", maxGap: maxGap)
             + points(samples.batterySeries, series: batteryName, id: "bat", maxGap: maxGap)
             + points(samples.systemLoadSeries, series: loadName, id: "load", maxGap: maxGap)
     }
 
     /// One series' points, split into segments at gaps longer than `maxGap`.
-    static func points(_ values: [(date: Date, watts: Double)], series: String, id: String,
+    public static func points(_ values: [(date: Date, watts: Double)], series: String, id: String,
                        maxGap: TimeInterval) -> [PowerChartPoint] {
         let segments = PowerSample.segments(values.map(\.date), maxGap: maxGap)
         return values.enumerated().map { index, value in
@@ -271,12 +290,12 @@ enum PowerChartData {
     }
 
     /// Points alone in their segment, which a line cannot show.
-    static func isolated(_ points: [PowerChartPoint]) -> [PowerChartPoint] {
+    public static func isolated(_ points: [PowerChartPoint]) -> [PowerChartPoint] {
         let sizes = Dictionary(points.map { ("\($0.series)#\($0.segment)", 1) }, uniquingKeysWith: +)
         return points.filter { sizes["\($0.series)#\($0.segment)"] == 1 }
     }
 
-    static func systemColor(_ series: String) -> Color {
+    public static func systemColor(_ series: String) -> Color {
         switch series {
         case inputName: return PowerChartPalette.systemInput
         case loadName: return PowerChartPalette.systemLoad
@@ -286,7 +305,7 @@ enum PowerChartData {
 
     /// Per-port series: the busiest ports get their own colour, the rest are
     /// summed into "Other ports".
-    static func portSeries(_ samples: [PowerSample], title: (PortKey) -> String, maxGap: TimeInterval)
+    public static func portSeries(_ samples: [PowerSample], title: (PortKey) -> String, maxGap: TimeInterval)
         -> (points: [PowerChartPoint], domain: [String], colors: [Color]) {
         let keys = samples.portKeys
         guard !keys.isEmpty else { return ([], [], []) }

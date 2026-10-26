@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import Foundation
 import Testing
 @testable import BusStopApp
