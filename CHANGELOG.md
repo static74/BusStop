@@ -4,6 +4,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-26
+
 ### Added
 
 - Settings › Appearance › Data colours: colour links by speed with a preset instead of Lagoon's turquoise. Sky, Iris, Orchid, Ember, Tangerine, Citrine, Fern and Graphite keep Lagoon's shift from dim to bright, and Match System follows the accent colour in System Settings. The map, its pulses and key, speed chips and the Mac Outline all follow; Power mode and the desktop widgets keep their colours. Lagoon stays the default.
@@ -138,7 +140,8 @@ The first release.
 - `scripts/build-app.sh`, `scripts/install.sh` and `scripts/smoke-test.sh` for building, installing and checking the app bundle; CI on Linux, macOS 26 and macOS 27; tagged releases with a universal, ad-hoc-signed zip and its SHA-256 checksum. The app bundle and the zip carry Bus Stop's licence and the MIT notices of PortScope, WhatPort and WhatCable.
 - Screenshots of the app in demo mode, captured by CI on macOS 27 and published to the `screenshots` branch by a separate job that holds the only write token.
 
-[Unreleased]: https://github.com/static74/BusStop/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/static74/BusStop/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/static74/BusStop/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/static74/BusStop/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/static74/BusStop/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/static74/BusStop/releases/tag/v1.1.0
