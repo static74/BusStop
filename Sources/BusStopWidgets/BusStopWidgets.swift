@@ -24,45 +24,11 @@ struct PayloadProvider: TimelineProvider {
     }
 }
 
-// shortcut: a placeholder that only proves the data path; replace it with the real widgets.
-struct HelloView: View {
-    let entry: WidgetTimeline.Entry
-
-    var body: some View {
-        VStack(spacing: 6) {
-            switch entry.state {
-            case .empty:
-                Text("Open Bus Stop")
-            case .stale:
-                Text("Bus Stop isn't running")
-            case .live, .demo:
-                if entry.state == .demo { Text("Demo").font(.caption.bold()) }
-                if let payload = entry.payload {
-                    Text("\(payload.snapshot.ports.count) ports · updated \(payload.capturedAt, style: .relative) ago")
-                }
-            }
-        }
-        .font(.title2)
-        .multilineTextAlignment(.center)
-        .containerBackground(.fill.tertiary, for: .widget)
-    }
-}
-
-struct HelloWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "io.github.static74.busstop.hello", provider: PayloadProvider()) { entry in
-            HelloView(entry: entry)
-        }
-        .configurationDisplayName("Bus Stop")
-        .description("Your ports, from Bus Stop.")
-        .supportedFamilies([.systemLarge, .systemExtraLarge])
-    }
-}
-
 @main
 struct BusStopWidgetBundle: WidgetBundle {
     var body: some Widget {
-        HelloWidget()
         PortsWidget()
+        PowerWidget()
+        HealthWidget()
     }
 }
