@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {

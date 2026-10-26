@@ -8,7 +8,7 @@ import SwiftUI
 /// 10 Gb/s, washing toward white in Dark and toward ink in Light) at the hue
 /// of a macOS accent colour, and meet the same contrast rules
 /// (`ThemeContrastTests`). Power mode keeps its own colours.
-enum DataPalette: String, CaseIterable, Identifiable {
+public enum DataPalette: String, CaseIterable, Identifiable {
     case lagoon
     case sky
     case iris
@@ -19,9 +19,9 @@ enum DataPalette: String, CaseIterable, Identifiable {
     case fern
     case graphite
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .lagoon: return "Lagoon"
         case .sky: return "Sky"
@@ -37,7 +37,7 @@ enum DataPalette: String, CaseIterable, Identifiable {
 
     /// OKLCH hue the preset was built at: Lagoon's own, or that of the macOS
     /// accent colour it matches. Nil for Graphite, which has none.
-    var hue: Double? {
+    public var hue: Double? {
         switch self {
         case .lagoon: return 184.3
         case .sky: return 257.4
@@ -53,7 +53,7 @@ enum DataPalette: String, CaseIterable, Identifiable {
 
     /// The preset that best matches `color`: Graphite when it has almost no
     /// chroma (the Graphite accent), otherwise the one with the nearest hue.
-    static func nearest(to color: NSColor) -> DataPalette {
+    public static func nearest(to color: NSColor) -> DataPalette {
         guard let rgb = color.usingColorSpace(.sRGB) else { return .lagoon }
         let (_, chroma, hue) = oklch(red: rgb.redComponent, green: rgb.greenComponent, blue: rgb.blueComponent)
         guard chroma >= 0.04 else { return .graphite }
@@ -66,7 +66,7 @@ enum DataPalette: String, CaseIterable, Identifiable {
     }
 
     /// OKLCH lightness, chroma and hue (degrees) of a gamma-encoded sRGB colour.
-    nonisolated static func oklch(red: Double, green: Double, blue: Double) -> (Double, Double, Double) {
+    public nonisolated static func oklch(red: Double, green: Double, blue: Double) -> (Double, Double, Double) {
         func linear(_ c: Double) -> Double { c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
         let (r, g, b) = (linear(red), linear(green), linear(blue))
         let l = cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
@@ -82,22 +82,22 @@ enum DataPalette: String, CaseIterable, Identifiable {
     // MARK: Colours
 
     /// One preset's colours, resolved once.
-    struct Colors {
+    public struct Colors {
         /// Indexed by `SpeedTier.rawValue`.
-        var ramp: [Color]
+        public var ramp: [Color]
         /// Links with no known rate and active trunks.
-        var accent: Color
+        public var accent: Color
         /// Idle trunks.
-        var muted: Color
+        public var muted: Color
         /// Pulses on links.
-        var pulse: Color
+        public var pulse: Color
     }
 
     /// Built once: each `themed` call makes a new dynamic colour that never
     /// compares equal to another, and the map asks for these on every frame.
     private static let all: [DataPalette: Colors] = Dictionary(uniqueKeysWithValues: allCases.map { ($0, $0.build()) })
 
-    var colors: Colors { Self.all[self]! }
+    public var colors: Colors { Self.all[self]! }
 
     private func build() -> Colors {
         func color(_ pair: (dark: UInt32, light: UInt32)) -> Color { Lagoon.themed(pair.dark, pair.light) }
@@ -154,65 +154,6 @@ enum DataPalette: String, CaseIterable, Identifiable {
             Hexes(ramp: [(0x555555, 0x8E8E8E), (0x9E9E9E, 0x5B5B5B), (0xB7B7B7, 0x4D4D4D),
                          (0xCECECE, 0x404040), (0xE1E1E1, 0x333333), (0xF2F2F2, 0x272727)],
                   accent: (0xB7B7B7, 0x5E5E5E), muted: (0x535353, 0x909090), pulse: (0xCECECE, 0x7C7C7C))
-        }
-    }
-}
-
-/// Data mode's colours as chosen in Settings › Appearance: a preset, or the
-/// preset nearest the system accent colour.
-enum DataColorSetting: Hashable, Identifiable {
-    case system
-    case preset(DataPalette)
-
-    static let allCases: [DataColorSetting] = [.system] + DataPalette.allCases.map(DataColorSetting.preset)
-
-    init?(rawValue: String) {
-        if rawValue == "system" {
-            self = .system
-        } else if let palette = DataPalette(rawValue: rawValue) {
-            self = .preset(palette)
-        } else {
-            return nil
-        }
-    }
-
-    var rawValue: String {
-        switch self {
-        case .system: return "system"
-        case .preset(let palette): return palette.rawValue
-        }
-    }
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .system: return "Match System"
-        case .preset(let palette): return palette.title
-        }
-    }
-
-    /// The palette to draw with; `system` is the system accent's preset.
-    func resolved(system: @autoclosure () -> DataPalette) -> DataPalette {
-        switch self {
-        case .system: return system()
-        case .preset(let palette): return palette
-        }
-    }
-}
-
-/// The preset nearest the macOS accent colour, kept current as it changes in
-/// System Settings › Appearance.
-@Observable
-final class SystemAccentPalette {
-    static let shared = SystemAccentPalette()
-
-    private(set) var palette = DataPalette.nearest(to: .controlAccentColor)
-
-    private init() {
-        NotificationCenter.default.addObserver(forName: NSColor.systemColorsDidChangeNotification, object: nil,
-                                               queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.palette = DataPalette.nearest(to: .controlAccentColor) }
         }
     }
 }

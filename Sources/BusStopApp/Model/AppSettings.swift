@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import Foundation
 import Observation
 import SwiftUI
@@ -182,6 +183,21 @@ enum TextSizeSetting: String, CaseIterable, Identifiable {
         case .large: return 1.15
         case .extraLarge: return 1.3
         }
+    }
+}
+
+extension Lagoon {
+    /// Popover width for a text size: wider for Large and Extra Large text so
+    /// labels do not truncate, never narrower than `popoverWidth`.
+    static func popoverWidth(for textSize: TextSizeSetting) -> CGFloat {
+        (popoverWidth * max(1, textSize.scale)).rounded()
+    }
+}
+
+extension View {
+    /// Sets the text scale for everything below (use at view roots).
+    func lagoonTextScale(_ setting: TextSizeSetting) -> some View {
+        environment(\.lagoonTextScale, setting.scale)
     }
 }
 

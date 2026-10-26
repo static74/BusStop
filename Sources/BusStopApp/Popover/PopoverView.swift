@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Content of the menu bar popover (docs/SPEC.md §3.2).

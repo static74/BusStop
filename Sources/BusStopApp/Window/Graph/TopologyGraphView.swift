@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The topology graph: the Mac, its ports and every device chain, drawn as a

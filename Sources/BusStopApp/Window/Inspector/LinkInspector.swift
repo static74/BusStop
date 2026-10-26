@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 // The inspector page for a link clicked in the graph: what the two ends

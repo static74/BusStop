@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 // Helpers shared by the topology window's pages, the inspector and the graph.

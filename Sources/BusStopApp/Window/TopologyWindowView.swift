@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Root view of the topology window: a sidebar of pages, a detail area (the
@@ -34,12 +35,23 @@ struct TopologyWindowView: View {
     @State private var scrollRequest: TopologyScrollRequest?
     @AppStorage(TopologyWindowDefaults.overviewMode) private var overviewMode: TopologyOverviewMode = .graph
 
+    /// Switches the page when it changes; `WindowManager` sets it to move an
+    /// open window to the page a deep link names.
+    var pageRequest: TopologyPageRequest?
+
     /// The window opens on the overview with the inspector closed; tests
     /// start on another page or with the inspector open.
     init(store: PortStore, page: TopologySidebarItem = .overview, showsInspector: Bool = false) {
         self.store = store
         _sidebarSelection = State(initialValue: page)
         _showInspector = State(initialValue: showsInspector)
+    }
+
+    /// A replacement root view for an open window; its state is kept and
+    /// only `pageRequest` changes.
+    init(store: PortStore, pageRequest: TopologyPageRequest) {
+        self.init(store: store, page: pageRequest.page)
+        self.pageRequest = pageRequest
     }
 
     var body: some View {
@@ -101,6 +113,9 @@ struct TopologyWindowView: View {
         }
         .onChange(of: store.revealGeneration, initial: true) { _, generation in
             handleReveal(generation)
+        }
+        .onChange(of: pageRequest) { _, request in
+            if let request { withAnimation(.snappy) { sidebarSelection = request.page } }
         }
     }
 
@@ -308,4 +323,11 @@ struct TopologyWindowView: View {
             .help(showInspector ? "Hide the inspector" : "Show the inspector")
         }
     }
+}
+
+/// A page `WindowManager` asks an open topology window to switch to. The
+/// generation makes a repeated request for the same page a change too.
+struct TopologyPageRequest: Equatable {
+    var page: TopologySidebarItem
+    var generation: Int
 }
