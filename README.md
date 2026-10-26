@@ -24,7 +24,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
 - **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets.
-- **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
+- **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
 - **Settings** for a dark or light theme, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
 
@@ -38,7 +38,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 
 *The topology window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
 
-Both show demo mode, so you can see the same setups on your own Mac. [More screenshots](https://github.com/static74/BusStop/tree/screenshots) show the other demo setups and every settings pane.
+Both show demo mode, so you can see the same setups on your own Mac (Settings › Advanced › Demo mode). [More screenshots](https://github.com/static74/BusStop/tree/screenshots) show the other demo setups and every settings pane.
 
 ## Requirements
 
@@ -69,7 +69,7 @@ scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 
 `install.sh` builds for your Mac and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. macOS opens an app you built yourself without asking.
 
-The desktop widgets need the release download: macOS only lists widgets from apps signed with an Apple developer certificate, so a build from source includes them but they don't appear in Edit Widgets. If you have a certificate, [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how to sign your build with it.
+The desktop widgets appear in the release download, or in a build you sign with your own Apple developer certificate ([CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how). macOS only lists widgets from signed apps, so an unsigned build from source includes them but they don't appear in Edit Widgets.
 
 ## Command-line tool
 

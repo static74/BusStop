@@ -46,7 +46,7 @@ CI runs on every pull request, and again on each push to it. Plain branch pushes
 | macOS 26 (Xcode 26.6) | every pull request | build, test, a universal `scripts/build-app.sh`, `scripts/smoke-test.sh --skip-live` |
 | macOS 27 (Xcode 27) | only when started by hand (Actions › CI › Run workflow), because its runner is paid | build, test, `scripts/build-app.sh`, `scripts/smoke-test.sh` against demo data and the runner's own hardware, upload of `BusStop.zip` |
 
-A separate Screenshots workflow (Actions › Screenshots › Run workflow) launches the real app in demo mode on the paid macOS 27 runner, captures the popover, the topology window and every settings pane, and publishes the images to the `screenshots` branch, where the README links them. It is started by hand, so run it before a release when the UI has changed, or the README's images will trail the app.
+A separate Screenshots workflow (Actions › Screenshots › Run workflow) launches the real app on the paid macOS 27 runner, captures the popover and the topology window for each demo setup and for the runner's own hardware, plus the Mac Outline, the Power page, About and every settings pane, and publishes the images to the `screenshots` branch, where the README links them. It is started by hand, so run it before a release when the UI has changed, or the README's images will trail the app.
 
 The smoke test prints every command's output, so the job log shows what the CLI saw on the runner. Pull requests need the macOS 26 job to pass. Releases run the full test and smoke test on Xcode 27 before they publish.
 
