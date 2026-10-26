@@ -72,8 +72,9 @@ struct PortLabelTests {
         label(.usbC, number, siblings: siblings, model: model, userNames: userNames, thunderbolt: thunderbolt)
     }
 
-    private func label(_ kind: PortKind, _ number: Int, siblings: [Int], model: String,
-                       userNames: [String: String] = [:], thunderbolt: Bool? = nil) -> (label: PortLabel, capability: String?, location: String?) {
+    private func label(_ kind: PortKind, _ number: Int, siblings: [Int] = [], model: String,
+                       userNames: [String: String] = [:], thunderbolt: Bool? = nil,
+                       registryLocation: String? = nil) -> (label: PortLabel, capability: String?, location: String?) {
         let type: Int
         switch kind {
         case .magSafe: type = PortKey.magSafeType
@@ -82,7 +83,7 @@ struct PortLabelTests {
         }
         return PortLabeler.label(kind: kind, number: number, key: PortKey(type: type, number: number),
                                  siblings: siblings, model: model, userNames: userNames,
-                                 supportsThunderbolt: thunderbolt)
+                                 supportsThunderbolt: thunderbolt, registryLocation: registryLocation)
     }
 
     @Test func exactCatalogueMatch() {
@@ -284,10 +285,83 @@ struct PortLabelTests {
             + [T.port(id: 9, type: 6, number: 1, description: "HDMI", supported: [],
                       className: "AppleHDMIPortController")]
         let snapshot = TopologyBuilder.build(T.raw(model: "Mac16,10", ports: ports))
-        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C", "Front · USB-C", "Rear · USB-C", "Rear · USB-C",
-                                                      "Rear · USB-C", "Rear · HDMI"])
+        // Ports that share an area are numbered in physical order.
+        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C 1", "Front · USB-C 2", "Rear · USB-C 1",
+                                                      "Rear · USB-C 2", "Rear · USB-C 3", "Rear · HDMI"])
+        #expect(snapshot.ports.map(\.label.shortTitle) == ["Front 1", "Front 2", "Rear 1", "Rear 2", "Rear 3", "Rear"])
         #expect(snapshot.ports.map(\.number) == [5, 6, 1, 2, 3, 1])
         #expect(snapshot.ports.prefix(5).allSatisfy { $0.label.source == .catalogRank })
+    }
+
+    // MARK: Hardware locations
+
+    @Test(arguments: [
+        ("back-left", "Rear (left)"), ("back-middle", "Rear (center)"), ("back-right", "Rear (right)"),
+        ("front-left", "Front (left)"), ("rear-left-center", "Rear (left-center)"), ("left-back", "Left Rear"),
+        ("right-front", "Right Front"), ("right-middle", "Right Center"), ("front", "Front"),
+        ("Back_Left", "Rear (left)"), ("io-card", "Io card"),
+    ])
+    func hardwareLocationReadsLikeTheCatalogue(_ text: String, _ expected: String) {
+        #expect(PortLabeler.location(fromRegistry: text) == expected)
+    }
+
+    @Test func emptyHardwareLocationIsIgnored() {
+        #expect(PortLabeler.location(fromRegistry: "") == nil)
+        #expect(PortLabeler.location(fromRegistry: " - ") == nil)
+        let labelled = label(.usbC, 2, model: "Mac99,1", registryLocation: "")
+        #expect(labelled.label.source == .generic)
+    }
+
+    @Test func hardwareLocationBeatsTheCatalogueButNotTheUser() {
+        // The catalogue puts USB-C 1 of a Mac mini M4 at Front (left).
+        let hardware = label(.usbC, 1, siblings: [1, 2, 3, 4, 5], model: "Mac16,10", registryLocation: "back-middle")
+        #expect(hardware.label.title == "Rear (center) · USB-C")
+        #expect(hardware.label.source == .hardware)
+        #expect(hardware.location == "Rear (center)")
+        let named = label(.usbC, 1, siblings: [1, 2, 3, 4, 5], model: "Mac16,10",
+                          userNames: ["2/1": "Monitor"], registryLocation: "back-middle")
+        #expect(named.label.title == "Monitor")
+        #expect(named.location == "Rear (center)")
+    }
+
+    @Test func hardwareLocationWorksWithoutACatalogueEntry() {
+        let labelled = label(.usbC, 3, model: "Mac99,1", registryLocation: "left-front")
+        #expect(labelled.label.title == "Left Front · USB-C")
+        #expect(labelled.capability == nil)
+    }
+
+    /// The Mac mini M4 in `Fixtures/MacMiniM4UgreenDock.json`: Thunderbolt
+    /// ports 1, 2 and 4 publish `port-location`; the front USB ports 5 and 6
+    /// do not, so they fall back to "Front" and are numbered.
+    @Test func builderUsesHardwareLocationsAndNumbersTheRest() throws {
+        typealias T = TopologyFixtures
+        let thunderbolt = ["CC", "USB2", "USB3", "DisplayPort", "CIO"]
+        let ports = [1, 2, 4].map { T.port(id: UInt64($0), number: $0, supported: thunderbolt) }
+            + [5, 6].map { T.port(id: UInt64($0), number: $0, supported: ["USB2", "USB3"], className: "IOPort") }
+            + [T.port(id: 9, type: 6, number: 1, description: "HDMI", supported: [],
+                      className: "AppleHDMIPortController")]
+        var raw = T.raw(model: "Mac16,10", ports: ports)
+        raw.portLocations = ["2/1": "back-middle", "2/2": "back-left", "2/4": "back-right"]
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C 1", "Front · USB-C 2", "Rear (left) · USB-C",
+                                                      "Rear (center) · USB-C", "Rear (right) · USB-C", "Rear · HDMI"])
+        #expect(snapshot.ports.map(\.number) == [5, 6, 2, 1, 4, 1])
+        #expect(snapshot.ports.map(\.label.source) == [.catalogRank, .catalogRank, .hardware, .hardware, .hardware,
+                                                       .catalog])
+        // The outline places the rear ports where the hardware says.
+        let layout = ChassisLayout.resolve(machine: snapshot.machine, ports: snapshot.ports)
+        let rear = layout.slots.filter { $0.face == .rear && $0.connector == "usb-c" }
+        #expect(rear.map(\.portKey?.number) == [2, 1, 4])
+    }
+
+    /// A user name and a generic name are never numbered.
+    @Test func onlyPlacedNamesAreNumbered() {
+        typealias T = TopologyFixtures
+        let ports = [1, 2, 3].map { T.port(id: UInt64($0), number: $0) }
+        let snapshot = TopologyBuilder.build(T.raw(ports: ports),
+                                             options: BuildOptions(userPortNames: ["2/1": "Desk", "2/2": "Desk"]))
+        #expect(snapshot.ports.map(\.label.title) == ["Desk", "Desk", "USB-C 3"])
+        #expect(snapshot.ports.allSatisfy { $0.label.ordinal == nil })
     }
 
     @Test func consistentNumberingKeepsPreciseLabels() {

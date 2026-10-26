@@ -225,7 +225,8 @@ public enum TopologyBuilder {
                                              siblings: siblings, model: raw.machine.model,
                                              userNames: options.userPortNames,
                                              supportsThunderbolt: thunderboltSupport[record.key],
-                                             siblingCapabilities: siblingCapabilities(record.kind))
+                                             siblingCapabilities: siblingCapabilities(record.kind),
+                                             registryLocation: raw.portLocations[record.key.description])
             physicalPorts.append(PhysicalPort(
                 key: record.key, kind: record.kind, number: record.number, registryName: record.registryName,
                 label: labelled.label, capabilityDescription: labelled.capability, supportedTransports: supported,
@@ -275,13 +276,21 @@ public enum TopologyBuilder {
             order[port.key] = PortLabeler.sortKey(kind: port.kind, number: port.number, siblings: siblings,
                                                   model: raw.machine.model,
                                                   supportsThunderbolt: thunderboltSupport[port.key],
-                                                  siblingCapabilities: siblingCapabilities(port.kind))
+                                                  siblingCapabilities: siblingCapabilities(port.kind),
+                                                  registryLocation: raw.portLocations[port.key.description])
         }
         physicalPorts.sort { lhs, rhs in
             let l = order[lhs.key] ?? (Int.max, Int.max, Int.max)
             let r = order[rhs.key] ?? (Int.max, Int.max, Int.max)
             if l != r { return l < r }
             return lhs.key < rhs.key
+        }
+        // Ports placed only as far as "Front" are numbered in port order, which is physical
+        // only where a hardware location or the catalogue places them.
+        let placed = physicalPorts.indices.filter { ![.user, .generic].contains(physicalPorts[$0].label.source) }
+        let sharing = Dictionary(grouping: placed) { physicalPorts[$0].label.title }.values.filter { $0.count > 1 }
+        for indices in sharing {
+            for (offset, index) in indices.enumerated() { physicalPorts[index].label.ordinal = offset + 1 }
         }
 
         var notes = raw.captureNotes

@@ -28,6 +28,11 @@ public struct RawSnapshot: Sendable, Hashable, Codable {
     /// that owns the port (`AppleHPMDevice*` parent). Joins SMC power channels.
     public var portControllerUUIDs: [String: String]
 
+    /// Port key → `port-location` of the device-tree node that drives the
+    /// port ("back-left"), when that node's `port-number` is the port's or
+    /// it has none. Empty on Macs whose firmware does not publish it.
+    public var portLocations: [String: String]
+
     public var usbDevices: [RawUSBDevice]
     public var thunderboltSwitches: [RawThunderboltSwitch]
 
@@ -56,6 +61,7 @@ public struct RawSnapshot: Sendable, Hashable, Codable {
         machine: MachineInfo,
         portNodes: [RawNode] = [],
         portControllerUUIDs: [String: String] = [:],
+        portLocations: [String: String] = [:],
         usbDevices: [RawUSBDevice] = [],
         thunderboltSwitches: [RawThunderboltSwitch] = [],
         battery: PropertyBag? = nil,
@@ -69,6 +75,7 @@ public struct RawSnapshot: Sendable, Hashable, Codable {
         self.machine = machine
         self.portNodes = portNodes
         self.portControllerUUIDs = portControllerUUIDs
+        self.portLocations = portLocations
         self.usbDevices = usbDevices
         self.thunderboltSwitches = thunderboltSwitches
         self.battery = battery

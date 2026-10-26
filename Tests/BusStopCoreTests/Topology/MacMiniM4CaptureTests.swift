@@ -23,8 +23,9 @@ struct MacMiniM4CaptureTests {
     @Test func portsAndLabels() throws {
         let snapshot = try Self.snapshot()
         #expect(snapshot.machine.name == "Mac mini (2024, M4)")
-        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C", "Front · USB-C", "Rear · USB-C",
-                                                     "Rear · USB-C", "Rear · USB-C", "Rear · HDMI"])
+        // The capture predates `portLocations`, so ports sharing a catalogue name are numbered.
+        #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C 1", "Front · USB-C 2", "Rear · USB-C 1",
+                                                     "Rear · USB-C 2", "Rear · USB-C 3", "Rear · HDMI"])
         #expect(snapshot.ports.filter(\.isConnected).map(\.key.number) == [1, 2])
         #expect(snapshot.deviceCount == 9)
     }
@@ -56,9 +57,9 @@ struct MacMiniM4CaptureTests {
     @Test func textTree() throws {
         let text = Exporter.textTree(try Self.snapshot())
         let expected = """
-        ├─ Rear · USB-C   DisplayPort @ 10.8 Gb/s   ↑ 4.4 W
+        ├─ Rear · USB-C 1   DisplayPort @ 10.8 Gb/s   ↑ 4.4 W
         │  └─ DELL P1425 · 10.8 Gb/s
-        ├─ Rear · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 5.8 W
+        ├─ Rear · USB-C 2   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 5.8 W
         │  └─ USB3.2 Hub · 10 Gb/s · 5.8 W
         │     ├─ UG69PD10 Docking · 5 Gb/s
         │     ├─ UG69PD10 Docking · 5 Gb/s
@@ -67,7 +68,7 @@ struct MacMiniM4CaptureTests {
         │        ├─ USB 10_100_1G_2_5G LAN · 5 Gb/s · 1.3 W
         │        ├─ USB Storage · 5 Gb/s · 4.5 W
         │        └─ USB3.0 Hub · 5 Gb/s
-        ├─ Rear · USB-C   (empty)
+        ├─ Rear · USB-C 3   (empty)
         """
         #expect(text.contains(expected), "\(text)")
     }

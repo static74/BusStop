@@ -289,12 +289,15 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 
 **Labels.**
 1. User override (keyed by `hw.model` + port key).
-2. Catalogue entry for `hw.model` with matching connector and number.
-3. Catalogue entry by rank among same-connector ports (non-contiguous numbering such as {1, 2, 4}).
-4. Capability heuristic on compact desktops and on models whose rows mix Thunderbolt and plain USB-C: "Rear" for Thunderbolt ports and "Front" for the others, when the catalogue's rows (or, for an unlisted Mac mini, the model alone) say so.
-5. Generic "USB-C 2", "MagSafe", "HDMI".
+2. The Mac's own `port-location` ("back-left"), read from the device-tree node that drives the port (an `hpmN` controller, up to four `IOService` levels above the port) when that node's `port-number` is the port's or it has none. It is written in the catalogue's words: a desktop face then a qualifier ("Rear (left)", "Rear (center)"), or a laptop side then a place along it ("Left Rear"). Unknown words are kept, capitalised. Ports without it (the plain USB ports of a Mac mini, older Macs) go on to step 3.
+3. Catalogue entry for `hw.model` with matching connector and number.
+4. Catalogue entry by rank among same-connector ports (non-contiguous numbering such as {1, 2, 4}).
+5. Capability heuristic on compact desktops and on models whose rows mix Thunderbolt and plain USB-C: "Rear" for Thunderbolt ports and "Front" for the others, when the catalogue's rows (or, for an unlisted Mac mini, the model alone) say so.
+6. Generic "USB-C 2", "MagSafe", "HDMI".
 
-The catalogue location from steps 2 to 4 is also kept apart from the label, as `PhysicalPort.catalogLocation`, so a renamed port keeps its place. `ChassisLayout` turns it into a face of the Mac (left, right, front, rear) and an order along it: laptop sides read "Rear/Center/Front"; desktop qualifiers ("leftmost" to "rightmost") order the rows of one connector. Catalogue rows for connectors macOS does not report (Ethernet, the power inlet, some SD slots) become passive slots. A port with no readable location is left unplaced.
+Ports that steps 2 to 5 give the same title are numbered in port order, which follows the hardware or catalogue placement where there is one and the port number otherwise: "Front · USB-C 1", "Front · USB-C 2". User and generic names are never numbered.
+
+The location from steps 2 to 5 is also kept apart from the label, as `PhysicalPort.catalogLocation`, so a renamed port keeps its place. `ChassisLayout` turns it into a face of the Mac (left, right, front, rear) and an order along it: laptop sides read "Rear/Center/Front"; desktop qualifiers ("leftmost" to "rightmost") order the rows of one connector. Catalogue rows for connectors macOS does not report (Ethernet, the power inlet, some SD slots) become passive slots. A port with no readable location is left unplaced.
 
 **USB device attribution** (most to least reliable):
 1. `UsbIOPort` path on an ancestor; parse the last path component `Port-<Type>@<hex>`.
