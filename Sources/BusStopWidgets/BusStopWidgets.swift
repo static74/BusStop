@@ -63,5 +63,6 @@ struct HelloWidget: Widget {
 struct BusStopWidgetBundle: WidgetBundle {
     var body: some Widget {
         HelloWidget()
+        PortsWidget()
     }
 }
