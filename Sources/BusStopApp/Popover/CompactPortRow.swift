@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The compact popover's port list (docs/SPEC.md §3.2): one card with a line

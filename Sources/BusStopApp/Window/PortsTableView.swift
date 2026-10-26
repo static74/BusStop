@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// One row of the Ports table. Plain values only, so key paths are Sendable

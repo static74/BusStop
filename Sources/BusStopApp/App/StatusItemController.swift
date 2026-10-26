@@ -4,6 +4,7 @@
 
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Owns the menu bar item, its popover and its right-click menu, and keeps
