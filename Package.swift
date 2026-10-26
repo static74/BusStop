@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "BusStopKit", targets: ["BusStopKit"]),
         .executable(name: "BusStopApp", targets: ["BusStopApp"]),
         .executable(name: "busstop", targets: ["BusStopCLI"]),
+        .executable(name: "BusStopWidgets", targets: ["BusStopWidgets"]),
     ],
     targets: [
         .target(
@@ -49,6 +50,19 @@ let package = Package(
             name: "BusStopCLI",
             dependencies: ["BusStopCore", "BusStopKit"],
             path: "Sources/BusStopCLI"
+        ),
+        // The desktop widget extension. scripts/build-app.sh wraps it in
+        // Contents/PlugIns/BusStopWidgets.appex.
+        .executableTarget(
+            name: "BusStopWidgets",
+            path: "Sources/BusStopWidgets",
+            linkerSettings: [
+                // An app extension starts in NSExtensionMain, as Xcode links it;
+                // starting in the WidgetBundle's own main crashes at launch.
+                .unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"]),
+                .linkedFramework("WidgetKit"),
+                .linkedFramework("SwiftUI"),
+            ]
         ),
         .testTarget(
             name: "BusStopCoreTests",
