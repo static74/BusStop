@@ -85,7 +85,7 @@ let package = Package(
             name: "BusStopCoreTests",
             dependencies: ["BusStopCore"],
             path: "Tests/BusStopCoreTests",
-            resources: [.copy("Fixtures/AnkerPrimeTB5.json")]
+            resources: [.copy("Fixtures/AnkerPrimeTB5.json"), .copy("Fixtures/MacMiniM4UgreenDock.json")]
         ),
         .testTarget(
             name: "BusStopKitTests",
