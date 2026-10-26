@@ -3,6 +3,8 @@ import BusStopCore
 import BusStopKit
 import Foundation
 import Observation
+import os
+import WidgetKit
 
 /// What is selected in the topology window.
 enum StoreSelection: Hashable {
@@ -74,6 +76,11 @@ final class PortStore {
     /// capture has been taken since the last start.
     @ObservationIgnored private var runningScenario: DemoScenario?
     @ObservationIgnored let historyFile: HistoryFile?
+    /// Nil in an ad hoc build, which has no App Group: the widgets then get no data.
+    @ObservationIgnored let widgetFile: WidgetPayloadFile?
+    @ObservationIgnored private var widgetGate = WidgetWriteGate()
+    /// Called after each payload write or delete; tests replace it.
+    @ObservationIgnored var reloadWidgets: () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
     /// Changes on every capture, so no view observes it.
     @ObservationIgnored private(set) var archive = HistoryArchive()
     /// True while `archive` holds demo data, which is never saved: exactly
@@ -120,10 +127,11 @@ final class PortStore {
     /// cable that keeps reconnecting does not rewrite the file every minute.
     static let eventSaveInterval: TimeInterval = 5 * 60
 
-    /// Only the app passes a `historyFile`; without one nothing is read or saved.
-    init(settings: AppSettings = .shared, historyFile: HistoryFile? = nil) {
+    /// Only the app passes a `historyFile` and a `widgetFile`; without them nothing is read or saved.
+    init(settings: AppSettings = .shared, historyFile: HistoryFile? = nil, widgetFile: WidgetPayloadFile? = nil) {
         self.settings = settings
         self.historyFile = historyFile
+        self.widgetFile = widgetFile
         observeScreenSleep()
     }
 
@@ -390,6 +398,7 @@ final class PortStore {
         eventsDirty = false
         powerDirty = false
         refreshHistorySummary()
+        deleteWidgetPayload()
     }
 
     /// Turning history off deletes the file (a newer version's too, since the
@@ -409,7 +418,43 @@ final class PortStore {
             historyFile?.delete()
             historyIsReadOnly = false
             historyDeletedByUser = true
+            deleteWidgetPayload()
         }
+    }
+
+    // MARK: Widgets
+
+    /// Writes what the widgets show when `WidgetWriteGate` says it is due. With
+    /// history off the payload leaves out the events and everything else taken
+    /// from the history, since it stays on disk.
+    private func publishToWidgets() {
+        guard let widgetFile,
+              widgetGate.shouldWrite(snapshot, events: events, portHealth: portHealth, now: Date()) else { return }
+        let keep = settings.keepHistory
+        let payload = WidgetPayload(
+            snapshot: snapshot,
+            recentPower: history.samples,
+            dayPower: keep ? archive.powerSamples(model: snapshot.machine.model,
+                                                  since: snapshot.capturedAt - WidgetPayload.dayPowerSpan,
+                                                  step: WidgetPayload.dayPowerStep) : [],
+            events: keep ? events : [],
+            portHealth: keep ? portHealth : [:]
+        )
+        do {
+            try widgetFile.write(payload)
+            reloadWidgets()
+        } catch {
+            Logger(subsystem: HistoryFile.folderName, category: "widgets")
+                .error("Could not write the widget payload: \(error, privacy: .public)")
+        }
+    }
+
+    /// The payload holds events, so it goes with the history; the next capture writes a new one.
+    private func deleteWidgetPayload() {
+        guard let widgetFile else { return }
+        widgetFile.delete()
+        widgetGate.reset()
+        reloadWidgets()
     }
 
     /// Reads the saved history once, straight into the archive: restored
@@ -629,6 +674,7 @@ final class PortStore {
         if let selection, !Self.exists(selection, in: built) {
             self.selection = Self.fallback(for: selection, in: built)
         }
+        publishToWidgets()
     }
 
     /// Where a selection that `snapshot` no longer has goes: to the dock when

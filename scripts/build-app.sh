@@ -17,7 +17,11 @@
 #   SIGN_IDENTITY  The codesign identity. Default "-", which signs ad hoc. A
 #                  Developer ID Application identity (its name or SHA-1 hash)
 #                  also gets a secure timestamp, which notarization needs; see
-#                  scripts/notarize.sh.
+#                  scripts/notarize.sh. With a team's identity (not ad hoc)
+#                  both Info.plists get the team ID as BusStopTeamID, and the
+#                  app and the extension both claim the App Group
+#                  <team>.io.github.static74.busstop, through which the app
+#                  hands the widgets their data.
 #
 # Layout of the bundle:
 #   Contents/Info.plist            from Support/Info.plist, version stamped
@@ -192,11 +196,40 @@ else
     log "Signing as $SIGN_IDENTITY with the hardened runtime"
 fi
 codesign "${sign_args[@]}" --identifier "$HELPER_IDENTIFIER" "$APP/Contents/Helpers/busstop"
+
+# The team ID is the signing certificate's OU, which codesign reports as
+# TeamIdentifier; an ad hoc signature has none, so there is no App Group either.
+TEAM_ID="$(codesign --display --verbose=2 "$APP/Contents/Helpers/busstop" 2>&1 \
+    | sed -nE 's/^TeamIdentifier=([A-Z0-9]+)$/\1/p')"
+WIDGETS_ENTITLEMENTS="Support/Widgets.entitlements"
+app_entitlements=()
+APP_GROUP=""
+if [[ -n "$TEAM_ID" ]]; then
+    APP_GROUP="$TEAM_ID.io.github.static74.busstop"
+    log "Team $TEAM_ID: App Group $APP_GROUP"
+    for plist in "$APP/Contents/Info.plist" "$APPEX/Contents/Info.plist"; do
+        plutil -replace BusStopTeamID -string "$TEAM_ID" "$plist"
+    done
+    # Since macOS 15 both processes must claim the group, the unsandboxed app included.
+    ENTITLEMENTS_DIR="$BUILD_DIR/entitlements"
+    rm -rf "$ENTITLEMENTS_DIR"
+    mkdir -p "$ENTITLEMENTS_DIR"
+    cp "$WIDGETS_ENTITLEMENTS" "$ENTITLEMENTS_DIR/widgets.entitlements"
+    plutil -create xml1 "$ENTITLEMENTS_DIR/app.entitlements"
+    for file in "$ENTITLEMENTS_DIR/widgets.entitlements" "$ENTITLEMENTS_DIR/app.entitlements"; do
+        /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" \
+            -c "Add :com.apple.security.application-groups:0 string $APP_GROUP" "$file"
+        plutil -lint "$file"
+    done
+    WIDGETS_ENTITLEMENTS="$ENTITLEMENTS_DIR/widgets.entitlements"
+    app_entitlements=(--entitlements "$ENTITLEMENTS_DIR/app.entitlements")
+fi
+
 # Nested code is signed first. macOS loads a widget extension only when it is
 # sandboxed, and lists it in the widget gallery only when it is signed by a
 # team: an ad hoc build bundles the widgets but the gallery leaves them out.
-codesign "${sign_args[@]}" --entitlements Support/Widgets.entitlements "$APPEX"
-codesign "${sign_args[@]}" "$APP"
+codesign "${sign_args[@]}" --entitlements "$WIDGETS_ENTITLEMENTS" "$APPEX"
+codesign "${sign_args[@]}" ${app_entitlements[@]+"${app_entitlements[@]}"} "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # MARK: Package
@@ -210,7 +243,7 @@ ditto "$APP" "$ZIP_ROOT/$APP_NAME.app"
 cp LICENSE "$ZIP_ROOT/LICENSE.txt"
 cp THIRD_PARTY_NOTICES.md "$ZIP_ROOT/THIRD_PARTY_NOTICES.md"
 ditto -c -k "$ZIP_ROOT" "$ZIP"
-rm -rf "$STAGE" "$ZIP_ROOT"
+rm -rf "$STAGE" "$ZIP_ROOT" "$BUILD_DIR/entitlements"
 
 log "Done"
 printf '  App:       %s\n' "$APP"
@@ -220,3 +253,4 @@ printf '  App archs: %s\n' "$(lipo -archs "$APP/Contents/MacOS/BusStop")"
 printf '  CLI archs: %s\n' "$(lipo -archs "$APP/Contents/Helpers/busstop")"
 printf '  Widgets:   %s\n' "$(lipo -archs "$APPEX/Contents/MacOS/BusStopWidgets")"
 printf '  Signed:    %s\n' "$([[ "$SIGN_IDENTITY" == "-" ]] && echo "ad hoc" || echo "$SIGN_IDENTITY")"
+printf '  App Group: %s\n' "${APP_GROUP:-none (no team)}"

@@ -71,7 +71,7 @@ let package = Package(
         // Contents/PlugIns/BusStopWidgets.appex.
         .executableTarget(
             name: "BusStopWidgets",
-            dependencies: ["BusStopUI"],
+            dependencies: ["BusStopCore", "BusStopUI"],
             path: "Sources/BusStopWidgets",
             linkerSettings: [
                 // An app extension starts in NSExtensionMain, as Xcode links it;

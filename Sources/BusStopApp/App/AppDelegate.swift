@@ -21,7 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = AppSettings.shared
-        let store = PortStore(settings: settings, historyFile: HistoryFile(directory: HistoryFile.standardDirectory))
+        let store = PortStore(settings: settings, historyFile: HistoryFile(directory: HistoryFile.standardDirectory),
+                              widgetFile: .appGroup())
         self.store = store
         WindowManager.shared.store = store
 
