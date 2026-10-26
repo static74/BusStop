@@ -30,6 +30,11 @@ struct PortIdentificationTests {
         #expect(PortIdentification.changedPort(from: Self.snapshot(), to: Self.snapshot(connected: [1, 2])) == nil)
     }
 
+    @Test func severalChangesAreAllListed() {
+        let changed = PortIdentification.changedPorts(from: Self.snapshot(), to: Self.snapshot(connected: [1, 3]))
+        #expect(changed == [PortKey(type: 2, number: 1), PortKey(type: 2, number: 3)])
+    }
+
     /// A device behind a hub on a port that stays connected still counts.
     @Test func aDeviceChangeOnAConnectedPortCounts() throws {
         let before = Self.snapshot(connected: [1])
@@ -57,7 +62,18 @@ struct PortIdentificationTests {
         let byNumber = Dictionary(uniqueKeysWithValues: ports.map { ($0["port_number"] as? Int ?? 0, $0) })
         #expect(byNumber[2]?["location"] as? String == "Rear (center)")
         #expect(byNumber[2]?["connector"] as? String == "usb-c")
-        #expect(ports.count == 3)
+        // Ports 1 and 3 match the Mac mini's catalogue only by rank, so only the named port goes in.
+        #expect(ports.count == 1)
+    }
+
+    /// A location matched only by rank is a guess, so it stays out of the entry.
+    @Test func catalogEntrySkipsRankGuesses() throws {
+        var snapshot = Self.snapshot(names: ["2/1": "Left"])
+        let index = try #require(snapshot.ports.firstIndex { $0.key.number == 3 })
+        snapshot.ports[index].label = PortLabel(location: "Right", source: .catalogRank, connector: "USB-C", number: 3)
+        let json = try PortIdentification.catalogEntry(for: snapshot)
+        #expect(json.contains("\"location\" : \"Left\""))
+        #expect(!json.contains("Right"))
     }
 
     /// Ports with no name of any kind are left out.

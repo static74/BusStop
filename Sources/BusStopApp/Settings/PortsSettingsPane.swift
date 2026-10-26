@@ -54,8 +54,20 @@ struct PortsSettingsPane: View {
         }
         .settingsPaneStyle()
         .onChange(of: store.snapshot) { _, snapshot in
-            guard let identifyBaseline, identifiedKey == nil else { return }
-            identifiedKey = PortIdentification.changedPort(from: identifyBaseline, to: snapshot)
+            guard let identifyBaseline else { return }
+            // Demo and live snapshots share port keys, so a switch would look like a plug.
+            guard snapshot.isDemo == identifyBaseline.isDemo else { return stopIdentifying() }
+            if let key = identifiedKey {
+                if snapshot.port(key) == nil { startIdentifying() }
+                return
+            }
+            let changed = PortIdentification.changedPorts(from: identifyBaseline, to: snapshot)
+            if changed.count == 1 {
+                identifiedKey = changed[0]
+            } else if changed.count > 1 {
+                // Several ports changed at once: start over from here rather than guess.
+                self.identifyBaseline = snapshot
+            }
         }
         .confirmationDialog("Reset every port name?", isPresented: $confirmReset) {
             Button("Reset Names", role: .destructive) { store.resetPortNames() }
@@ -88,7 +100,7 @@ struct PortsSettingsPane: View {
                 Button("Cancel") { stopIdentifying() }
             } else {
                 Button("Identify a Port…") { startIdentifying() }
-                    .disabled(store.snapshot.ports.isEmpty)
+                    .disabled(store.snapshot.ports.isEmpty || store.snapshot.isDemo)
             }
         } header: {
             Text("Identify a Port")

@@ -209,6 +209,8 @@ struct PortNameEditor: View {
             .accessibilityLabel("Reset name")
         }
         .onAppear(perform: sync)
+        // Buttons don't take focus on macOS, so Done or a closing panel would drop the typing.
+        .onDisappear { save(for: draftKey ?? port.key) }
         .onChange(of: port.key) { oldKey, _ in
             // A pending edit belongs to the port it was typed for.
             save(for: draftKey ?? oldKey)

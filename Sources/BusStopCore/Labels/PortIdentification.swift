@@ -7,11 +7,16 @@ public enum PortIdentification {
     /// between the two snapshots. Nil when no port changed, or when several
     /// did and the answer would be a guess.
     public static func changedPort(from before: HostSnapshot, to after: HostSnapshot) -> PortKey? {
-        let changed = after.ports.filter { port in
+        let changed = changedPorts(from: before, to: after)
+        return changed.count == 1 ? changed[0] : nil
+    }
+
+    /// Every port whose connection, active transports or devices differ.
+    public static func changedPorts(from before: HostSnapshot, to after: HostSnapshot) -> [PortKey] {
+        after.ports.filter { port in
             guard let old = before.port(port.key) else { return false }
             return state(of: old) != state(of: port)
-        }
-        return changed.count == 1 ? changed[0].key : nil
+        }.map(\.key)
     }
 
     struct PortState: Equatable {
@@ -28,12 +33,14 @@ public enum PortIdentification {
 
     /// This Mac's ports as a PortScope `MacPortLocations.json` entry, in the
     /// snapshot's port order, with each port's current name as its location.
-    /// Ports without a name are left out. Built locally for the user to copy;
+    /// Ports without a name are left out, and so are ports placed only by
+    /// rank, whose location is a guess. Built locally for the user to copy;
     /// nothing is sent anywhere.
     public static func catalogEntry(for snapshot: HostSnapshot) throws -> String {
         let model = snapshot.machine.model
         let ports = snapshot.ports.compactMap { port -> CatalogPort? in
-            guard port.kind != .unknown, let location = port.label.location else { return nil }
+            guard port.kind != .unknown, port.label.source != .catalogRank,
+                  let location = port.label.location else { return nil }
             // PortScope spells the SD slot "sd-card"; see scripts/generate-port-catalog.py.
             let connector = port.kind == .sdCard ? "sd-card" : port.kind.catalogConnector
             return CatalogPort(connector: connector, port_number: port.number, location: location,
