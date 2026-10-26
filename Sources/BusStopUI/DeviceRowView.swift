@@ -2,31 +2,41 @@ import BusStopCore
 import SwiftUI
 
 /// Layout constants for device rows.
-enum DeviceRowMetrics {
+public enum DeviceRowMetrics {
     /// Horizontal step per tree level.
-    static let indent: CGFloat = 16
+    public static let indent: CGFloat = 16
     /// Width reserved for the disclosure chevron.
-    static let chevronWidth: CGFloat = 14
+    public static let chevronWidth: CGFloat = 14
     /// Where the guide line sits inside one indent step.
-    static let guideOffset: CGFloat = 6
+    public static let guideOffset: CGFloat = 6
 }
 
 /// One device in a port's tree: chevron, icon, name with a caption, speed
 /// chip and allocated power. Draws thin turquoise indentation guides for
 /// nested devices. A departing device is shown dimmed with "Disconnected".
-struct DeviceRowView: View {
-    var device: DeviceNode
-    var depth: Int
+public struct DeviceRowView: View {
+    public var device: DeviceNode
+    public var depth: Int
     /// The port the device hangs off; nil for unattributed devices.
-    var port: PhysicalPort?
-    var isExpanded: Bool = true
+    public var port: PhysicalPort?
+    public var isExpanded: Bool = true
     /// Set for devices with children; toggles their visibility.
-    var onToggle: (() -> Void)?
-    var isDeparting: Bool = false
+    public var onToggle: (() -> Void)?
+    public var isDeparting: Bool = false
 
     @Environment(\.colorSchemeContrast) private var contrast
 
-    var body: some View {
+    public init(device: DeviceNode, depth: Int, port: PhysicalPort?, isExpanded: Bool = true,
+                onToggle: (() -> Void)? = nil, isDeparting: Bool = false) {
+        self.device = device
+        self.depth = depth
+        self.port = port
+        self.isExpanded = isExpanded
+        self.onToggle = onToggle
+        self.isDeparting = isDeparting
+    }
+
+    public var body: some View {
         HStack(alignment: .center, spacing: 8) {
             chevron
             DeviceIcon(kind: device.kind, size: 22, dimmed: isDeparting)
@@ -137,87 +147,17 @@ private struct IndentGuides: View {
     }
 }
 
-/// A device and, when expanded, its children, recursively. Containers
-/// (hubs, docks, displays with hubs) start expanded.
-///
-/// Feed it `PortStore.devicesWithGhosts(on:)` and `PortStore.departingIDs`:
-/// a device that just left stays in its slot as a dimmed "Disconnected" row,
-/// together with everything that left with it.
-struct DeviceTreeNode: View {
-    var device: DeviceNode
-    var depth: Int
-    var port: PhysicalPort?
-    /// Devices that just left (see `PortStore.departingIDs`).
-    var departingIDs: Set<String> = []
-    /// True when an ancestor left, so this device left with it.
-    var isInsideGhost: Bool = false
-
-    @State private var isExpanded = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        let isDeparting = isInsideGhost || departingIDs.contains(device.id)
-        VStack(alignment: .leading, spacing: 0) {
-            if isDeparting {
-                DeviceRowView(device: device, depth: depth, port: port, isDeparting: true)
-            } else {
-                DeviceRowView(device: device, depth: depth, port: port, isExpanded: isExpanded,
-                              onToggle: toggleAction)
-                    .deviceContextMenu(device: device, port: port)
-            }
-            if isExpanded {
-                ForEach(device.children) { child in
-                    DeviceTreeNode(device: child, depth: depth + 1, port: port, departingIDs: departingIDs,
-                                   isInsideGhost: isDeparting)
-                        .transition(DeviceRowTransition.make(reduceMotion: reduceMotion))
-                }
-            }
-        }
-    }
-
-    /// Nil for leaf devices, so their rows show no chevron.
-    private var toggleAction: (() -> Void)? {
-        guard !device.children.isEmpty else { return nil }
-        return { toggle() }
-    }
-
-    private func toggle() {
-        withAnimation(reduceMotion ? nil : DeviceRowTransition.spring) {
-            isExpanded.toggle()
-        }
-    }
-}
-
 /// Insert and remove motion for device rows (docs/SPEC.md §4.5).
-enum DeviceRowTransition {
-    static let spring = Animation.spring(response: 0.35, dampingFraction: 0.86)
+public enum DeviceRowTransition {
+    public static let spring = Animation.spring(response: 0.35, dampingFraction: 0.86)
 
     /// Fade and slide 8 pt on insert, fade on removal; fade only under
     /// Reduce Motion.
-    static func make(reduceMotion: Bool) -> AnyTransition {
+    public static func make(reduceMotion: Bool) -> AnyTransition {
         if reduceMotion { return .opacity }
         return .asymmetric(
             insertion: .opacity.combined(with: .offset(y: -8)),
             removal: .opacity
         )
-    }
-}
-
-extension View {
-    /// "Show in Topology", "Copy Name", "Copy Details".
-    func deviceContextMenu(device: DeviceNode, port: PhysicalPort?) -> some View {
-        contextMenu {
-            Button("Show in Topology") {
-                WindowManager.shared.showTopology(selecting: .device(device.id))
-            }
-            Divider()
-            Button("Copy Name") {
-                PopoverText.copyToPasteboard(device.name)
-            }
-            Button("Copy Details") {
-                let redact = AppSettings.shared.redactExports
-                PopoverText.copyToPasteboard(PopoverText.details(for: device, port: port, redactSerials: redact))
-            }
-        }
     }
 }

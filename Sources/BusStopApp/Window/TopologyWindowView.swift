@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Root view of the topology window: a sidebar of pages, a detail area (the

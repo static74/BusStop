@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Opens and tracks the app's windows (topology, settings, about) and handles
