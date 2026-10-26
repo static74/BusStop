@@ -16,15 +16,15 @@ Writes:
     docs/images/icon.png       1024 px
     docs/images/icon-256.png   256 px
 
-Needs Pillow (pip install Pillow).
+Needs Pillow (pip install Pillow) and macOS's iconutil.
 """
 
 from __future__ import annotations
 
-import io
 import math
-import struct
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -240,18 +240,20 @@ def draw_icon() -> Image.Image:
 
 # MARK: Output
 
-# Iconset slots in the order iconutil writes them: (OSType, pixel size).
-ICNS_SLOTS = [
-    (b"icp4", 16),    # icon_16x16
-    (b"ic11", 32),    # icon_16x16@2x
-    (b"icp5", 32),    # icon_32x32
-    (b"ic12", 64),    # icon_32x32@2x
-    (b"ic07", 128),   # icon_128x128
-    (b"ic13", 256),   # icon_128x128@2x
-    (b"ic08", 256),   # icon_256x256
-    (b"ic14", 512),   # icon_256x256@2x
-    (b"ic09", 512),   # icon_512x512
-    (b"ic10", 1024),  # icon_512x512@2x
+# Iconset file names and their pixel sizes. iconutil chooses the .icns slot
+# for each; hand-picked slots (icp4 and icp5 for PNG at 16 and 32 px) drew as
+# noise in the widget gallery's small icon.
+ICONSET = [
+    ("icon_16x16", 16),
+    ("icon_16x16@2x", 32),
+    ("icon_32x32", 32),
+    ("icon_32x32@2x", 64),
+    ("icon_128x128", 128),
+    ("icon_128x128@2x", 256),
+    ("icon_256x256", 256),
+    ("icon_256x256@2x", 512),
+    ("icon_512x512", 512),
+    ("icon_512x512@2x", 1024),
 ]
 
 
@@ -265,23 +267,14 @@ def resized(image: Image.Image, size: int) -> Image.Image:
     return result
 
 
-def png_bytes(image: Image.Image) -> bytes:
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
-
-
 def write_icns(image: Image.Image, path: Path) -> None:
-    """Writes an .icns container with PNG data in every iconset slot."""
-    cache: dict[int, bytes] = {}
-    chunks = []
-    for ostype, size in ICNS_SLOTS:
-        if size not in cache:
-            cache[size] = png_bytes(resized(image, size))
-        data = cache[size]
-        chunks.append(ostype + struct.pack(">I", len(data) + 8) + data)
-    body = b"".join(chunks)
-    path.write_bytes(b"icns" + struct.pack(">I", len(body) + 8) + body)
+    """Writes an .iconset of every size and converts it with iconutil."""
+    with tempfile.TemporaryDirectory() as folder:
+        iconset = Path(folder) / "AppIcon.iconset"
+        iconset.mkdir()
+        for name, size in ICONSET:
+            resized(image, size).save(iconset / f"{name}.png", optimize=True)
+        subprocess.run(["iconutil", "-c", "icns", "-o", str(path), str(iconset)], check=True)
 
 
 def main() -> None:

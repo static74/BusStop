@@ -11,3 +11,4 @@ xcuserdata/
 
 # Local agent worktrees and tool state
 .claude/
+__pycache__/
