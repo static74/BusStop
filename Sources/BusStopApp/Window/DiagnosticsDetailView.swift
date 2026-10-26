@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The Diagnostics page: one card per finding, most severe first, with a

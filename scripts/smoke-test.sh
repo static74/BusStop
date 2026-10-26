@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Checks a bundle made by scripts/build-app.sh: layout, licence notices,
-# Info.plist, signature and icon; the zip and disk image next to it; the bundled CLI against
-# every demo scenario and against this Mac; and that the app is still running
-# a few seconds after launch.
+# Info.plist, signature, icon and the widget extension; the zip and disk image
+# next to it; the bundled CLI against every demo scenario and against this
+# Mac; and that the app is still running a few seconds after launch.
 #
 # Usage: scripts/smoke-test.sh [--skip-live] [path/to/Bus Stop.app]
 #
@@ -34,6 +34,8 @@ done
 
 CLI="$APP/Contents/Helpers/busstop"
 APP_BINARY="$APP/Contents/MacOS/BusStop"
+APPEX="$APP/Contents/PlugIns/BusStopWidgets.appex"
+WIDGETS_BINARY="$APPEX/Contents/MacOS/BusStopWidgets"
 PLIST="$APP/Contents/Info.plist"
 ZIP="$(dirname "$APP")/BusStop.zip"
 DMG="$(dirname "$APP")/BusStop.dmg"
@@ -43,7 +45,7 @@ CLI_TIME_LIMIT=120
 FAILURES=()
 CHECKS=0
 
-for tool in plutil codesign lipo iconutil python3 zipinfo; do
+for tool in plutil codesign lipo otool objdump iconutil python3 zipinfo; do
     if ! command -v "$tool" > /dev/null 2>&1; then
         printf 'smoke-test.sh: %s was not found; run this on macOS with Xcode installed.\n' "$tool" >&2
         exit 1
@@ -220,10 +222,12 @@ if [[ ! -d "$APP" ]]; then
 fi
 find "$APP" -print | sed "s|^$ROOT/||"
 
-for path in "Contents/Info.plist" "Contents/PkgInfo" "Contents/Resources/AppIcon.icns"; do
+for path in "Contents/Info.plist" "Contents/PkgInfo" "Contents/Resources/AppIcon.icns" \
+    "Contents/PlugIns/BusStopWidgets.appex/Contents/Info.plist"; do
     if [[ -f "$APP/$path" ]]; then pass "$path exists"; else failed "$path is missing"; fi
 done
-for path in "Contents/MacOS/BusStop" "Contents/Helpers/busstop"; do
+for path in "Contents/MacOS/BusStop" "Contents/Helpers/busstop" \
+    "Contents/PlugIns/BusStopWidgets.appex/Contents/MacOS/BusStopWidgets"; do
     if [[ -x "$APP/$path" ]]; then pass "$path is executable"; else failed "$path is missing or not executable"; fi
 done
 if [[ "$(cat "$APP/Contents/PkgInfo" 2> /dev/null)" == "APPL????" ]]; then
@@ -326,7 +330,7 @@ if codesign --verify --deep --strict --verbose=2 "$APP"; then
 else
     failed "the signature does not verify"
 fi
-for binary in "$APP" "$CLI"; do
+for binary in "$APP" "$CLI" "$APPEX"; do
     details="$(codesign --display --verbose=2 "$binary" 2>&1)"
     printf '%s\n' "$details"
     if grep -q "runtime" <<< "$details"; then
@@ -345,6 +349,47 @@ if [[ -n "$APP_ARCHS" && "$APP_ARCHS" == "$CLI_ARCHS" ]]; then
 else
     failed "app ($APP_ARCHS) and CLI ($CLI_ARCHS) architectures differ"
 fi
+
+section "Widget extension: $APPEX"
+if codesign --verify --strict --verbose=2 "$APPEX"; then
+    pass "the widget extension's signature verifies"
+else
+    failed "the widget extension's signature does not verify"
+fi
+# macOS loads a widget extension only when it is sandboxed.
+ENTITLEMENTS="$(codesign --display --entitlements - --xml "$APPEX" 2> /dev/null)"
+printf '%s\n' "$ENTITLEMENTS"
+if grep -q "com.apple.security.app-sandbox" <<< "$ENTITLEMENTS"; then
+    pass "the widget extension is sandboxed"
+else
+    failed "the widget extension lacks com.apple.security.app-sandbox"
+fi
+WIDGETS_ARCHS="$(lipo -archs "$WIDGETS_BINARY" 2> /dev/null || true)"
+if [[ -n "$WIDGETS_ARCHS" && "$WIDGETS_ARCHS" == "$APP_ARCHS" ]]; then
+    pass "the widget extension is built for the app's architectures ($WIDGETS_ARCHS)"
+else
+    failed "widget extension ($WIDGETS_ARCHS) and app ($APP_ARCHS) architectures differ"
+fi
+# A widget that starts in its WidgetBundle's own main crashes at launch. The
+# entry point (LC_MAIN) of an extension linked with -e _NSExtensionMain is a
+# stub that jumps to the imported symbol, as in Xcode-built extensions.
+for arch in $WIDGETS_ARCHS; do
+    read -r text_address entry_offset < <(otool -arch "$arch" -l "$WIDGETS_BINARY" | awk '
+        /segname __TEXT$/ && !text { getline; text = $2 }
+        /cmd LC_MAIN/ { getline; getline; entry = $2 }
+        END { print text, entry }')
+    entry_symbol=""
+    if [[ -n "$text_address" && -n "$entry_offset" ]]; then
+        entry_address="$(printf '%x' $((text_address + entry_offset)))"
+        entry_symbol="$(objdump --macho --arch="$arch" -d --no-show-raw-insn --section=__TEXT,__stubs "$WIDGETS_BINARY" \
+            | grep -A2 "^$entry_address:" | sed -nE 's/.*literal pool symbol address: ([^ ]+).*/\1/p' | head -n 1)"
+    fi
+    if [[ "$entry_symbol" == "_NSExtensionMain" ]]; then
+        pass "the widget extension ($arch) starts in _NSExtensionMain"
+    else
+        failed "the widget extension ($arch) starts in '${entry_symbol:-its own code}', not _NSExtensionMain"
+    fi
+done
 
 section "Icon"
 ICONSET="$OUT/AppIcon.iconset"

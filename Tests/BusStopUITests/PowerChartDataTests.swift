@@ -1,7 +1,7 @@
 import BusStopCore
 import Foundation
 import Testing
-@testable import BusStopApp
+@testable import BusStopUI
 
 @MainActor
 @Suite("Power chart data")

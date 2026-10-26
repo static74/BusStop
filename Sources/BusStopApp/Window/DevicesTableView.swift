@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// One row of the All Devices table. Plain values only, so every column sorts

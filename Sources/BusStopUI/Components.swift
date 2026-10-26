@@ -1,24 +1,11 @@
 import BusStopCore
 import SwiftUI
 
-// Shared building blocks for the popover, the topology window and settings.
-// Content cards are solid Lagoon surfaces; Liquid Glass is reserved for
-// controls (see docs/SPEC.md §4.1).
+// Shared building blocks for the popover, the topology window, settings and
+// the widgets. Content cards are solid Lagoon surfaces; Liquid Glass is
+// reserved for controls (see docs/SPEC.md §4.1).
 
-// MARK: - Backgrounds and cards
-
-/// The Lagoon background at the user's chosen opacity. Under Reduce Transparency
-/// it is always fully opaque.
-struct LagoonBackground: View {
-    var opacity: Double
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        Lagoon.background
-            .opacity(reduceTransparency ? 1 : opacity)
-            .ignoresSafeArea()
-    }
-}
+// MARK: - Cards
 
 struct LagoonCardModifier: ViewModifier {
     var isHighlighted: Bool = false
@@ -40,35 +27,8 @@ struct LagoonCardModifier: ViewModifier {
 
 extension View {
     /// Solid Lagoon card with a thin turquoise hairline.
-    func lagoonCard(highlighted: Bool = false, padding: CGFloat = 12) -> some View {
+    public func lagoonCard(highlighted: Bool = false, padding: CGFloat = 12) -> some View {
         modifier(LagoonCardModifier(isHighlighted: highlighted, padding: padding))
-    }
-}
-
-// MARK: - Glass controls
-
-/// A circular glass icon button for header and toolbar clusters.
-/// Place several inside one `GlassEffectContainer`.
-struct GlassIconButton: View {
-    var systemName: String
-    var help: String
-    /// Tint strength; nil uses the Appearance setting.
-    var tint: Double? = nil
-    var action: () -> Void
-
-    var body: some View {
-        let tintStrength = tint ?? AppSettings.shared.glassTint
-        Button(action: action) {
-            Image(systemName: systemName)
-                .lagoonFont(size: 13, weight: .semibold)
-                .foregroundStyle(Lagoon.textPrimary)
-                .frame(width: 30, height: 30)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .glassEffect(.regular.tint(Lagoon.accent.opacity(tintStrength)).interactive(), in: .circle)
-        .help(help)
-        .accessibilityLabel(help)
     }
 }
 
@@ -79,14 +39,19 @@ struct GlassIconButton: View {
 /// The capsule's fill and outline use the link-speed ramp; the text uses
 /// `Lagoon.linkTextColor`, which stays legible for the slowest tiers. Under
 /// Increase Contrast the text is primary and the outline stronger.
-struct SpeedChip: View {
-    var link: LinkInfo
+public struct SpeedChip: View {
+    public var link: LinkInfo
     /// Compact shows only the rate ("10 Gb/s"); full shows "USB 3.2 Gen 2 @ 10 Gb/s".
-    var compact: Bool = true
+    public var compact: Bool = true
 
     @Environment(\.colorSchemeContrast) private var contrast
 
-    var body: some View {
+    public init(link: LinkInfo, compact: Bool = true) {
+        self.link = link
+        self.compact = compact
+    }
+
+    public var body: some View {
         let tier = link.tier
         let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
         let isIncreased = contrast == .increased
@@ -105,50 +70,24 @@ struct SpeedChip: View {
     }
 
     /// "USB 3.2 Gen 2 @ 10 Gb/s".
-    static func helpText(_ link: LinkInfo) -> String {
+    public static func helpText(_ link: LinkInfo) -> String {
         link.label
-    }
-}
-
-/// The power across a link in the map's Power mode, in the link's colour:
-/// "47 W" for a port's reading, "≤4.5 W" for a USB power budget.
-struct PowerChip: View {
-    var power: GraphEdgePower
-
-    @Environment(\.colorSchemeContrast) private var contrast
-
-    var body: some View {
-        let tier = power.tier
-        let color = Lagoon.powerColor(tier)
-        let isIncreased = contrast == .increased
-        let help = Self.helpText(power)
-        Text(power.label)
-            .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
-            .lineLimit(1)
-            .foregroundStyle(isIncreased ? Lagoon.textPrimary : Lagoon.powerTextColor(tier))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2.5)
-            .background(Capsule().fill(color.opacity(0.12)))
-            .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35), lineWidth: isIncreased ? 1 : 0.75))
-            .chipHelp(help, id: "power")
-            .accessibilityLabel(Text(help))
-    }
-
-    /// "47 W measured", or "Up to 4.5 W budgeted for USB devices".
-    static func helpText(_ power: GraphEdgePower) -> String {
-        power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
     }
 }
 
 /// Capsule naming an active transport, with its speed when known. Colours
 /// follow the same rules as `SpeedChip`.
-struct TransportChip: View {
-    var transport: TransportInfo
+public struct TransportChip: View {
+    public var transport: TransportInfo
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
 
-    var body: some View {
+    public init(transport: TransportInfo) {
+        self.transport = transport
+    }
+
+    public var body: some View {
         let tier = transport.link?.tier
         let color = tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
         let isIncreased = contrast == .increased
@@ -174,22 +113,28 @@ struct TransportChip: View {
 
     /// The transport's link ("USB 3.2 Gen 2 @ 10 Gb/s"), or its name when
     /// the link is unknown.
-    static func helpText(_ transport: TransportInfo) -> String {
+    public static func helpText(_ transport: TransportInfo) -> String {
         transport.link?.label ?? transport.kind.displayName
     }
 }
 
 /// "↓ 61 W" (into the Mac) or "↑ 4.5 W" (out to a device).
-struct PowerBadge: View {
-    var milliwatts: Int
-    var direction: PowerDirection
+public struct PowerBadge: View {
+    public var milliwatts: Int
+    public var direction: PowerDirection
     /// Budgets and contracts are shown slightly dimmer than measurements
     /// (Dark only; in Light the help text tells them apart).
-    var isMeasured: Bool = true
+    public var isMeasured: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
 
-    var body: some View {
+    public init(milliwatts: Int, direction: PowerDirection, isMeasured: Bool = true) {
+        self.milliwatts = milliwatts
+        self.direction = direction
+        self.isMeasured = isMeasured
+    }
+
+    public var body: some View {
         let color = Lagoon.powerColor(direction)
         HStack(spacing: 3) {
             Image(systemName: arrowName)
@@ -218,7 +163,7 @@ struct PowerBadge: View {
     }
 
     /// "61 W into the Mac", "4.5 W to devices (allocated)".
-    static func helpText(milliwatts: Int, direction: PowerDirection, isMeasured: Bool) -> String {
+    public static func helpText(milliwatts: Int, direction: PowerDirection, isMeasured: Bool) -> String {
         let watts = Format.power(milliwatts: milliwatts)
         switch direction {
         case .input: return "\(watts) into the Mac" + (isMeasured ? "" : " (contract)")
@@ -231,7 +176,7 @@ struct PowerBadge: View {
 extension EnvironmentValues {
     /// False on the map, where chips publish a `GraphTooltipRegion` for the
     /// map's own tooltip instead of using the system's (see `GraphTooltips.swift`).
-    @Entry var showsChipHelp = true
+    @Entry public var showsChipHelp = true
 }
 
 /// A chip's explanation on hover: the system tooltip, or on the map (where
@@ -252,17 +197,76 @@ struct ChipHelpModifier: ViewModifier {
 }
 
 extension View {
-    func chipHelp(_ text: String, id: String) -> some View {
+    public func chipHelp(_ text: String, id: String) -> some View {
         modifier(ChipHelpModifier(text: text, id: id))
     }
 }
 
-/// Ring that glows turquoise when something is connected (the glow is Dark only).
-struct StatusRing: View {
-    var isActive: Bool
-    var size: CGFloat = 12
+// MARK: - Map tooltip regions
 
-    var body: some View {
+/// A chip or badge on the map and its tooltip, in layout coordinates. The
+/// map's tooltip itself (`GraphTooltip`, `GraphTooltipState`) is in the app.
+public nonisolated struct GraphTooltipRegion: Equatable, Sendable {
+    /// Unique on the map: the card or link, then the chip ("port:3/power").
+    public var id: String
+    public var text: String
+    public var rect: CGRect
+
+    public init(id: String, text: String, rect: CGRect) {
+        self.id = id
+        self.text = text
+        self.rect = rect
+    }
+
+    /// The coordinate space of one card (or one link chip) before the zoom
+    /// (`GraphTooltip.space` in the app).
+    public static let space = "graphTooltipSpace"
+}
+
+/// Every chip on the map that has a tooltip.
+public nonisolated struct GraphTooltipRegionsKey: PreferenceKey {
+    public static let defaultValue: [GraphTooltipRegion] = []
+
+    public static func reduce(value: inout [GraphTooltipRegion], nextValue: () -> [GraphTooltipRegion]) {
+        value += nextValue()
+    }
+}
+
+extension View {
+    /// Publishes this view as a tooltip region, measured in the enclosing
+    /// `GraphTooltip.space`.
+    public func graphTooltip(_ text: String, id: String) -> some View {
+        modifier(GraphTooltipModifier(text: text, id: id))
+    }
+}
+
+/// Keeps the view's rectangle in `GraphTooltip.space` and publishes it.
+/// That rectangle moves only when the card's content does, not when the map
+/// pans or zooms, so nothing here runs for a frame of a pan or zoom.
+struct GraphTooltipModifier: ViewModifier {
+    var text: String
+    var id: String
+    @State private var rect: CGRect?
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(GraphTooltipRegion.space)) } action: { rect = $0 }
+            .preference(key: GraphTooltipRegionsKey.self,
+                        value: rect.map { [GraphTooltipRegion(id: id, text: text, rect: $0)] } ?? [])
+    }
+}
+
+/// Ring that glows turquoise when something is connected (the glow is Dark only).
+public struct StatusRing: View {
+    public var isActive: Bool
+    public var size: CGFloat = 12
+
+    public init(isActive: Bool, size: CGFloat = 12) {
+        self.isActive = isActive
+        self.size = size
+    }
+
+    public var body: some View {
         ZStack {
             Circle()
                 .strokeBorder(isActive ? Lagoon.accent : Lagoon.accentMuted, lineWidth: size * 0.18)
@@ -292,18 +296,24 @@ struct LagoonGlowModifier: ViewModifier {
 
 extension View {
     /// `.shadow(color:radius:)` drawn in Dark only.
-    func lagoonGlow(_ color: Color, radius: CGFloat) -> some View {
+    public func lagoonGlow(_ color: Color, radius: CGFloat) -> some View {
         modifier(LagoonGlowModifier(color: color, radius: radius))
     }
 }
 
 /// Icon tile for a device kind.
-struct DeviceIcon: View {
-    var kind: DeviceKind
-    var size: CGFloat = 22
-    var dimmed: Bool = false
+public struct DeviceIcon: View {
+    public var kind: DeviceKind
+    public var size: CGFloat = 22
+    public var dimmed: Bool = false
 
-    var body: some View {
+    public init(kind: DeviceKind, size: CGFloat = 22, dimmed: Bool = false) {
+        self.kind = kind
+        self.size = size
+        self.dimmed = dimmed
+    }
+
+    public var body: some View {
         Image(systemName: kind.symbolName)
             .lagoonFont(size: size * 0.52, weight: .medium)
             .foregroundStyle(dimmed ? Lagoon.textTertiary : Lagoon.accent)
@@ -317,12 +327,18 @@ struct DeviceIcon: View {
 }
 
 /// Icon tile for a port connector.
-struct PortIcon: View {
-    var kind: PortKind
-    var isActive: Bool
-    var size: CGFloat = 26
+public struct PortIcon: View {
+    public var kind: PortKind
+    public var isActive: Bool
+    public var size: CGFloat = 26
 
-    var body: some View {
+    public init(kind: PortKind, isActive: Bool, size: CGFloat = 26) {
+        self.kind = kind
+        self.isActive = isActive
+        self.size = size
+    }
+
+    public var body: some View {
         Image(systemName: kind.symbolName)
             .lagoonFont(size: size * 0.5, weight: .semibold)
             .foregroundStyle(isActive ? Lagoon.accent : Lagoon.textTertiary)
@@ -342,12 +358,18 @@ struct PortIcon: View {
 // MARK: - Charts
 
 /// A minimal line sparkline with a soft turquoise fill.
-struct Sparkline: View {
-    var values: [Double]
-    var color: Color = Lagoon.accent
-    var lineWidth: CGFloat = 1.5
+public struct Sparkline: View {
+    public var values: [Double]
+    public var color: Color = Lagoon.accent
+    public var lineWidth: CGFloat = 1.5
 
-    var body: some View {
+    public init(values: [Double], color: Color = Lagoon.accent, lineWidth: CGFloat = 1.5) {
+        self.values = values
+        self.color = color
+        self.lineWidth = lineWidth
+    }
+
+    public var body: some View {
         GeometryReader { proxy in
             let points = normalizedPoints(in: proxy.size)
             if points.count >= 2 {
@@ -384,67 +406,5 @@ struct Sparkline: View {
             let y = size.height - CGFloat((value - minValue) / span) * (size.height - lineWidth) - lineWidth / 2
             return CGPoint(x: CGFloat(index) * step, y: y)
         }
-    }
-}
-
-// MARK: - Text rows
-
-struct SectionHeader: View {
-    var title: String
-    var trailing: String? = nil
-
-    var body: some View {
-        HStack {
-            Text(title.uppercased())
-                .tracking(0.8)
-                .lagoonFont(.caption2, weight: .bold, design: .rounded)
-                .foregroundStyle(Lagoon.textTertiary)
-            Spacer()
-            if let trailing {
-                Text(trailing)
-                    .lagoonFont(.caption2, monospacedDigits: true)
-                    .foregroundStyle(Lagoon.textTertiary)
-            }
-        }
-        .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// Centered empty-state message.
-struct EmptyStateView: View {
-    var systemName: String
-    var title: String
-    var message: String
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: systemName)
-                .lagoonFont(size: 34, weight: .light)
-                .foregroundStyle(Lagoon.accent.opacity(0.7))
-            Text(title)
-                .lagoonFont(.headline, weight: .semibold)
-                .foregroundStyle(Lagoon.textPrimary)
-            Text(message)
-                .lagoonFont(.callout)
-                .foregroundStyle(Lagoon.textSecondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// Small "DEMO" capsule shown while demo mode is on.
-struct DemoBadge: View {
-    var body: some View {
-        Text("DEMO")
-            .tracking(1)
-            .lagoonFont(size: 9, weight: .heavy, design: .rounded)
-            .foregroundStyle(Lagoon.onAccent)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(Lagoon.accent))
-            .help("Showing a demo scenario. Turn off in Settings › Advanced.")
     }
 }

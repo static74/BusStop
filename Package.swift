@@ -4,7 +4,8 @@
 //
 // BusStopCore holds the parsing and topology logic with no hardware access or
 // UI, so its tests run on saved captures and demo data. IOKit lives in
-// BusStopKit, and AppKit and SwiftUI in the app.
+// BusStopKit, AppKit and SwiftUI in the app, and the views the app shares
+// with the widget extension in BusStopUI.
 
 import PackageDescription
 
@@ -14,8 +15,10 @@ let package = Package(
     products: [
         .library(name: "BusStopCore", targets: ["BusStopCore"]),
         .library(name: "BusStopKit", targets: ["BusStopKit"]),
+        .library(name: "BusStopUI", targets: ["BusStopUI"]),
         .executable(name: "BusStopApp", targets: ["BusStopApp"]),
         .executable(name: "busstop", targets: ["BusStopCLI"]),
+        .executable(name: "BusStopWidgets", targets: ["BusStopWidgets"]),
     ],
     targets: [
         .target(
@@ -31,9 +34,23 @@ let package = Package(
                 .linkedFramework("CoreGraphics"),
             ]
         ),
+        // Lagoon tokens and the views that render plain values, shared by
+        // the app and the widget extension.
+        .target(
+            name: "BusStopUI",
+            dependencies: ["BusStopCore"],
+            path: "Sources/BusStopUI",
+            swiftSettings: [
+                .defaultIsolation(MainActor.self),
+            ],
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("SwiftUI"),
+            ]
+        ),
         .executableTarget(
             name: "BusStopApp",
-            dependencies: ["BusStopCore", "BusStopKit"],
+            dependencies: ["BusStopCore", "BusStopKit", "BusStopUI"],
             path: "Sources/BusStopApp",
             swiftSettings: [
                 .defaultIsolation(MainActor.self),
@@ -50,6 +67,20 @@ let package = Package(
             dependencies: ["BusStopCore", "BusStopKit"],
             path: "Sources/BusStopCLI"
         ),
+        // The desktop widget extension. scripts/build-app.sh wraps it in
+        // Contents/PlugIns/BusStopWidgets.appex.
+        .executableTarget(
+            name: "BusStopWidgets",
+            dependencies: ["BusStopCore", "BusStopUI"],
+            path: "Sources/BusStopWidgets",
+            linkerSettings: [
+                // An app extension starts in NSExtensionMain, as Xcode links it;
+                // starting in the WidgetBundle's own main crashes at launch.
+                .unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"]),
+                .linkedFramework("WidgetKit"),
+                .linkedFramework("SwiftUI"),
+            ]
+        ),
         .testTarget(
             name: "BusStopCoreTests",
             dependencies: ["BusStopCore"],
@@ -63,8 +94,13 @@ let package = Package(
         ),
         .testTarget(
             name: "BusStopAppTests",
-            dependencies: ["BusStopApp"],
+            dependencies: ["BusStopApp", "BusStopUI"],
             path: "Tests/BusStopAppTests"
+        ),
+        .testTarget(
+            name: "BusStopUITests",
+            dependencies: ["BusStopUI", "BusStopCore"],
+            path: "Tests/BusStopUITests"
         ),
         .testTarget(
             name: "BusStopCLITests",
