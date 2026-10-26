@@ -232,7 +232,9 @@ VoiceOver labels on every card and graph node ("Left Front USB-C port, Samsung T
 |---|---|---|
 | `BusStopCore` | macOS | Pure Swift. Raw capture model (`RawSnapshot`), output model (`HostSnapshot`), `TopologyBuilder`, port labelling and catalogue, formatters, diagnostics, event diffing, power history, the saved history's format (`HistoryArchive`), export, demo scenarios. No IOKit, AppKit or SwiftUI. Fully unit-tested. |
 | `BusStopKit` | macOS | IOKit capture (`RegistryCapture` → `RawSnapshot`), live monitoring (`LiveMonitor`: IOKit notifications, power-source notifications, display reconfiguration, power polling), SMC power channel reader, machine info. |
-| `BusStop` | macOS | The app: AppKit status item and popover, SwiftUI views, settings, notifications, launch at login. |
+| `BusStopUI` | macOS | SwiftUI views and theme shared by the app and the widgets: `Lagoon`, chips and badges, device rows, power charts, the widget views. Reads no hardware. |
+| `BusStop` | macOS | The app: AppKit status item and popover, SwiftUI views, settings, notifications, launch at login, the widget payload writer. |
+| `BusStopWidgets` | macOS | The desktop widget extension, sandboxed. Decodes the payload the app writes; never reads hardware. |
 | `busstop` | macOS | Command-line tool. |
 | `BusStopCoreTests` | macOS | Unit tests with fixtures. |
 

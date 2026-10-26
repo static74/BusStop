@@ -15,7 +15,7 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 
 ## Automation and integrations
 
-13. **Shortcuts and App Intents.** Actions such as "Get devices on port", "Get charging wattage" and "Is a device connected", so Shortcuts and automations can use Bus Stop's data. Needs an Xcode project and a signing team.
+13. **Shortcuts and App Intents.** Actions such as "Get devices on port", "Get charging wattage" and "Is a device connected", so Shortcuts and automations can use Bus Stop's data. Needs a signing team, and the App Intents metadata SwiftPM does not generate (the widgets showed a SwiftPM-built extension works otherwise).
 15. **Rules and actions.** Simple local rules: "when this drive connects at USB 2 speed, notify me", "when the dock disconnects, run this shortcut".
 16. **CLI webhook and MQTT output (opt-in, local).** `busstop --watch` can post events to a local webhook or MQTT broker for home-automation setups. Off by default, local network only, and documented as the one feature that sends data anywhere.
 
