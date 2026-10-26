@@ -23,6 +23,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     var willShowWindow: (() -> Void)?
 
     private var topologyWindow: NSWindow?
+    private var topologyHost: NSHostingController<TopologyWindowView>?
+    /// Bumped to switch an open topology window to a requested page.
+    private var pageRequests = 0
     private var settingsWindow: NSWindow?
     private var settingsHost: NSHostingController<SettingsRoot>?
     /// Bumped to rebuild the settings view on a requested tab.
@@ -53,12 +56,17 @@ final class WindowManager: NSObject, NSWindowDelegate {
     // MARK: Showing windows
 
     /// Shows the topology window, optionally selecting a port or device first.
-    /// `page` applies only when this creates the window; an open window keeps
-    /// its page. Automation passes one at launch.
-    func showTopology(selecting selection: StoreSelection? = nil, page: TopologySidebarItem = .overview) {
+    /// A new window opens on `page`, or the Overview; an open window keeps
+    /// its page unless one is given. Automation and deep links pass one.
+    func showTopology(selecting selection: StoreSelection? = nil, page: TopologySidebarItem? = nil) {
         guard let store else { return }
         if let selection { store.reveal(selection) }
-        let window = topologyWindow ?? makeTopologyWindow(store: store, page: page)
+        if let page, let topologyHost {
+            pageRequests += 1
+            topologyHost.rootView = TopologyWindowView(
+                store: store, pageRequest: TopologyPageRequest(page: page, generation: pageRequests))
+        }
+        let window = topologyWindow ?? makeTopologyWindow(store: store, page: page ?? .overview)
         topologyWindow = window
         present(window)
         refreshTopologyCounted()
@@ -134,10 +142,20 @@ final class WindowManager: NSObject, NSWindowDelegate {
         present(window)
     }
 
+    /// Opens a `busstop://` link: a page link shows that page, a port link
+    /// selects the port.
+    func open(_ link: BusStopLink) {
+        switch link {
+        case .page(let page): showTopology(page: TopologySidebarItem(page))
+        case .port(let key): showTopology(selecting: .port(key))
+        }
+    }
+
     // MARK: Window construction
 
     private func makeTopologyWindow(store: PortStore, page: TopologySidebarItem) -> NSWindow {
         let host = NSHostingController(rootView: TopologyWindowView(store: store, page: page))
+        topologyHost = host
         // The SwiftUI `.toolbar` and `.navigationTitle` drive the window's.
         host.sceneBridgingOptions = [.toolbars, .title]
         // Only a minimum from the content; the window resizes freely above it.

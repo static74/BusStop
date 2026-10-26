@@ -14,16 +14,24 @@ enum TopologySidebarItem: Hashable {
     case events
     case diagnostics
 
-    /// The page a `topology:<page>` Automation value names: "overview",
-    /// "silhouette", "allPorts", "devices", "power", "events", "diagnostics".
+    /// The page a `topology:<page>` Automation value or a
+    /// `busstop://topology/<page>` link names (`BusStopLink.Page`).
     /// Port pages have no name.
     init?(automationName: String) {
-        let pages: [String: TopologySidebarItem] = [
-            "overview": .overview, "silhouette": .silhouette, "allPorts": .allPorts, "devices": .devices,
-            "power": .power, "events": .events, "diagnostics": .diagnostics,
-        ]
-        guard let page = pages[automationName] else { return nil }
-        self = page
+        guard let page = BusStopLink.Page(rawValue: automationName) else { return nil }
+        self.init(page)
+    }
+
+    init(_ page: BusStopLink.Page) {
+        switch page {
+        case .overview: self = .overview
+        case .silhouette: self = .silhouette
+        case .allPorts: self = .allPorts
+        case .devices: self = .devices
+        case .power: self = .power
+        case .events: self = .events
+        case .diagnostics: self = .diagnostics
+        }
     }
 }
 

@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: PortStore?
     private var statusItemController: StatusItemController?
     private var themeLoop: ObservationLoop?
+    /// A `busstop://` link that arrived before the store existed.
+    private var pendingLink: BusStopLink?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Before any window exists, and again on every change, so open
@@ -47,6 +49,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Automation.run(statusItemController: statusItemController)
+        if let pendingLink {
+            self.pendingLink = nil
+            WindowManager.shared.open(pendingLink)
+        }
+    }
+
+    /// `busstop://` links from widgets. Anything `BusStopLink` does not
+    /// parse is ignored.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let link = urls.compactMap(BusStopLink.init(url:)).last else { return }
+        if store == nil {
+            pendingLink = link
+        } else {
+            WindowManager.shared.open(link)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
