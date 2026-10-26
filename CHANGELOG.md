@@ -11,6 +11,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - `busstop://` links: `busstop://topology/<page>` opens the topology window on a page (`overview`, `silhouette`, `allPorts`, `devices`, `power`, `events` or `diagnostics`), and `busstop://port/<type>/<number>` opens it with that port selected.
 - For the widgets, the app writes what they show to `widget-payload.json` in its App Group container, atomically and readable only by your user account. The snapshot in it is redacted like an export and leaves out the raw IORegistry properties, so it holds no serial numbers. Clear History and turning off "Keep history between launches" delete it; with history off it leaves out the events, the 24-hour power and the port health.
 - Widgets appear only in builds signed by a team and installed in `/Applications`. Release builds are; a build from source signed ad hoc bundles the widgets, but macOS leaves them out of Edit Widgets.
+- Settings › Ports › Identify a Port: plug something into a port, or unplug it, and Bus Stop highlights that port so you can confirm or correct its name. Copy Catalogue Entry puts this Mac's port names on the clipboard as a catalogue entry you can send upstream. Nothing is sent over the network.
 
 ### Changed
 

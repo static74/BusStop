@@ -2,10 +2,6 @@
 
 Planned work after 1.0, roughly in priority order within each group. Items move to the changelog when they ship. Nothing here adds network access or telemetry: anything that sends data off the Mac is opt-in, local-network only, and off by default.
 
-## Correctness on real hardware
-
-2. **"Identify this port" flow.** A guided check in Settings: "plug something into the port you want to name" lights up the port that changed and lets the user confirm or correct its name. It fixes the catalogue for Macs whose port locations are wrong or missing, and can produce a catalogue entry to send upstream.
-
 ## Cables and power
 
 3. **Cable report card.** One page per cable seen in a port: what the e-marker says (rated speed, current, voltage, Extended Power Range, active or optical, vendor), what was actually negotiated over it, and a plain verdict ("good for 40 Gb/s and 240 W"). It remembers cables by vendor and product ID so the same cable is recognised next time.
@@ -44,3 +40,4 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A light Lagoon theme in Settings › Appearance (Dark, Light or Match System), with Dark as the default.
 - Real captures back the topology rules as regression fixtures: an Anker Prime Thunderbolt 5 dock with two monitors and USB hubs on a MacBook Pro (`Fixtures/AnkerPrimeTB5.json`), and a USB-C monitor and a UGREEN DisplayLink dock on a Mac mini with M4 (`Fixtures/MacMiniM4UgreenDock.json`). New captures from other Macs, docks and chargers (`busstop --raw`) are still welcome.
 - Desktop widgets: Ports, Power and Health, each in Large and Extra Large, fed by the app through an App Group and shown in team-signed builds such as releases. A widget where the user picks the port waits for item 13, since it needs App Intents.
+- Settings › Ports › Identify a Port: plug into or unplug from a port and Bus Stop highlights it, so its name can be confirmed or corrected; Copy Catalogue Entry puts the port names on the clipboard as a catalogue entry to send upstream.
