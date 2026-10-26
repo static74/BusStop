@@ -139,4 +139,15 @@ struct WidgetTimelineTests {
             #expect(entries.first?.payload != nil)
         }
     }
+
+    @Test func readsAgainWhenFreshDataGoesStaleOrLaterWithout() {
+        let now = captured + 90
+        let fresh = WidgetTimeline.entries(payload: payload(isDemo: false), now: now)
+        #expect(WidgetTimeline.reloadDate(for: fresh, now: now) == captured + 5 * 60)
+        for entries in [WidgetTimeline.entries(payload: nil, now: now),
+                        WidgetTimeline.entries(payload: payload(isDemo: false), now: captured + 3_600)] {
+            let date = entries[0].date
+            #expect(WidgetTimeline.reloadDate(for: entries, now: date) == date + 5 * 60)
+        }
+    }
 }

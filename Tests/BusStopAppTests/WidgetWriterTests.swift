@@ -126,6 +126,18 @@ struct WidgetWriterTests {
         #expect(!store.events.isEmpty)
     }
 
+    /// History off at launch, then turned on: the next capture writes the history in, though nothing else changed.
+    @Test func turningHistoryOnWritesItAtTheNextCapture() throws {
+        let sandbox = Sandbox()
+        sandbox.settings.keepHistory = false
+        let store = sandbox.store()
+        store.ingest(capture(0))
+        #expect(try #require(sandbox.file.read()).portDays == nil)
+        store.setKeepHistory(true)
+        store.ingest(capture(2))
+        #expect(try #require(sandbox.file.read()).portDays != nil)
+    }
+
     /// Demo power moves on every 2-second tick; the payload follows at most once a minute.
     @Test func movingPowerAloneWritesRarely() {
         let sandbox = Sandbox()

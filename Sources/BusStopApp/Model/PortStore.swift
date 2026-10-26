@@ -414,6 +414,8 @@ final class PortStore {
             } else if !archiveHoldsDemo {
                 loadHistoryIfNeeded()
             }
+            // The next capture writes the history back into the widget payload.
+            widgetGate.reset()
         } else {
             historyFile?.delete()
             historyIsReadOnly = false

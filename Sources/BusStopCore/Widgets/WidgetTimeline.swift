@@ -28,6 +28,14 @@ public enum WidgetTimeline {
         }
     }
 
+    /// When the widget reads the payload again by itself, in case the app's
+    /// reloads were held back: when fresh data goes stale, or after
+    /// `staleAfter` when there is nothing fresh to show.
+    public static func reloadDate(for entries: [Entry], now: Date) -> Date {
+        guard let last = entries.last, last.date > now else { return now.addingTimeInterval(staleAfter) }
+        return last.date
+    }
+
     /// The entry for `now` and, while the data is fresh, a second one at the
     /// moment it goes stale.
     public static func entries(payload: WidgetPayload?, now: Date) -> [Entry] {
