@@ -23,6 +23,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Port health.** Each port's plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days, next to the hardware's all-time counts, with a gentle note when one port has far more problems than its siblings. An overcurrent warning lasts 24 hours, even across a relaunch.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
+- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
 - **Settings** for a dark or light theme, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
@@ -68,6 +69,8 @@ scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 
 `install.sh` builds for your Mac's architecture and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. A build made on your own Mac is signed ad hoc, but it carries no quarantine attribute, so macOS opens it without asking.
 
+Widgets need a build signed by a team and installed in `/Applications`. Release builds are. A build from source is signed ad hoc: it bundles the widgets, but macOS leaves them out of Edit Widgets. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how to sign a build with your own certificate.
+
 To build without installing:
 
 ```sh
@@ -112,7 +115,7 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% ·
 
 - No network code, no analytics, no crash reporting, no accounts. The app does not ask for network access.
 - Bus Stop only reads: IORegistry properties, the power-source API and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
-- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. Nothing is written anywhere else unless you export.
+- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. For the widgets, the app also writes what they show to `widget-payload.json` in its App Group container (`~/Library/Group Containers/`), readable only by your user account, with serial numbers redacted; clearing the history or turning it off deletes it. Nothing is written anywhere else unless you export.
 - Exports and `busstop --watch` redact serial numbers and the computer name by default.
 
 ## How it works

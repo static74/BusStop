@@ -6,7 +6,16 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Added
 
+- Desktop widgets, in Large and Extra Large. **Ports** has one row per port in physical order with its device, link speed, watts and any diagnostic, and in Extra Large the devices behind each hub and dock. **Power** shows the charger and its USB-PD contract, the battery, total watts in and out and a last-hour chart, and in Extra Large the watts per port and a 24-hour chart. **Health** shows current diagnostics and flaky connections with their likely culprit, or "All links healthy", and in Extra Large the recent events and each port's last 7 days. A widget shows a Demo badge in demo mode, "Bus Stop isn't running" when its data is more than 5 minutes old, and "Open Bus Stop" before it has any. Clicking a widget opens Bus Stop on that page.
+- `busstop://` links: `busstop://topology/<page>` opens the topology window on a page (`overview`, `silhouette`, `allPorts`, `devices`, `power`, `events` or `diagnostics`), and `busstop://port/<type>/<number>` opens it with that port selected.
+- For the widgets, the app writes what they show to `widget-payload.json` in its App Group container, atomically and readable only by your user account. The snapshot in it is redacted like an export and leaves out the raw IORegistry properties, so it holds no serial numbers. Clear History and turning off "Keep history between launches" delete it; with history off it leaves out the events, the 24-hour power and the port health.
+- Widgets appear only in builds signed by a team and installed in `/Applications`. Release builds are; a build from source signed ad hoc bundles the widgets, but macOS leaves them out of Edit Widgets.
 - Settings › Ports › Identify a Port: plug something into a port, or unplug it, and Bus Stop highlights that port so you can confirm or correct its name. Copy Catalogue Entry puts this Mac's port names on the clipboard as a catalogue entry you can send upstream. Nothing is sent over the network.
+
+### Fixed
+
+- The app icon no longer shows as coloured noise at 16 and 32 px, as in the widget gallery's app list. The icon file stored those sizes in slots macOS reads as raw pixels; it is now made with `iconutil`.
+- A USB 3 port now shows the rate the Mac reports for it. A Mac mini with M4 says "Gen 1" signalling for a 10 Gb/s hub, and Bus Stop showed the port at 5 Gb/s while the hub on it showed 10 Gb/s. A real capture of that Mac is now a test fixture.
 
 ## [1.1.2] - 2026-10-24
 

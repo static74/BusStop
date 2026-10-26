@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Root view of the About window: icon, name, version, what Bus Stop

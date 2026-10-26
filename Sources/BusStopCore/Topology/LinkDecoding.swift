@@ -105,8 +105,18 @@ enum LinkDecoding {
     /// `SuperSpeedSignaling` 1 is Gen 1 (5 Gb/s) and 2 is Gen 2 (10 Gb/s).
     /// Two lanes, or a description containing "x2", doubles the rate.
     /// Without any signalling information the generation is "USB 3" with no
-    /// rate.
+    /// rate. A `DataRateDescription` rate that disagrees wins: a Mac mini
+    /// (M4) reports "10 Gbps" with signalling "Gen 1" for a hub at 10 Gb/s.
     static func usb3TransportLink(_ properties: PropertyBag?) -> LinkInfo {
+        let link = usb3SignalingLink(properties)
+        if let reported = properties?.string("DataRateDescription").flatMap(parseRate),
+           (superSpeed...superSpeedPlus2x2).contains(reported), reported != link.bitsPerSecond {
+            return usbLink(bitsPerSecond: reported, detail: properties?.string("DataRateDescription"))
+        }
+        return link
+    }
+
+    static func usb3SignalingLink(_ properties: PropertyBag?) -> LinkInfo {
         let description = properties?.string(["SuperSpeedSignalingDescription", "GenerationDescription"])
         let lowered = description?.lowercased() ?? ""
         let lanes = properties?.int(["LaneCount", "Lane Count", "Lanes"])

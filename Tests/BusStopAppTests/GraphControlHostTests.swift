@@ -1,4 +1,5 @@
 import AppKit
+import BusStopUI
 import SwiftUI
 import Testing
 @testable import BusStopApp
