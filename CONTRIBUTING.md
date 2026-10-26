@@ -22,6 +22,21 @@ Run the app from the bundle rather than with `swift run BusStopApp`: notificatio
 
 `scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD` and `CONFIGURATION=debug`; the comment at the top of the script describes them.
 
+### Testing widgets
+
+The desktop widgets are a separate target, `BusStopWidgets`, which `scripts/build-app.sh` wraps into `Contents/PlugIns/BusStopWidgets.appex`. The views they share with the app are in the `BusStopUI` library. The extension never reads hardware: it shows the payload the app writes into their shared App Group container, so the app must be running for live data.
+
+macOS shows widgets only from a build signed by a team and installed in `/Applications`. An ad hoc build bundles the extension and passes every test, but no widget appears in the gallery; `swift test` renders the widget views off screen either way. To see them, sign with an Apple Development or Developer ID certificate:
+
+```sh
+SIGN_IDENTITY=<Apple Development or Developer ID identity or SHA-1 hash> scripts/build-app.sh
+osascript -e 'quit app "Bus Stop"'
+ditto "build/Bus Stop.app" "/Applications/Bus Stop.app"
+open "/Applications/Bus Stop.app"
+```
+
+Then right-click the desktop › Edit Widgets › search "Bus Stop". If two identities share a name, pass the SHA-1 hash from `security find-identity -v -p codesigning`. An Apple Development certificate needs Apple's WWDR G3 intermediate in the keychain. To debug: `pluginkit -m -p com.apple.widgetkit-extension -v`, and chronod's messages through `/usr/bin/log` (in zsh, a bare `log` is a shell builtin).
+
 ### Continuous integration
 
 CI runs on every pull request, and again on each push to it. Plain branch pushes and merges to `main` run nothing.
@@ -96,7 +111,7 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 ## Code style
 
 - **Swift 6 language mode with complete concurrency checking.** Core types are `Sendable` values; UI code is `@MainActor`. No `@unchecked Sendable` without a comment explaining why it is safe.
-- **`BusStopCore` has no hardware access and no UI** (no IOKit, AppKit or SwiftUI), so its tests run on saved captures and demo data. Hardware access belongs in `BusStopKit`, and UI in the app.
+- **`BusStopCore` has no hardware access and no UI** (no IOKit, AppKit or SwiftUI), so its tests run on saved captures and demo data. Hardware access belongs in `BusStopKit`, and UI in the app, or in `BusStopUI` when the widget extension (`BusStopWidgets`) draws it too. `BusStopUI` views take plain values, not the app's store, and the extension never reads hardware.
 - **Read every IORegistry key defensively.** Keys can be missing or have an unexpected type on another Mac or macOS version, and keys starting with `Apple` are not API. Use the optional accessors on `PropertyBag` and `PlistValue`; never force-unwrap or force-cast registry data.
 - **Avoid Foundation's type names** for new types: `Port`, `Process`, `Host`, `Thread`, `Timer` and the like collide on macOS (Foundation's `NSPort` is imported as `Port`).
 - **Document types and non-obvious members** with `///` comments, including the reason behind anything surprising.
