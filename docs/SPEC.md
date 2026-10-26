@@ -295,7 +295,7 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 5. Capability heuristic on compact desktops and on models whose rows mix Thunderbolt and plain USB-C: "Rear" for Thunderbolt ports and "Front" for the others, when the catalogue's rows (or, for an unlisted Mac mini, the model alone) say so.
 6. Generic "USB-C 2", "MagSafe", "HDMI".
 
-Ports that steps 2 to 5 give the same title are numbered in physical order: "Front · USB-C 1", "Front · USB-C 2". User and generic names are never numbered.
+Ports that steps 2 to 5 give the same title are numbered in port order, which follows the hardware or catalogue placement where there is one and the port number otherwise: "Front · USB-C 1", "Front · USB-C 2". User and generic names are never numbered.
 
 The location from steps 2 to 5 is also kept apart from the label, as `PhysicalPort.catalogLocation`, so a renamed port keeps its place. `ChassisLayout` turns it into a face of the Mac (left, right, front, rear) and an order along it: laptop sides read "Rear/Center/Front"; desktop qualifiers ("leftmost" to "rightmost") order the rows of one connector. Catalogue rows for connectors macOS does not report (Ethernet, the power inlet, some SD slots) become passive slots. A port with no readable location is left unplaced.
 

@@ -285,7 +285,8 @@ public enum TopologyBuilder {
             if l != r { return l < r }
             return lhs.key < rhs.key
         }
-        // Ports placed only as far as "Front" are numbered in physical order.
+        // Ports placed only as far as "Front" are numbered in port order, which is physical
+        // only where a hardware location or the catalogue places them.
         let placed = physicalPorts.indices.filter { ![.user, .generic].contains(physicalPorts[$0].label.source) }
         let sharing = Dictionary(grouping: placed) { physicalPorts[$0].label.title }.values.filter { $0.count > 1 }
         for indices in sharing {

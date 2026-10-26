@@ -147,14 +147,16 @@ enum PortNodeReader {
 
     /// The `port-location` ("back-left") of the device-tree node above a
     /// port, searched up to `maxUUIDAncestors` levels in the `IOService`
-    /// plane. Nil when that node's `port-number` names another port, since
-    /// one controller can drive two ports.
-    static func portLocation(of entry: RegistryEntry, portNumber: Int) -> String? {
+    /// plane. Nil when that node's `port-number` or `port-type` names another
+    /// port, since one controller can drive two ports (a MagSafe port can sit
+    /// under a USB-C port's controller).
+    static func portLocation(of entry: RegistryEntry, portType: Int, portNumber: Int) -> String? {
         var current = entry.parent(in: RegistryPlane.service)
         var level = 0
         while let ancestor = current, level < maxUUIDAncestors {
             if let location = ancestor.property("port-location")?.stringValue {
                 if let number = ancestor.property("port-number")?.intValue, number != portNumber { return nil }
+                if let type = ancestor.property("port-type")?.intValue, type != portType { return nil }
                 return location
             }
             current = ancestor.parent(in: RegistryPlane.service)
@@ -227,7 +229,7 @@ enum PortNodeReader {
                   let type = properties.int("PortType"), let number = properties.int("PortNumber") else { return }
             let key = "\(type)/\(number)"
             if locations[key] == nil {
-                locations[key] = PortNodeReader.portLocation(of: entry, portNumber: number)
+                locations[key] = PortNodeReader.portLocation(of: entry, portType: type, portNumber: number)
             }
             guard uuids[key] == nil, let uuid = PortNodeReader.controllerUUID(of: entry) else { return }
             uuids[key] = uuid

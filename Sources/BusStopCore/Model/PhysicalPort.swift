@@ -133,7 +133,7 @@ public struct PortLabel: Sendable, Hashable, Codable {
     public var connector: String
     /// The port number shown in generic names.
     public var number: Int
-    /// 1, 2, … in physical order when other ports would get the same title
+    /// 1, 2, … in port order when other ports would get the same title
     /// ("Front · USB-C 1", "Front · USB-C 2"); nil otherwise.
     public var ordinal: Int?
 
