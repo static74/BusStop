@@ -438,7 +438,8 @@ final class PortStore {
                                                   since: snapshot.capturedAt - WidgetPayload.dayPowerSpan,
                                                   step: WidgetPayload.dayPowerStep) : [],
             events: keep ? events : [],
-            portHealth: keep ? portHealth : [:]
+            portHealth: keep ? portHealth : [:],
+            portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil
         )
         do {
             try widgetFile.write(payload)

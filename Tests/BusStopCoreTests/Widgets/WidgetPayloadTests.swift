@@ -6,7 +6,7 @@ import Testing
 struct WidgetPayloadTests {
     typealias S = DemoTestSupport
 
-    /// Measured on 2026-10-26: 68 KB (dock station) to 146 KB (studio desk), most of it power samples.
+    /// Measured on 2026-10-26: 74 KB (dock station) to 153 KB (studio desk), most of it power samples.
     static let sizeLimit = 256 * 1024
 
     /// The largest payload the app writes for `scenario`: a full 10-minute
@@ -38,7 +38,10 @@ struct WidgetPayloadTests {
         health.lastOvercurrentAt = snapshot.capturedAt
         return WidgetPayload(snapshot: snapshot, recentPower: samples(600, step: 1),
                              dayPower: samples(288, step: WidgetPayload.dayPowerStep), events: events,
-                             portHealth: Dictionary(uniqueKeysWithValues: snapshot.ports.map { ($0.key, health) }))
+                             portHealth: Dictionary(uniqueKeysWithValues: snapshot.ports.map { ($0.key, health) }),
+                             portDays: Dictionary(uniqueKeysWithValues: snapshot.ports.map {
+                                 ($0.key, Array(repeating: health, count: 7))
+                             }))
     }
 
     @Test(arguments: DemoScenario.allCases)

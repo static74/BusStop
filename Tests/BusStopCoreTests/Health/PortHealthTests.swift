@@ -104,6 +104,33 @@ struct PortHealthTests {
         #expect(ports[key1]?.plugEvents == 2)
     }
 
+    @Test func dailyHealthSplitsTheWeekByLocalDay() throws {
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 19, hour: 12)))
+        let today = calendar.startOfDay(for: now)
+        let firstDay = calendar.date(byAdding: .day, value: -6, to: today)!
+        var archive = HistoryArchive()
+        // Two plugs on the first day of the window, one more today, and an overcurrent today.
+        for (date, plugs, overcurrents) in [(firstDay - 60, 0, 0), (firstDay + 60, 2, 0),
+                                            (today + 60, 3, 0), (today + 120, 3, 1)] {
+            var snapshot = capture(0, plugs: plugs, overcurrents: overcurrents)
+            snapshot.capturedAt = date
+            archive.record(snapshot, afterGap: plugs == 0, calendar: calendar)
+        }
+        // A short connection across midnight counts on the day it ended.
+        archive.append(visit("usb:phone", today.timeIntervalSince(start) - 3, after: 5, port: key2), model: model)
+
+        let days = archive.dailyPortHealth(model: model, now: now, calendar: calendar)
+        #expect(days[key1]?.map(\.plugEvents) == [2, 0, 0, 0, 0, 0, 1])
+        #expect(days[key1]?.map(\.overcurrents) == [0, 0, 0, 0, 0, 0, 1])
+        #expect(days[key1]?.allSatisfy { $0.lastOvercurrentAt == nil } == true)
+        #expect(days[key2]?.map(\.errors) == [0, 0, 0, 0, 0, 0, 1])
+        #expect(days[key3] == nil)
+        // The days add up to the week.
+        let week = archive.portHealth(model: model, now: now, calendar: calendar)
+        #expect(days[key1]?.reduce(0) { $0 + $1.plugEvents } == week[key1]?.plugEvents)
+        #expect(days[key2]?.reduce(0) { $0 + $1.errors } == week[key2]?.errors)
+    }
+
     @Test func shortConnectionsDowngradesAndFallbacksAreErrors() {
         var archive = HistoryArchive()
         var events = visit("usb:phone", 0, after: 5, port: key1)          // short: an error
