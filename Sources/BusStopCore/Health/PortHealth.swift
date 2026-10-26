@@ -3,7 +3,7 @@ import Foundation
 /// One port's last 7 local calendar days, from the history archive (SPEC
 /// §5.4, "Port health"). All-time totals stay the hardware counters in
 /// `PhysicalPort.statistics`.
-public struct PortHealth: Sendable, Hashable {
+public struct PortHealth: Sendable, Hashable, Codable {
     public var plugEvents = 0
     public var connections = 0
     public var overcurrents = 0
