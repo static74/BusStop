@@ -99,9 +99,9 @@ struct ChassisLayoutTests {
         let layout = layout(snapshot)
         #expect(names(layout, in: snapshot) == [
             "magsafe 1 Left Rear", "usb-c 1 Left Center", "usb-c 2 Left Front",
-            "hdmi 1 Right Rear", "usb-c 4 Right Center", "sd Right Front",
+            "hdmi 1 Right Rear", "usb-c 4 Right Center", "sd 1 Right Front",
         ])
-        #expect(layout.slots.filter { $0.portKey == nil }.map(\.connector) == ["sd"])
+        #expect(layout.slots.allSatisfy { $0.portKey != nil })
         #expect(layout.slots.map(\.face) == [.left, .left, .left, .right, .right, .right])
         #expect(layout.slots.prefix(3).map(\.position) == [0.25, 0.5, 0.75])
     }

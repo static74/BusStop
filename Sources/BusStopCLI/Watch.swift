@@ -148,7 +148,7 @@ final class WatchSession {
     }
 
     /// One output line: a JSON object with `--json`, otherwise
-    /// "14:03:12 + Samsung T9 connected · Left Front · USB-C · USB 3.2 Gen 2 @ 10 Gb/s".
+    /// "14:03:12 + PSSD T9 connected · Left Front · USB-C · USB 3.2 Gen 2 @ 10 Gb/s".
     ///
     /// The title and detail of a text line go through `Format.terminalSafe`:
     /// they hold device-supplied names, which must not be able to break the

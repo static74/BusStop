@@ -14,8 +14,8 @@ struct DemoStudioDeskTests {
         #expect(snapshot.machine.isLaptop)
         #expect(snapshot.isDemo)
         #expect(snapshot.ports.map(\.label.title) == [
-            "Left Rear · MagSafe", "Left Center · USB-C", "Left Front · USB-C", "Right Rear · HDMI",
-            "Right Center · USB-C",
+            "Left Rear · MagSafe", "Left Center · USB-C", "Left Front · USB-C", "Right Front · SD Card",
+            "Right Rear · HDMI", "Right Center · USB-C",
         ])
         #expect(snapshot.ports.allSatisfy { $0.label.source == .catalog })
         #expect(snapshot.connectedPorts.map(\.key.description) == ["17/1", "2/1", "2/2"])
@@ -153,7 +153,7 @@ struct DemoStudioDeskTests {
     }
 
     @Test func displaysAreAttributed() throws {
-        #expect(snapshot.displays.map(\.name) == ["Built-in Liquid Retina XDR Display", "Studio Display XDR"])
+        #expect(snapshot.displays.map(\.name) == ["Color LCD", "Studio Display XDR"])
         let builtIn = try #require(snapshot.displays.first)
         #expect(builtIn.isBuiltin)
         #expect(builtIn.portKey == nil)
@@ -246,7 +246,7 @@ struct DemoTravelTests {
     }
 
     @Test func onlyTheBuiltInDisplay() {
-        #expect(snapshot.displays.map(\.name) == ["Built-in Liquid Retina Display"])
+        #expect(snapshot.displays.map(\.name) == ["Color LCD"])
         #expect(snapshot.displays.first?.modeDescription == "2560 × 1664 @ 60 Hz")
     }
 }
@@ -367,8 +367,8 @@ struct DemoUnpluggedTests {
         #expect(snapshot.machine.model == "Mac17,2")
         #expect(snapshot.machine.name == "MacBook Pro (14-inch, 2025, M5)")
         #expect(snapshot.ports.map(\.label.title) == [
-            "Left Rear · MagSafe", "Left Center · USB-C", "Left Front · USB-C", "Right Rear · HDMI",
-            "Right Center · USB-C",
+            "Left Rear · MagSafe", "Left Center · USB-C", "Left Front · USB-C", "Right Front · SD Card",
+            "Right Rear · HDMI", "Right Center · USB-C",
         ])
         #expect(snapshot.connectedPorts.isEmpty)
         #expect(snapshot.deviceCount == 0)

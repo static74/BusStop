@@ -100,7 +100,7 @@ From top to bottom:
    - The port pinned to the menu bar has a pin after its title. A port with a flaky connection, a flapping or slower link, or one that stands out (§5.4) has a small health mark after its title, in the colour of its most severe finding; its tooltip lists the findings and the card's VoiceOver label ends with their titles. The card's context menu and VoiceOver actions offer Rename Port, Restore Default Name (when renamed), Pin to Menu Bar or Unpin from Menu Bar, and Show in Topology.
 5. **Footer.** "Updated just now" and the button "Open Topology". (In demo mode a DEMO badge sits on the header's summary line.)
 
-**Compact layout** (Settings › General › Ports › Popover layout; cards are the default). The port list becomes one card with one line per port, separated by hairlines: an arrow (when devices are connected), the connector icon, the port's short name, a pin when it is pinned and the card's health mark, then what is connected ("Samsung T9", "3 devices" counting every level, the charger's name, "Connected" or "Nothing connected"; a device that just left keeps its name while its ghost is shown), then the speed chip and power badge. The arrow, or the Show Devices VoiceOver action, reveals the same device tree as the card, so nothing is lost; every arrow is closed again when the popover next opens. Each line has the card's context menu, VoiceOver label and actions, and renames in place the same way; its VoiceOver label also says the port's link speed, which the card's transport chips say on their own. The power strip becomes one line: a symbol, the charger's name, the battery state or "Accessories", and a power badge, with no sparkline. The diagnostics banner, Other devices and Displays are unchanged. Hide empty ports and port order apply as with cards.
+**Compact layout** (Settings › General › Ports › Popover layout; cards are the default). The port list becomes one card with one line per port, separated by hairlines: an arrow (when devices are connected), the connector icon, the port's short name, a pin when it is pinned and the card's health mark, then what is connected ("PSSD T9", "3 devices" counting every level, the charger's name, "Connected" or "Nothing connected"; a device that just left keeps its name while its ghost is shown), then the speed chip and power badge. The arrow, or the Show Devices VoiceOver action, reveals the same device tree as the card, so nothing is lost; every arrow is closed again when the popover next opens. Each line has the card's context menu, VoiceOver label and actions, and renames in place the same way; its VoiceOver label also says the port's link speed, which the card's transport chips say on their own. The power strip becomes one line: a symbol, the charger's name, the battery state or "Accessories", and a power badge, with no sparkline. The diagnostics banner, Other devices and Displays are unchanged. Hide empty ports and port order apply as with cards.
 
 ### 3.3 Topology window
 
@@ -133,7 +133,7 @@ Toolbar tabs, each with an icon; the window takes the selected tab's name:
 
 ### 3.5 Notifications
 
-Local `UserNotifications`. Title names the device; body names the port and link, e.g. "Samsung T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification. New warning and critical findings, the connection health ones included (§5.4), notify under the diagnostics toggle, and each finding alerts at most once every 30 minutes.
+Local `UserNotifications`. Title names the device; body names the port and link, e.g. "PSSD T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification. New warning and critical findings, the connection health ones included (§5.4), notify under the diagnostics toggle, and each finding alerts at most once every 30 minutes.
 
 ### 3.6 Command-line tool
 
@@ -228,7 +228,7 @@ SF Pro via system fonts. Titles `.headline` semibold; values `.body` with `.mono
 
 ### 4.7 Accessibility
 
-VoiceOver labels on every card and graph node ("Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts"). Full keyboard navigation in the popover and window. Respects Reduce Motion, Reduce Transparency, Increase Contrast.
+VoiceOver labels on every card and graph node ("Left Front USB-C port, PSSD T9 connected at 10 gigabits per second, 4.5 watts"). Full keyboard navigation in the popover and window. Respects Reduce Motion, Reduce Transparency, Increase Contrast.
 
 ---
 

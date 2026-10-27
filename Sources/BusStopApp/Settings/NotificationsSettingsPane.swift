@@ -22,7 +22,7 @@ struct NotificationsSettingsPane: View {
                 Toggle("A link slows down", isOn: $settings.notifyDowngrade)
                 Toggle("A charger connects or disconnects", isOn: $settings.notifyCharger)
                 Toggle("A new diagnostic appears", isOn: $settings.notifyDiagnostics)
-                SettingsCaption("Alerts name the device, the port and the link, for example “Samsung T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s”. A dock with many devices produces one grouped alert.")
+                SettingsCaption("Alerts name the device, the port and the link, for example “PSSD T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s”. A dock with many devices produces one grouped alert.")
             }
 
             Section("Permission") {
