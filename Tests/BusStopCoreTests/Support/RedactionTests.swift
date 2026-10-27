@@ -463,16 +463,36 @@ struct RedactionTests {
         #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Maker 1234"))
     }
 
-    /// An Apple charger names itself on its AppleUVDM node ("User String"), with its serial there too.
-    @Test func chargerSerialOnItsUVDMNodeLeavesTheRawName() throws {
+    /// An Apple charger names itself on its AppleUVDM node ("User String", "Vendor"), with its serial there too.
+    @Test(arguments: [("User String", "Charger"), ("Vendor", "Maker")])
+    func chargerSerialOnItsUVDMNodeLeavesTheRawName(_ key: String, _ word: String) throws {
         var raw = DemoScenario.studioDesk.raw(at: S.date)
         let index = try #require(raw.portNodes.firstIndex { $0.className == "IOPortTransportProtocolAppleUVDM" })
         var values = raw.portNodes[index].properties.values
-        values["User String"] = .string("Charger 1234")
+        values[key] = .string("\(word) 1234")
         values["Serial Number"] = .string("1234")
         raw.portNodes[index].properties = PropertyBag(values)
         let json = text(try Exporter.rawJSON(raw, redact: true))
-        #expect(json.contains("Charger REDACTED") && !json.contains("Charger 1234"))
+        #expect(json.contains("\(word) REDACTED") && !json.contains("\(word) 1234"))
+    }
+
+    /// A USB device's name only under one of the keys the parser reads, with a generic registry name.
+    @Test(arguments: ["kUSBProductString", "USB Product Name", "kUSBVendorString"])
+    func usbNameKeysLoseTheirShortSerial(_ key: String) throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        for name in ["kUSBProductString", "USB Product Name", "kUSBVendorString", "USB Vendor Name"] {
+            values[name] = nil
+        }
+        values["USB Serial Number"] = .string("1234")
+        values["kUSBSerialNumberString"] = .string("1234")
+        values[key] = .string("Drive 1234")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = "IOUSBHostDevice"
+        for interface in raw.usbDevices[index].interfaces.indices { raw.usbDevices[index].interfaces[interface].name = nil }
+        let json = text(try Exporter.rawJSON(raw, redact: true))
+        #expect(json.contains("Drive REDACTED") && !json.contains("Drive 1234"))
     }
 
     /// Two entries that share a serial (a hub's two halves, say) each name it: neither name
@@ -490,6 +510,23 @@ struct RedactionTests {
         }
         let snapshot = TopologyBuilder.build(raw)
         #expect(snapshot.allDevices.filter { $0.device.serialNumber == "SN12345" }.count == 2)
+        #expect(Exporter.serialsInNames(of: snapshot).contains("SN12345"))
+    }
+
+    /// The two halves may report the serial in different case; it is still one serial.
+    @Test func serialsSharedInAnotherCaseAreKept() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let indices = raw.usbDevices.indices.filter { raw.usbDevices[$0].node.properties.values["USB Serial Number"] != nil }
+        try #require(indices.count >= 2)
+        for (index, (serial, name)) in zip(indices, [("SN12345", "Drive SN12345"), ("sn12345", "Drive SN12345 Hub")]) {
+            var values = raw.usbDevices[index].node.properties.values
+            values["USB Serial Number"] = .string(serial)
+            values["USB Product Name"] = .string(name)
+            raw.usbDevices[index].node.properties = PropertyBag(values)
+            raw.usbDevices[index].node.name = name
+        }
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == "sn12345" })
         #expect(Exporter.serialsInNames(of: snapshot).contains("SN12345"))
     }
 

@@ -309,11 +309,13 @@ extension Exporter {
             + chargers.flatMap { [$0.name, $0.manufacturer] }.compactMap { $0 })
         let entries = serialEntries(in: snapshot)
         // Every name that carries the serial is its own: a hub's two halves, or a dock's built-in parts.
+        // Keyed as the serial is matched: without spaces around it, ignoring case.
+        func key(_ serial: String) -> String { serial.trimmingCharacters(in: .whitespaces).lowercased() }
         var ownNames: [String: Set<String>] = [:]
-        for entry in entries { ownNames[entry.serial, default: []].formUnion(entry.names) }
+        for entry in entries { ownNames[key(entry.serial), default: []].formUnion(entry.names) }
         return Set(entries.filter { entry in
             entry.isInOwnName && entry.serial.contains(where: \.isNumber)
-                && !names.subtracting(ownNames[entry.serial] ?? []).contains { IDShape.containsWord(entry.serial, in: $0) }
+                && !names.subtracting(ownNames[key(entry.serial)] ?? []).contains { IDShape.containsWord(entry.serial, in: $0) }
         }.map(\.serial))
     }
 
@@ -355,7 +357,8 @@ extension Exporter {
         // `names` start with the registry entry's; a bag's own product and vendor names are
         // added, under every key the parsers read them from (a charger's on its AppleUVDM node, say).
         let nameKeys = ["Name", "Manufacturer", "User String", "Vendor", "USB Product Name", "kUSBProductString",
-                        "USB Vendor Name", "kUSBVendorString"]
+                        "USB Vendor Name", "kUSBVendorString", "Product", "ProductName", "Device Model Name",
+                        "Device Vendor Name"]
         func collect(_ values: [String: PlistValue], names: [String]) {
             let names = names + nameKeys.compactMap { values[$0]?.stringValue }
             for (key, value) in values {
