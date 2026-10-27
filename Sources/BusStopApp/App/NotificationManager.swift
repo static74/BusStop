@@ -293,7 +293,7 @@ final class NotificationManager {
     }
 
     /// The device or display name inside an event title such as
-    /// "Samsung T9 connected"; the whole title when there is no known suffix.
+    /// "PSSD T9 connected"; the whole title when there is no known suffix.
     static func subjectName(of event: ConnectionEvent) -> String {
         let suffixes = [" connected", " disconnected", " slowed down", " sped up", " reconnected"]
         for suffix in suffixes where event.title.hasSuffix(suffix) && event.title.count > suffix.count {

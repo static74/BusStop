@@ -93,11 +93,12 @@ Power: 140W USB-C Power Adapter · 28 V × 5 A · 62 W in · Charging · 76% · 
 │     ├─ DataTraveler 3.0 · 480 Mb/s · 2.5 W
 │     ├─ Keychron K8 Pro · 12 Mb/s · 0.5 W
 │     └─ USB Optical Mouse · 1.5 Mb/s · 0.5 W
+├─ Right Front · SD Card   (empty)
 ├─ Right Rear · HDMI   (empty)
 └─ Right Center · USB-C   (empty)
 
 Displays
-├─ Built-in Liquid Retina XDR Display · 3024 × 1964 @ 120 Hz · built-in
+├─ Color LCD · 3024 × 1964 @ 120 Hz · built-in
 └─ Studio Display XDR · 5120 × 2880 @ 120 Hz · Left Center · USB-C
 
 Diagnostics

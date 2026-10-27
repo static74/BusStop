@@ -93,7 +93,7 @@ enum DemoTravel {
                 : [])
 
         let displays = [
-            RawDisplay(id: 1, name: "Built-in Liquid Retina Display", vendorID: 0x610, productID: 0xA04F,
+            RawDisplay(id: 1, name: "Color LCD", vendorID: 0x610, productID: 0xA04F,
                        isBuiltin: true, isMain: true, pixelWidth: 2560, pixelHeight: 1664, refreshHz: 60),
         ]
 

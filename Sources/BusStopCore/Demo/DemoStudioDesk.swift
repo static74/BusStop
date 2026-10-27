@@ -11,7 +11,7 @@ import Foundation
 ///   a USB 3 hub plus its USB 2 companion) with a keyboard, a mouse and a
 ///   USB 3 flash drive that fell back to USB 2. The SMC measures about 4 W
 ///   out of this port.
-/// - Right Center USB-C (port 3) and the HDMI port: empty.
+/// - Right Center USB-C (port 3), the HDMI port and the SD card slot: empty.
 enum DemoStudioDesk {
     static let model = "Mac17,9"
     static let soc = "T6050"
@@ -83,10 +83,11 @@ enum DemoStudioDesk {
                                     extra: DemoRegistry.usb2Keys(product: "USB2.1 Hub", manufacturer: "VIA Labs, Inc.",
                                                                  vendorID: 0x2109, productID: 0x2822, deviceClass: 9))
 
-        // Port 3 (right side) and HDMI: nothing plugged in.
+        // Port 3 (right side), HDMI and the SD card slot: nothing plugged in.
         r.hpmPort(number: 3, uuid: uuids.port3,
                   state: DemoPortState(supported: ["CC", "USB2", "USB3", "DisplayPort", "CIO"], plugEvents: 21))
         r.hdmiPort(hotPlug: false)
+        r.sdCardSlot()
 
         // USB devices on port 1, through the display.
         let drd0 = r.nativeController(drd: 0, soc: soc, port: port1, hpm: 0)
@@ -176,7 +177,7 @@ enum DemoStudioDesk {
             powerOut: [DemoPower.powerOut(port: 2, milliwatts: 3_912, millivolts: 5_080)])
 
         let displays = [
-            RawDisplay(id: 1, name: "Built-in Liquid Retina XDR Display", vendorID: 0x610, productID: 0xA052,
+            RawDisplay(id: 1, name: "Color LCD", vendorID: 0x610, productID: 0xA052,
                        isBuiltin: true, pixelWidth: 3024, pixelHeight: 1964, refreshHz: 120),
             RawDisplay(id: 3, name: "Studio Display XDR", vendorID: 0x610, productID: 0xAE3A, serialNumber: 0x2C41_09F3,
                        isBuiltin: false, isMain: true, pixelWidth: 5120, pixelHeight: 2880, refreshHz: 120),
