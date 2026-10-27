@@ -11,7 +11,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Fixed
 
-- The widgets no longer show the serial number of a device that puts it in its name once the device is unplugged, in its events or in a "keeps disconnecting" finding, even after Bus Stop restarts; redacted exports and `busstop --watch` hide it in that finding too. The history now keeps those serial numbers with the events that hold them. A history saved by 1.2.0 or earlier has no such list, so its events can still show such a serial number in the widgets until they are 30 days old or you clear the history.
+- The widgets no longer show the serial number of a device that puts it in its name once the device is unplugged, in its events or in a "keeps disconnecting" finding, even after Bus Stop restarts; redacted exports hide it in that finding too. The history now keeps those serial numbers with the events that hold them. A history saved by 1.2.0 or earlier has no such list, so its events can still show such a serial number in the widgets until they are 30 days old or you clear the history.
 - Redacted exports and the widgets no longer replace a resolution such as "3840 × 2160", or a year, with "REDACTED" when a connected display's serial number happens to match it.
 - The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.
 

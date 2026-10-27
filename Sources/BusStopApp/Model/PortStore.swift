@@ -79,10 +79,9 @@ final class PortStore {
     /// Nil in an ad hoc build, which has no App Group: the widgets then get no data.
     @ObservationIgnored let widgetFile: WidgetPayloadFile?
     @ObservationIgnored private var widgetGate = WidgetWriteGate()
-    /// The serial numbers captured this session that a device puts in its own name,
-    /// so the widget payload can redact events and diagnostics about it, and exports
-    /// its diagnostics, after it is unplugged. Those an event holds are saved with
-    /// it; see `knownSerials`.
+    /// The serial numbers captured this session that a device puts in its own product
+    /// name, so the widget payload and exports can redact events and findings about it
+    /// after it is unplugged. Those an event holds are saved with it; see `knownSerials`.
     @ObservationIgnored private var seenSerials = Set<String>()
     /// Called after each payload write or delete; tests replace it.
     @ObservationIgnored var reloadWidgets: () -> Void = { WidgetCenter.shared.reloadAllTimelines() }

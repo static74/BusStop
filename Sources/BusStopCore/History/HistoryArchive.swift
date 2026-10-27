@@ -25,8 +25,8 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
         /// Newest first, unique ids.
         public var events: [ConnectionEvent] = []
         /// Serial numbers that appear in the events' titles or details (a device
-        /// named after its serial), so the widget payload can still redact them
-        /// after a relaunch. Dropped with the last event that holds them.
+        /// named after its serial), so the widget payload and exports can still
+        /// redact them after a relaunch. Dropped with the last event that holds them.
         public var serials: Set<String> = []
         /// Oldest first, one per minute that had a sample.
         public var power: [PowerBucket] = []
@@ -270,7 +270,8 @@ extension HistoryArchive.Section {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         events = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)?.elements ?? []
-        serials = Set(try c.decodeIfPresent(LossyList<String>.self, forKey: .serials)?.elements ?? [])
+        // Only for redaction, so a value of the wrong type is dropped, not the whole file.
+        serials = Set((try? c.decodeIfPresent(LossyList<String>.self, forKey: .serials))??.elements ?? [])
         power = try c.decodeIfPresent(LossyList<HistoryArchive.PowerBucket>.self, forKey: .power)?.elements ?? []
         pendingPower = try c.decodeIfPresent(LossyList<PowerSample>.self, forKey: .pendingPower)?.elements ?? []
         portDays = try c.decodeIfPresent([String: LossyList<HistoryArchive.PortDay>].self, forKey: .portDays)?
@@ -388,9 +389,9 @@ extension HistoryArchive.Section {
         let now = trimDate(now: now)
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
         if let oldest = events.last, oldest.date < eventCutoff {
-            let dropped = events.filter { $0.date < eventCutoff }
+            let held = serialsHeld(by: events.lazy.filter { $0.date < eventCutoff })
             events.removeAll { $0.date < eventCutoff }
-            pruneSerials(dropping: dropped)
+            pruneSerials(held)
         }
         trimCount()
         let powerCutoff = now.addingTimeInterval(-HistoryArchive.powerAge)
@@ -405,25 +406,31 @@ extension HistoryArchive.Section {
     mutating func trimCount() {
         guard events.count > HistoryArchive.maxEvents else { return }
         let drop = events.count - HistoryArchive.maxEvents
-        let dropped = events.suffix(drop)
+        // Worked out before the removal, and no slice kept across it, so `removeLast` does not copy the log.
+        let held = serialsHeld(by: events[(events.count - drop)...])
         events.removeLast(drop)
-        pruneSerials(dropping: dropped)
+        pruneSerials(held)
     }
 
-    /// Keeps the serials that some event still holds, after `dropped` left the
-    /// log. Only a dropped event that held a serial calls for a look through
-    /// the rest, so dropping one event at the count cap stays cheap.
-    mutating func pruneSerials(dropping dropped: some Collection<ConnectionEvent>) {
-        guard !serials.isEmpty, !Self.serials(serials, in: dropped).isEmpty else { return }
-        serials = Self.serials(serials, in: events)
+    /// The saved serials that `dropped`, events about to leave the log, hold.
+    func serialsHeld(by dropped: some Collection<ConnectionEvent>) -> Set<String> {
+        serials.isEmpty ? [] : Self.serials(serials, in: dropped)
     }
 
-    /// Those of `serials` that appear, in any case, in the title or detail of one of `events`.
+    /// Drops those of `held` (from `serialsHeld(by:)`) that no event left holds.
+    /// Only they are looked for, oldest events first, since the events that
+    /// still name a device are most likely the next to go, so dropping one event
+    /// at the count cap stays cheap.
+    mutating func pruneSerials(_ held: Set<String>) {
+        guard !held.isEmpty else { return }
+        serials.subtract(held.subtracting(Self.serials(held, in: events.reversed())))
+    }
+
+    /// Those of `serials` that appear as a whole word, ignoring case, in the
+    /// title or detail of one of `events`, as redaction matches them.
     static func serials(_ serials: Set<String>, in events: some Collection<ConnectionEvent>) -> Set<String> {
         serials.filter { serial in
-            events.contains {
-                $0.title.localizedCaseInsensitiveContains(serial) || $0.detail.localizedCaseInsensitiveContains(serial)
-            }
+            events.contains { IDShape.containsWord(serial, in: $0.title) || IDShape.containsWord(serial, in: $0.detail) }
         }
     }
 
@@ -433,9 +440,9 @@ extension HistoryArchive.Section {
         func dropCount(_ count: Int) -> Int { count - Int(Double(count) * fraction) }
         let eventDrop = dropCount(events.count)
         let powerDrop = dropCount(power.count)
-        let droppedEvents = events.suffix(eventDrop)
+        let held = serialsHeld(by: events[(events.count - eventDrop)...])
         events.removeLast(eventDrop)
-        pruneSerials(dropping: droppedEvents)
+        pruneSerials(held)
         power.removeFirst(powerDrop)
         var dropped = eventDrop + powerDrop > 0
         for (key, days) in portDays {

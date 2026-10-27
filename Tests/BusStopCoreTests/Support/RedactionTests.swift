@@ -437,6 +437,59 @@ struct RedactionTests {
         #expect(Exporter.redacted(named, serialsFrom: [S.snapshot(.studioDesk)]).detail == "Panel REDACTED")
     }
 
+    /// A display event's id ends in its serial: a 4-digit one is redacted in the id but
+    /// left in the text, where it would match a resolution.
+    @Test func shortDisplaySerialInAnEventIDStaysOutOfItsText() {
+        let event = ConnectionEvent(id: "displayConnected:display:610:ae3a:2160:1790000000000", date: S.date,
+                                    kind: .displayConnected, title: "LG UltraFine connected",
+                                    detail: "3840 × 2160 @ 60 Hz", deviceID: "display:610:ae3a:2160")
+        let redacted = Exporter.redacted(event)
+        #expect(redacted.deviceID == "display:610:ae3a:REDACTED")
+        #expect(redacted.detail == "3840 × 2160 @ 60 Hz")
+    }
+
+    /// A number under a serial key in a raw capture is a display serial, so a 4-digit one stays in other text.
+    @Test func shortNumberSerialKeysStayOutOfRawText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["DisplaySerialNumber"] = .int(2160)
+        values["PreferredMode"] = .string("3840 × 2160")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let json = text(try Exporter.rawJSON(raw, redact: true))
+        #expect(json.contains("3840 × 2160"))
+        #expect(!json.contains("\"DisplaySerialNumber\" : 2160"))
+    }
+
+    /// A 5-digit display serial cannot be a resolution or a year, so it is still removed from text.
+    @Test func fiveDigitDisplaySerialsAreRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        raw.displays[index].serialNumber = 12345
+        var snapshot = TopologyBuilder.build(raw)
+        snapshot.diagnostics.append(Diagnostic(id: "panel", kind: .flakyConnection, severity: .info,
+                                               title: "Panel 12345 flickers", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Panel REDACTED flickers")
+    }
+
+    /// A serial that is the vendor's name, or only part of a word of the product name, is not kept.
+    @Test(arguments: [("Generic", "Generic Card Reader", "Generic"), ("Generic", "Mass Storage Device", "Generic Tech"),
+                      ("Data", "DataTraveler 3.0", "Kingston")])
+    func serialsThatAreNotTheirOwnWordAreNotKept(_ serial: String, _ product: String, _ vendor: String) throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["USB Product Name"] = .string(product)
+        values["USB Vendor Name"] = .string(vendor)
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = product
+        let snapshot = TopologyBuilder.build(raw)
+        let device = try #require(snapshot.allDevices.first { $0.device.serialNumber == serial }?.device)
+        #expect(device.name == product && device.vendorName == vendor)
+        #expect(!Exporter.serialsInNames(of: snapshot).contains(serial))
+    }
+
     /// A serial the device does not put in its name ("Generic") is not kept for later redaction.
     @Test func serialsNotInTheirOwnNameAreNotKept() throws {
         var raw = DemoScenario.studioDesk.raw(at: S.date)

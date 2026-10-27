@@ -294,14 +294,16 @@ extension Exporter {
         textSerials(serialEntries(in: snapshot))
     }
 
-    /// The snapshot's serial numbers that appear in the name of the device,
-    /// charger or display that carries them (some devices put their serial in
-    /// their product name), for redacting events and diagnostics about it
-    /// after it is gone. A serial such as "Generic" that the device does not
-    /// put in its name is left out, so it is not removed from other names.
+    /// The snapshot's serial numbers that appear as a whole word in the product
+    /// name of the device, charger or display that carries them (some devices
+    /// put their serial in their product name), for redacting events and
+    /// diagnostics about it after it is gone. A serial such as "Generic" that
+    /// is not a word of the product name, or that is the vendor's name, is left
+    /// out, so it is not removed from other devices' names.
     public static func serialsInNames(of snapshot: HostSnapshot) -> Set<String> {
         Set(serialEntries(in: snapshot).filter { entry in
-            entry.isText && entry.names.contains { $0.localizedCaseInsensitiveContains(entry.serial) }
+            entry.isText && IDShape.containsWord(entry.serial, in: entry.name ?? "")
+                && entry.serial.caseInsensitiveCompare(entry.vendor ?? "") != .orderedSame
         }.map(\.serial))
     }
 
@@ -310,13 +312,13 @@ extension Exporter {
         Set(entries.filter(\.isText).map(\.serial))
     }
 
-    /// Every serial number in the snapshot, with the names of what carries it.
+    /// Every serial number in the snapshot, with the product and vendor names of what carries it.
     private static func serialEntries(in snapshot: HostSnapshot) -> [SerialEntry] {
         var entries: [SerialEntry] = []
         for display in snapshot.displays {
             if let serial = display.serialNumber, serial != 0 {
-                entries.append(SerialEntry(serial: String(serial), isNumber: true, names: [display.name]))
-                entries.append(SerialEntry(serial: String(serial, radix: 16), isNumber: true, names: [display.name]))
+                entries.append(SerialEntry(serial: String(serial), isNumber: true, name: display.name))
+                entries.append(SerialEntry(serial: String(serial, radix: 16), isNumber: true, name: display.name))
             }
         }
         for entry in snapshot.allDevices {
@@ -324,13 +326,12 @@ extension Exporter {
                 guard let serial = device.serialNumber else { continue }
                 // A display's row carries its numeric serial in decimal.
                 entries.append(SerialEntry(serial: serial, isNumber: device.bus == .displayPort,
-                                           names: [device.name, device.vendorName].compactMap { $0 }))
+                                           name: device.name, vendor: device.vendorName))
             }
         }
         for charger in [snapshot.power.charger] + snapshot.ports.map(\.charger) {
             guard let charger, let serial = charger.serialNumber else { continue }
-            entries.append(SerialEntry(serial: serial, isNumber: false,
-                                       names: [charger.name, charger.manufacturer].compactMap { $0 }))
+            entries.append(SerialEntry(serial: serial, isNumber: false, name: charger.name, vendor: charger.manufacturer))
         }
         return entries
     }
@@ -370,13 +371,15 @@ struct SerialEntry {
     var serial: String
     /// A display's serial, which is a number: its decimal and hex forms.
     var isNumber: Bool
-    /// The names of the device, charger or display that carries it.
-    var names: [String] = []
+    /// The product name of the device, charger or display that carries it.
+    var name: String?
+    /// Its vendor or manufacturer name.
+    var vendor: String?
 
-    /// Whether it is removed from free text: at least 4 characters, or 6 for a
-    /// display's number, whose short forms ("2160", the hex of 8544) would
+    /// Whether it is removed from free text: at least 4 characters, or 5 for a
+    /// display's number, whose 4-digit forms ("2160", the hex of 8544) would
     /// otherwise match a resolution such as "3840 × 2160", or a year.
-    var isText: Bool { serial.trimmingCharacters(in: .whitespaces).count >= (isNumber ? 6 : 4) }
+    var isText: Bool { serial.trimmingCharacters(in: .whitespaces).count >= (isNumber ? 5 : 4) }
 }
 
 /// Redacts one export. Created per export call, so stand-ins are numbered
@@ -612,10 +615,7 @@ enum IDShape {
         for value in values.sorted(by: { $0.count > $1.count }) where !value.isEmpty {
             var searchStart = result.startIndex
             while let range = result.range(of: value, options: .caseInsensitive, range: searchStart..<result.endIndex) {
-                let touchesBefore = range.lowerBound > result.startIndex
-                    && result[result.index(before: range.lowerBound)].isWordCharacter
-                let touchesAfter = range.upperBound < result.endIndex && result[range.upperBound].isWordCharacter
-                if touchesBefore || touchesAfter {
+                if touchesWord(range, in: result) {
                     searchStart = result.index(after: range.lowerBound)
                 } else {
                     result.replaceSubrange(range, with: Exporter.redactedText)
@@ -624,6 +624,23 @@ enum IDShape {
             }
         }
         return result
+    }
+
+    /// Whether `value` appears in `text` as a whole word, ignoring case, as `removing` matches it.
+    static func containsWord(_ value: String, in text: String) -> Bool {
+        guard !value.isEmpty else { return false }
+        var searchStart = text.startIndex
+        while let range = text.range(of: value, options: .caseInsensitive, range: searchStart..<text.endIndex) {
+            if !touchesWord(range, in: text) { return true }
+            searchStart = text.index(after: range.lowerBound)
+        }
+        return false
+    }
+
+    /// Whether a letter or digit touches `range` on either side.
+    private static func touchesWord(_ range: Range<String.Index>, in text: String) -> Bool {
+        (range.lowerBound > text.startIndex && text[text.index(before: range.lowerBound)].isWordCharacter)
+            || (range.upperBound < text.endIndex && text[range.upperBound].isWordCharacter)
     }
 }
 
