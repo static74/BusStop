@@ -5,12 +5,13 @@ extension Exporter {
     /// device tree, displays, diagnostics.
     ///
     /// Serial numbers are shown as "REDACTED" when `redact` is true, and
-    /// are removed from names and other text too. Raw
+    /// are removed from names and other text too. So are `serials`: those of
+    /// devices no longer connected, which a diagnostic can still name. Raw
     /// property bags and ids are not part of the report. Text from the
     /// capture is escaped and passed through `Format.terminalSafe`, so a
     /// device name cannot break the layout or carry control characters.
-    public static func markdown(_ snapshot: HostSnapshot, redact: Bool = true) -> String {
-        var report = MarkdownReport(redact: redact, serials: redact ? serialStrings(in: snapshot) : [])
+    public static func markdown(_ snapshot: HostSnapshot, redact: Bool = true, serials: Set<String> = []) -> String {
+        var report = MarkdownReport(redact: redact, serials: redact ? textSerials(in: snapshot).union(serials) : [])
         report.render(snapshot)
         return report.text
     }
@@ -19,7 +20,8 @@ extension Exporter {
 /// Builds the Markdown report line by line.
 private struct MarkdownReport {
     let redact: Bool
-    /// Serial numbers removed from all text, at least 4 characters as elsewhere.
+    /// Serial numbers removed from all text: the snapshot's, chosen by `SerialEntry.isText`, and
+    /// the caller's of at least 4 characters.
     let serials: Set<String>
     private(set) var lines: [String] = []
 

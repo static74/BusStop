@@ -28,6 +28,10 @@ final class WatchSession {
     private let options: CLIOptions
     private var previous: HostSnapshot?
     private var archive = HistoryArchive()
+    /// Serials devices put in their names this run. A finding can name a device
+    /// after it is gone (its culprit changes while it is away), when neither
+    /// capture holds the serial.
+    private var seenSerials = Set<String>()
     private var health = ConnectionHealth()
     private var eventCount = 0
     private var stopMonitoring: (@Sendable () -> Void)?
@@ -109,6 +113,15 @@ final class WatchSession {
     /// Builds a snapshot from a capture and prints the events since the
     /// previous one.
     private func ingest(_ raw: RawSnapshot, isDemo: Bool) {
+        for event in events(after: raw, isDemo: isDemo) {
+            eventCount += 1
+            Console.out(line(for: event) + "\n")
+        }
+    }
+
+    /// Builds a snapshot from a capture and returns the events since the
+    /// previous one, redacted unless `--no-redact` is given. Announces the first.
+    func events(after raw: RawSnapshot, isDemo: Bool) -> [ConnectionEvent] {
         let isFirst = previous == nil
         // shortcut: --watch does not observe system sleep, so a wake counts as continuous; add a wake
         // observer if users see false flaky lines after wake.
@@ -121,14 +134,12 @@ final class WatchSession {
         var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
         archive.append(events, model: snapshot.machine.model)
         if options.redact {
+            seenSerials.formUnion(Exporter.serialsInNames(of: snapshot))
             let snapshots = [previous, snapshot].compactMap { $0 }
-            events = events.map { Exporter.redacted($0, serialsFrom: snapshots) }
+            events = events.map { Exporter.redacted($0, serialsFrom: snapshots, serials: seenSerials) }
         }
         previous = snapshot
-        for event in events {
-            eventCount += 1
-            Console.out(line(for: event) + "\n")
-        }
+        return events
     }
 
     /// "Watching MacBook Pro (14-inch, 2026, M5 Pro) (demo: Studio desk): 6 ports, 8 devices. Press Control-C to stop."

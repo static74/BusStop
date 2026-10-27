@@ -109,7 +109,7 @@ Diagnostics
 
 - No network code, no analytics, no crash reporting, no accounts.
 - Bus Stop only reads IORegistry properties, the power-source API, the display list, the SMC's read-only power keys, and the Mac's model, chip and macOS version. It never ejects, powers off or reconfigures anything, and it never reads the computer name.
-- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your account. It holds device names, display serial numbers and Thunderbolt device IDs, but not the Mac's serial number. Settings › Advanced › History clears it or turns saving off, and demo mode never touches it.
+- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your account. It holds device names, display serial numbers and Thunderbolt device IDs, and a list of the device serial numbers that appear in its events, so the widgets and redacted exports can hide them. It never holds the Mac's serial number. Settings › Advanced › History clears it or turns saving off, and demo mode never touches it.
 - The widgets read a copy of what they show from a file the app shares only with them; clearing the history deletes it too. Nothing else is written unless you export.
 
 ## How it works

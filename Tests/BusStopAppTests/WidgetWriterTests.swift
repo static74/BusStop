@@ -103,6 +103,124 @@ struct WidgetWriterTests {
         return store
     }
 
+    /// A capture with a drive that puts `serial` in its name, and one `seconds` later without it.
+    private func driveNamedAfterItsSerial(_ serial: String, unpluggedAfter seconds: TimeInterval) throws
+        -> (plugged: RawSnapshot, unplugged: RawSnapshot) {
+        var raw = capture(0)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["USB Product Name"] = .string("Drive \(serial)")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = "Drive \(serial)"
+        var unplugged = raw
+        unplugged.capturedAt = start + seconds
+        unplugged.usbDevices.remove(at: index)
+        return (raw, unplugged)
+    }
+
+    /// The drive unplugged: the event names it, but the snapshot the payload is built
+    /// from no longer has its serial.
+    @Test func unpluggedDeviceSerialStaysOutOfThePayload() throws {
+        let serial = "SNXYZ123"
+        let (raw, unplugged) = try driveNamedAfterItsSerial(serial, unpluggedAfter: 2)
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        store.ingest(raw)
+        store.ingest(unplugged)
+        #expect(store.events.contains { $0.title.contains(serial) })
+        let payload = try #require(sandbox.file.read())
+        #expect(payload.events.contains { $0.kind == .deviceDisconnected })
+        let json = String(decoding: try Data(contentsOf: sandbox.file.url), as: UTF8.self)
+        #expect(!json.contains(serial))
+    }
+
+    /// The drive unplugged, then Bus Stop quit: the next launch reads the event back
+    /// from the history but never sees the drive.
+    @Test func unpluggedDeviceSerialStaysOutAfterARelaunch() throws {
+        let serial = "SNXYZ123"
+        let (raw, unplugged) = try driveNamedAfterItsSerial(serial, unpluggedAfter: 2)
+        let sandbox = Sandbox()
+        let first = sandbox.store()
+        first.loadHistoryIfNeeded()
+        first.ingest(raw)
+        first.ingest(unplugged)
+        first.flushHistory()
+
+        let second = sandbox.store()
+        second.loadHistoryIfNeeded()
+        var later = unplugged
+        later.capturedAt = start + 60
+        second.ingest(later)
+        #expect(second.events.contains { $0.title.contains(serial) })
+        let json = String(decoding: try Data(contentsOf: sandbox.file.url), as: UTF8.self)
+        #expect(json.contains("disconnected"))
+        #expect(!json.contains(serial))
+    }
+
+    /// A Studio desk capture `seconds` after `start`, with a drive named after `serial` or without it.
+    private func drive(_ serial: String, at seconds: TimeInterval, plugged: Bool) throws -> RawSnapshot {
+        let (raw, unplugged) = try driveNamedAfterItsSerial(serial, unpluggedAfter: 0)
+        var capture = plugged ? raw : unplugged
+        capture.capturedAt = start + seconds
+        return capture
+    }
+
+    /// History off at launch, a drive unplugged, history turned on, then a relaunch:
+    /// the merged event keeps its serial for redaction.
+    @Test func historyTurnedOnMidSessionThenRelaunch() throws {
+        let serial = "SNXYZ123"
+        let sandbox = Sandbox()
+        let first = sandbox.store()
+        first.loadHistoryIfNeeded()
+        first.ingest(try drive("OTHER0001X", at: 0, plugged: true))
+        first.ingest(try drive("OTHER0001X", at: 2, plugged: false))
+        first.flushHistory()
+
+        sandbox.settings.keepHistory = false
+        let second = sandbox.store()
+        second.loadHistoryIfNeeded()
+        second.ingest(try drive(serial, at: 3_600, plugged: true))
+        second.ingest(try drive(serial, at: 3_602, plugged: false))
+        second.setKeepHistory(true)
+        #expect(second.events.contains { $0.title.contains(serial) })
+        second.flushHistory()
+
+        let third = sandbox.store()
+        third.loadHistoryIfNeeded()
+        third.ingest(try drive(serial, at: 7_200, plugged: false))
+        #expect(third.events.contains { $0.title.contains(serial) })
+        let json = String(decoding: try Data(contentsOf: sandbox.file.url), as: UTF8.self)
+        #expect(json.contains("disconnected"))
+        #expect(!json.contains(serial))
+    }
+
+    /// The drive keeps disconnecting, then leaves: the finding still names it.
+    @Test func flakyFindingOfAGoneDeviceIsRedacted() throws {
+        let serial = "SNXYZ123"
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        var seconds: TimeInterval = 0
+        store.ingest(try drive(serial, at: seconds, plugged: true))
+        for _ in 0..<4 {
+            seconds += 5
+            store.ingest(try drive(serial, at: seconds, plugged: false))
+            seconds += 5
+            store.ingest(try drive(serial, at: seconds, plugged: true))
+        }
+        seconds += 5
+        store.ingest(try drive(serial, at: seconds, plugged: false))
+        #expect(store.snapshot.diagnostics.contains { $0.kind == .flakyConnection && $0.title.contains(serial) })
+        let payload = try #require(sandbox.file.read())
+        #expect(payload.snapshot.diagnostics.contains { $0.kind == .flakyConnection })
+        let json = String(decoding: try Data(contentsOf: sandbox.file.url), as: UTF8.self)
+        #expect(!json.contains(serial))
+        #expect(!String(decoding: try store.exportJSON(), as: UTF8.self).contains(serial))
+        #expect(!store.exportMarkdown().contains(serial))
+    }
+
     @Test func clearHistoryDeletesThePayload() throws {
         let sandbox = Sandbox()
         let store = try storeWithEvents(sandbox)

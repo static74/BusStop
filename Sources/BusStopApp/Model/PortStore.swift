@@ -79,6 +79,10 @@ final class PortStore {
     /// Nil in an ad hoc build, which has no App Group: the widgets then get no data.
     @ObservationIgnored let widgetFile: WidgetPayloadFile?
     @ObservationIgnored private var widgetGate = WidgetWriteGate()
+    /// The serial numbers captured this session that a device puts in its own product or
+    /// vendor name, so the widget payload and exports can redact events and findings about
+    /// it after it is unplugged. Those an event holds are saved with it; see `knownSerials`.
+    @ObservationIgnored private var seenSerials = Set<String>()
     /// Called after each payload write or delete; tests replace it.
     @ObservationIgnored var reloadWidgets: () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
     /// Changes on every capture, so no view observes it.
@@ -441,7 +445,8 @@ final class PortStore {
                                                   step: WidgetPayload.dayPowerStep) : [],
             events: keep ? events : [],
             portHealth: keep ? portHealth : [:],
-            portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil
+            portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil,
+            serials: knownSerials
         )
         do {
             try widgetFile.write(payload)
@@ -470,7 +475,7 @@ final class PortStore {
             // Turned on mid-session: keep this session's events, and count no
             // port counters between the file's last capture and now.
             let model = snapshot.machine.model
-            saved.append(archive.events(model: model).reversed(), model: model)
+            saved.append(archive.events(model: model).reversed(), model: model, serials: archive.serials(model: model))
             archive = saved
             nextCaptureAfterGap = true
             if hasLoaded { events = archive.events(model: model) }
@@ -523,14 +528,22 @@ final class PortStore {
 
     // MARK: Export
 
-    func exportJSON() throws -> Data { try Exporter.json(snapshot, redact: settings.redactExports) }
-    func exportMarkdown() -> String { Exporter.markdown(snapshot, redact: settings.redactExports) }
+    func exportJSON() throws -> Data {
+        try Exporter.json(snapshot, redact: settings.redactExports, serials: knownSerials)
+    }
+    func exportMarkdown() -> String {
+        Exporter.markdown(snapshot, redact: settings.redactExports, serials: knownSerials)
+    }
     func exportRawJSON() throws -> Data? {
         guard let raw else { return nil }
         return try Exporter.rawJSON(raw, redact: settings.redactExports)
     }
 
     // MARK: Private
+
+    /// This session's serial numbers and those the history's events hold, including
+    /// events saved by an earlier launch about a device not seen since.
+    private var knownSerials: Set<String> { seenSerials.union(archive.serials(model: snapshot.machine.model)) }
 
     private var monitorConfiguration: LiveMonitor.Configuration {
         LiveMonitor.Configuration(
@@ -630,6 +643,7 @@ final class PortStore {
             isDemo: isDemo
         )
         var built = TopologyBuilder.build(raw, options: options)
+        seenSerials.formUnion(Exporter.serialsInNames(of: built))
 
         if raw.capturedAt != lastRecordedAt {
             // A clock set back is a gap too.
@@ -660,7 +674,7 @@ final class PortStore {
         hasLoaded = true
 
         if !newEvents.isEmpty {
-            archive.append(newEvents, model: built.machine.model)
+            archive.append(newEvents, model: built.machine.model, serials: seenSerials)
             // Short connections and slowdowns are counted from the events.
             portHealth = archive.portHealth(model: built.machine.model, now: built.capturedAt)
             // Demo data is never saved and never raises system notifications.
