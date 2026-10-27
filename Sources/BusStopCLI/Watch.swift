@@ -28,6 +28,10 @@ final class WatchSession {
     private let options: CLIOptions
     private var previous: HostSnapshot?
     private var archive = HistoryArchive()
+    /// Serials devices put in their names this run. A finding can name a device
+    /// after it is gone (its culprit changes while it is away), when neither
+    /// capture holds the serial.
+    private var seenSerials = Set<String>()
     private var health = ConnectionHealth()
     private var eventCount = 0
     private var stopMonitoring: (@Sendable () -> Void)?
@@ -130,9 +134,9 @@ final class WatchSession {
         var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
         archive.append(events, model: snapshot.machine.model)
         if options.redact {
-            // Every event names a device in one of the two captures: a finding is raised on a return.
+            seenSerials.formUnion(Exporter.serialsInNames(of: snapshot))
             let snapshots = [previous, snapshot].compactMap { $0 }
-            events = events.map { Exporter.redacted($0, serialsFrom: snapshots) }
+            events = events.map { Exporter.redacted($0, serialsFrom: snapshots, serials: seenSerials) }
         }
         previous = snapshot
         return events

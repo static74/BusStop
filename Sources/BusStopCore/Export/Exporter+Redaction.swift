@@ -297,13 +297,13 @@ extension Exporter {
     /// The snapshot's serial numbers that appear as a whole word in the product
     /// name of the device, charger or display that carries them (some devices
     /// put their serial in their product name), for redacting events and
-    /// diagnostics about it after it is gone. A serial such as "Generic" that
-    /// is not a word of the product name, or that is the vendor's name, is left
-    /// out, so it is not removed from other devices' names.
+    /// diagnostics about it after it is gone. A serial without a digit, such as
+    /// "Generic" or "Card", is an ordinary word even when the name holds it, so
+    /// it is left out and not removed from other devices' names for weeks.
     public static func serialsInNames(of snapshot: HostSnapshot) -> Set<String> {
         Set(serialEntries(in: snapshot).filter { entry in
-            entry.isText && IDShape.containsWord(entry.serial, in: entry.name ?? "")
-                && entry.serial.caseInsensitiveCompare(entry.vendor ?? "") != .orderedSame
+            entry.isText && entry.serial.contains(where: \.isNumber)
+                && IDShape.containsWord(entry.serial, in: entry.name ?? "")
         }.map(\.serial))
     }
 
@@ -312,7 +312,7 @@ extension Exporter {
         Set(entries.filter(\.isText).map(\.serial))
     }
 
-    /// Every serial number in the snapshot, with the product and vendor names of what carries it.
+    /// Every serial number in the snapshot, with the product name of what carries it.
     private static func serialEntries(in snapshot: HostSnapshot) -> [SerialEntry] {
         var entries: [SerialEntry] = []
         for display in snapshot.displays {
@@ -325,13 +325,12 @@ extension Exporter {
             for device in [entry.device] + (entry.device.internalParts ?? []) {
                 guard let serial = device.serialNumber else { continue }
                 // A display's row carries its numeric serial in decimal.
-                entries.append(SerialEntry(serial: serial, isNumber: device.bus == .displayPort,
-                                           name: device.name, vendor: device.vendorName))
+                entries.append(SerialEntry(serial: serial, isNumber: device.bus == .displayPort, name: device.name))
             }
         }
         for charger in [snapshot.power.charger] + snapshot.ports.map(\.charger) {
             guard let charger, let serial = charger.serialNumber else { continue }
-            entries.append(SerialEntry(serial: serial, isNumber: false, name: charger.name, vendor: charger.manufacturer))
+            entries.append(SerialEntry(serial: serial, isNumber: false, name: charger.name))
         }
         return entries
     }
@@ -373,13 +372,15 @@ struct SerialEntry {
     var isNumber: Bool
     /// The product name of the device, charger or display that carries it.
     var name: String?
-    /// Its vendor or manufacturer name.
-    var vendor: String?
 
     /// Whether it is removed from free text: at least 4 characters, or 5 for a
-    /// display's number, whose 4-digit forms ("2160", the hex of 8544) would
-    /// otherwise match a resolution such as "3840 × 2160", or a year.
-    var isText: Bool { serial.trimmingCharacters(in: .whitespaces).count >= (isNumber ? 5 : 4) }
+    /// display's number or a serial of digits only, whose 4-digit forms ("2160",
+    /// the hex of 8544, or "2026") would otherwise match a resolution such as
+    /// "3840 × 2160", or a year.
+    var isText: Bool {
+        let serial = serial.trimmingCharacters(in: .whitespaces)
+        return serial.count >= (isNumber || serial.allSatisfy(\.isNumber) ? 5 : 4)
+    }
 }
 
 /// Redacts one export. Created per export call, so stand-ins are numbered
@@ -628,7 +629,11 @@ enum IDShape {
 
     /// Whether `value` appears in `text` as a whole word, ignoring case, as `removing` matches it.
     static func containsWord(_ value: String, in text: String) -> Bool {
-        guard !value.isEmpty else { return false }
+        // Most texts hold no serial at all, and a search with a fixed locale is about 7 times faster
+        // than the loop below. Not the user's locale: in Turkish, "I" does not match "i".
+        guard !value.isEmpty, text.range(of: value, options: .caseInsensitive, locale: posixLocale) != nil else {
+            return false
+        }
         var searchStart = text.startIndex
         while let range = text.range(of: value, options: .caseInsensitive, range: searchStart..<text.endIndex) {
             if !touchesWord(range, in: text) { return true }
@@ -636,6 +641,8 @@ enum IDShape {
         }
         return false
     }
+
+    private static let posixLocale = Locale(identifier: "en_US_POSIX")
 
     /// Whether a letter or digit touches `range` on either side.
     private static func touchesWord(_ range: Range<String.Index>, in text: String) -> Bool {

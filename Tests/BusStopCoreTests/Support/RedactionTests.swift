@@ -472,9 +472,10 @@ struct RedactionTests {
         #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Panel REDACTED flickers")
     }
 
-    /// A serial that is the vendor's name, or only part of a word of the product name, is not kept.
-    @Test(arguments: [("Generic", "Generic Card Reader", "Generic"), ("Generic", "Mass Storage Device", "Generic Tech"),
-                      ("Data", "DataTraveler 3.0", "Kingston")])
+    /// A serial without a digit (an ordinary word), one only in the vendor's name, or one that is
+    /// only part of a word of the product name, is not kept.
+    @Test(arguments: [("Generic", "Generic Card Reader", "Kingston"), ("Card", "SD Card Reader", "Generic"),
+                      ("SN1234", "Mass Storage Device", "SN1234 Tech"), ("Data7", "Data7Traveler 3.0", "Kingston")])
     func serialsThatAreNotTheirOwnWordAreNotKept(_ serial: String, _ product: String, _ vendor: String) throws {
         var raw = DemoScenario.studioDesk.raw(at: S.date)
         let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
@@ -488,6 +489,25 @@ struct RedactionTests {
         let device = try #require(snapshot.allDevices.first { $0.device.serialNumber == serial }?.device)
         #expect(device.name == product && device.vendorName == vendor)
         #expect(!Exporter.serialsInNames(of: snapshot).contains(serial))
+    }
+
+    /// A 4-digit device serial ("2160", "2026") stays out of free text, where it would match a
+    /// resolution or a year. A 5-digit one is still removed (`shortDeviceSerialsInNamesAreRedacted`).
+    @Test func fourDigitDeviceSerialsStayOutOfFreeText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let indices = raw.usbDevices.indices.filter { raw.usbDevices[$0].node.properties.values["USB Serial Number"] != nil }
+        try #require(indices.count >= 2)
+        for (index, serial) in zip(indices, ["2160", "2026"]) {
+            var values = raw.usbDevices[index].node.properties.values
+            values["USB Serial Number"] = .string(serial)
+            raw.usbDevices[index].node.properties = PropertyBag(values)
+        }
+        var snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.machine.name.contains("2026"))
+        snapshot.diagnostics.append(Diagnostic(id: "res", kind: .flakyConnection, severity: .info,
+                                               title: "Runs at 3840 × 2160", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Runs at 3840 × 2160")
+        #expect(Exporter.markdown(snapshot).contains(snapshot.machine.name))
     }
 
     /// A serial the device does not put in its name ("Generic") is not kept for later redaction.

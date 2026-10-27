@@ -283,7 +283,8 @@ extension HistoryArchive.Section {
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
         trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
         // A file edited by hand, or events dropped on their own above, can leave serials no event holds.
-        if !serials.isEmpty { serials = Self.serials(serials, in: events) }
+        // Oldest first: a serial is most often held only by events about a device unplugged long ago.
+        if !serials.isEmpty { serials = Self.serials(serials, in: events.reversed()) }
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
