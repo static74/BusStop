@@ -6,7 +6,7 @@
 
 <p align="center"><strong>A live map of every port on your Mac.</strong></p>
 
-Bus Stop is a free, open-source menu bar app for macOS. It was designed for macOS 27 and also runs on macOS 26. It shows every physical port on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI, SD card), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
+Bus Stop is a free, open-source menu bar app for macOS. It was designed for macOS 27 and also runs on macOS 26. It shows the physical ports on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI and, where macOS reports it, the SD card slot), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
 
 ## Features
 
@@ -23,7 +23,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Port health.** Each port's plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days, next to the hardware's all-time counts, with a gentle note when one port has far more problems than its siblings. An overcurrent warning lasts 24 hours, even across a relaunch.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
-- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and in Extra Large the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets ([Install](#install) says which copies of Bus Stop show them). Bus Stop must be running to keep them current.
+- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and in Extra Large the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets ([Install](#install) says when they appear). Bus Stop must be running to keep them current.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
 - **Settings** for the theme (Dark, Light or Match System), the data colours that show link speeds (Lagoon, eight other presets or Match System), text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
@@ -54,7 +54,7 @@ Both show demo mode, so you can see the same setups on your own Mac (Settings �
 
 Each release also lists the SHA-256 checksum of the disk image. To check it, download `BusStop.dmg.sha256` next to the image and run `shasum -a 256 -c BusStop.dmg.sha256`.
 
-Bus Stop lives in the menu bar and has no Dock icon. Left-click the icon for the port map; right-click it for the menu.
+Bus Stop lives in the menu bar. It shows a Dock icon only while one of its windows is open, which Settings › General can turn off. Left-click the icon for the port map; right-click it for the menu.
 
 ### Build from source
 
@@ -83,12 +83,12 @@ busstop --raw                   # raw IORegistry capture as JSON, for bug report
 busstop --watch                 # print connection changes as they happen (Control-C to stop)
 busstop --watch --json          # the same, one JSON object per line
 busstop --demo studioDesk       # any of the above against a demo setup
-busstop --input capture.json    # the same outputs from a capture saved with --raw (not --watch)
+busstop --input capture.json    # the outputs above except --watch, read from a capture saved with --raw
 busstop --version
 busstop --help
 ```
 
-Demo setups are `studioDesk`, `travel`, `dockStation`, `unplugged` and `flakyCable` (Travel with an iPhone that keeps dropping out); with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds, so after about 40 seconds a `!` line reports it as flaky. Serial numbers are redacted from the text tree and from JSON, Markdown, raw and watch output, also where a device puts its serial in its name, unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
+Demo setups are `studioDesk`, `travel`, `dockStation`, `unplugged` and `flakyCable` (Travel with an iPhone that keeps dropping out); with `--watch`, every setup except `unplugged` (which has nothing plugged in) unplugs and replugs a sample device every few seconds, so after about 40 seconds a `!` line reports it as flaky. `--input -` reads the capture from standard input. Serial numbers are redacted from the text tree and from JSON, Markdown, raw and watch output, also where a device puts its serial in its name, unless you add `--no-redact`, and `--no-smc` skips the SMC power readings. Device names are stripped of control characters before they reach the terminal. The tool exits with status 0 on success, 1 on a runtime error and 2 on a usage error, and writes errors to standard error.
 
 The default output looks like this:
 
@@ -110,8 +110,8 @@ Displays
 ## Privacy
 
 - No network code, no analytics, no crash reporting, no accounts. The app does not ask for network access.
-- Bus Stop only reads: IORegistry properties, the power-source API and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
-- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. For the widgets, the app also writes what they show to `widget-payload.json` in a folder it shares only with them (in `~/Library/Group Containers/`), readable only by your user account, with serial numbers redacted; clearing the history or turning it off deletes it. Nothing is written anywhere else unless you export.
+- Bus Stop only reads: IORegistry properties, the power-source API, the display list from CoreGraphics and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
+- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. For the widgets, the app also writes what they show to `widget-payload.json` in a folder it shares only with them (in `~/Library/Group Containers/`), readable only by your user account, with serial numbers redacted. Clearing the history or turning it off deletes that file too; the app then writes a new one, which with history off holds only the current ports and recent power, without events or port counts. Nothing is written anywhere else unless you export.
 - Exports and `busstop --watch` redact serial numbers and the computer name by default.
 
 ## How it works

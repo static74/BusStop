@@ -74,7 +74,7 @@ enum TextTree {
     /// Separator between the columns of a port line.
     static let gap = "   "
 
-    /// "Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%".
+    /// "Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% · 4.5 W to ports".
     static func powerLine(_ power: PowerSummary) -> String {
         var parts: [String] = []
         if let charger = power.charger {
