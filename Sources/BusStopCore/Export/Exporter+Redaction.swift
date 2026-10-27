@@ -30,9 +30,11 @@ import Foundation
 ///   value's layout and replaces its hex digits with a running number, the
 ///   same for the dashed and undashed forms of one UUID.
 extension Exporter {
-    /// A copy of the snapshot with identifying values removed.
-    public static func redacted(_ snapshot: HostSnapshot) -> HostSnapshot {
-        let redactor = Redactor(serials: serialStrings(in: snapshot))
+    /// A copy of the snapshot with identifying values removed. `serials` are
+    /// removed too, for serial numbers of devices no longer connected that a
+    /// diagnostic can still name.
+    public static func redacted(_ snapshot: HostSnapshot, serials: Set<String> = []) -> HostSnapshot {
+        let redactor = Redactor(serials: serialStrings(in: snapshot).union(serials))
         var copy = snapshot
         copy.ports = snapshot.ports.map { port in
             var port = port
@@ -135,6 +137,12 @@ extension Exporter {
     /// `serials`, which an event title can carry in a device's name.
     public static func redacted(_ event: ConnectionEvent, serialsFrom snapshots: [HostSnapshot] = [],
                                 serials: Set<String> = []) -> ConnectionEvent {
+        redacted(event, textSerials: serials.union(snapshots.flatMap(serialStrings(in:))).filter(isTextSerial))
+    }
+
+    /// `redacted(_:serialsFrom:serials:)` with the serials already filtered by
+    /// `isTextSerial`, so a list of events shares one set.
+    static func redacted(_ event: ConnectionEvent, textSerials: Set<String>) -> ConnectionEvent {
         var found = Set<String>()
         func scrub(_ id: String) -> String {
             IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
@@ -143,7 +151,7 @@ extension Exporter {
         copy.id = scrub(event.id)
         copy.deviceID = event.deviceID.map(scrub)
         copy.subjectID = event.subjectID.map(scrub)
-        let words = found.union(serials).union(snapshots.flatMap(serialStrings(in:))).filter { $0.count >= 4 }
+        let words = found.isEmpty ? textSerials : textSerials.union(found.filter(isTextSerial))
         copy.title = IDShape.removing(words, from: event.title)
         copy.detail = IDShape.removing(words, from: event.detail)
         return copy
@@ -158,11 +166,20 @@ extension Exporter {
         return IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
     }
 
-    /// The text with each of `serials` (at least 4 characters) replaced by
+    /// The text with each of `serials` that passes `isTextSerial` replaced by
     /// "REDACTED" wherever it appears as a whole word, for free text such as
     /// "Copy Details".
     public static func redacted(_ text: String, serials: [String]) -> String {
-        IDShape.removing(Set(serials.filter { $0.count >= 4 }), from: text)
+        IDShape.removing(Set(serials.filter(isTextSerial)), from: text)
+    }
+
+    /// True for serial numbers worth removing from free text: at least 4
+    /// characters, or at least 6 when every character is a hex digit. A short
+    /// number such as the hex form of a display serial ("2160") would
+    /// otherwise turn "3840 × 2160" or a year into "REDACTED"; ids still match
+    /// it as a whole part.
+    public static func isTextSerial(_ serial: String) -> Bool {
+        serial.count >= (serial.allSatisfy(\.isHexDigit) ? 6 : 4)
     }
 
     /// True for property keys whose values identify a specific unit and are
@@ -331,14 +348,14 @@ private final class Redactor {
     /// Parts shorter than three characters are left alone: displays without
     /// a serial report 0 or 1, and such short values identify nothing.
     private let serials: Set<String>
-    /// The serials removed from free text: at least 4 characters, as for events.
+    /// The serials removed from free text: those that pass `Exporter.isTextSerial`.
     private let textSerials: Set<String>
     private var uids: [UInt64: UInt64] = [:]
     private var uuids: [String: Int] = [:]
 
     init(serials: Set<String>) {
         self.serials = Set(serials.map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count >= 3 })
-        textSerials = self.serials.filter { $0.count >= 4 }
+        textSerials = self.serials.filter(Exporter.isTextSerial)
     }
 
     /// The text with every known serial removed where it is a whole word.

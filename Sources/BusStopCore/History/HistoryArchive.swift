@@ -24,6 +24,10 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public struct Section: Sendable, Hashable, Codable {
         /// Newest first, unique ids.
         public var events: [ConnectionEvent] = []
+        /// Serial numbers that appear in the events' titles or details (a device
+        /// named after its serial), so the widget payload can still redact them
+        /// after a relaunch. Dropped with the last event that holds them.
+        public var serials: Set<String> = []
         /// Oldest first, one per minute that had a sample.
         public var power: [PowerBucket] = []
         /// Samples of the minute in progress.
@@ -151,19 +155,27 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     }
 
     /// Adds `events` (in the order they happened, as `SnapshotDiffer` returns
-    /// them) newest first, skipping ids already kept.
-    public mutating func append(_ events: [ConnectionEvent], model: String) {
+    /// them) newest first, skipping ids already kept. Those of `serials` that
+    /// appear in their text are kept with them.
+    public mutating func append(_ events: [ConnectionEvent], model: String, serials: Set<String> = []) {
         guard !events.isEmpty else { return }
         var seen = Set(self.events(model: model).map(\.id))
         let fresh = events.filter { seen.insert($0.id).inserted }
         sections[model, default: Section()].events.insert(contentsOf: fresh.reversed(), at: 0)
+        sections[model]?.serials.formUnion(Section.serials(serials, in: fresh))
         sections[model]?.trimCount()
     }
 
     /// The event log for one Mac model, newest first.
     public func events(model: String) -> [ConnectionEvent] { sections[model]?.events ?? [] }
 
-    public mutating func clearEvents(model: String) { sections[model]?.events.removeAll() }
+    /// The serial numbers that appear in one Mac model's events.
+    public func serials(model: String) -> Set<String> { sections[model]?.serials ?? [] }
+
+    public mutating func clearEvents(model: String) {
+        sections[model]?.events.removeAll()
+        sections[model]?.serials.removeAll()
+    }
 
     /// Applies the age caps to every section, including models not seen this session.
     /// While one section's clock is in doubt, all are trimmed against its trusted
@@ -240,6 +252,7 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
             var dropped = false
             for model in copy.sections.keys {
                 dropped = copy.sections[model]!.dropOldest(keeping: keep) || dropped
+                copy.sections[model]!.pruneSerials()
             }
             guard dropped else { break }
             data = try encoder.encode(copy)
@@ -251,13 +264,14 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
 extension HistoryArchive.Section {
     /// Keys spelled out so `init(from:)` can decode lists entry by entry.
     enum CodingKeys: String, CodingKey {
-        case events, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt, lastCaptureAt
-        case clockJumpedAt, trustedAt
+        case events, serials, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt
+        case lastCaptureAt, clockJumpedAt, trustedAt
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         events = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)?.elements ?? []
+        serials = try c.decodeIfPresent(Set<String>.self, forKey: .serials) ?? []
         power = try c.decodeIfPresent(LossyList<HistoryArchive.PowerBucket>.self, forKey: .power)?.elements ?? []
         pendingPower = try c.decodeIfPresent(LossyList<PowerSample>.self, forKey: .pendingPower)?.elements ?? []
         portDays = try c.decodeIfPresent([String: LossyList<HistoryArchive.PortDay>].self, forKey: .portDays)?
@@ -372,7 +386,10 @@ extension HistoryArchive.Section {
         }
         let now = trimDate(now: now)
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
-        if let oldest = events.last, oldest.date < eventCutoff { events.removeAll { $0.date < eventCutoff } }
+        if let oldest = events.last, oldest.date < eventCutoff {
+            events.removeAll { $0.date < eventCutoff }
+            pruneSerials()
+        }
         trimCount()
         let powerCutoff = now.addingTimeInterval(-HistoryArchive.powerAge)
         if let first = power.first, first.start < powerCutoff { power.removeAll { $0.start < powerCutoff } }
@@ -384,7 +401,24 @@ extension HistoryArchive.Section {
     }
 
     mutating func trimCount() {
-        if events.count > HistoryArchive.maxEvents { events.removeLast(events.count - HistoryArchive.maxEvents) }
+        guard events.count > HistoryArchive.maxEvents else { return }
+        events.removeLast(events.count - HistoryArchive.maxEvents)
+        pruneSerials()
+    }
+
+    /// Keeps the serials that some event still holds. Run after events are dropped.
+    mutating func pruneSerials() {
+        if !serials.isEmpty { serials = Self.serials(serials, in: events) }
+    }
+
+    /// Those of `serials` that `Exporter.isTextSerial` passes and that appear,
+    /// in any case, in the title or detail of one of `events`.
+    static func serials(_ serials: Set<String>, in events: [ConnectionEvent]) -> Set<String> {
+        serials.filter { serial in
+            Exporter.isTextSerial(serial) && events.contains {
+                $0.title.localizedCaseInsensitiveContains(serial) || $0.detail.localizedCaseInsensitiveContains(serial)
+            }
+        }
     }
 
     /// Keeps the newest `fraction` of events, power minutes and each port's

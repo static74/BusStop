@@ -5,9 +5,10 @@ import Foundation
 /// SMC and parts of IOKit), so it only decodes this.
 ///
 /// Built redacted: the snapshot and events go through `Exporter.redacted`, and
-/// raw property bags are left out, so the file holds no serial numbers. The
-/// events come from the history, so they can name devices that are no longer
-/// connected: pass the serial numbers seen before as `serials`.
+/// raw property bags are left out, so the file holds no serial numbers. Events
+/// and diagnostics can name devices that are no longer connected, so `serials`
+/// takes the serial numbers seen before: this session's and the history's
+/// (`HistoryArchive.serials(model:)`).
 public struct WidgetPayload: Sendable, Hashable, Codable {
     /// Raised when a change means an older extension can no longer read the file.
     public static let currentSchemaVersion = 1
@@ -41,10 +42,11 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
         schemaVersion = Self.currentSchemaVersion
         capturedAt = snapshot.capturedAt
         isDemo = snapshot.isDemo
-        self.snapshot = Self.withoutProperties(Exporter.redacted(snapshot))
+        self.snapshot = Self.withoutProperties(Exporter.redacted(snapshot, serials: serials))
         self.recentPower = recentPower
         self.dayPower = dayPower
-        self.events = events.prefix(Self.eventLimit).map { Exporter.redacted($0, serialsFrom: [snapshot], serials: serials) }
+        let textSerials = serials.union(Exporter.serialStrings(in: snapshot)).filter(Exporter.isTextSerial)
+        self.events = events.prefix(Self.eventLimit).map { Exporter.redacted($0, textSerials: textSerials) }
         self.portHealth = portHealth
         self.portDays = portDays
     }

@@ -11,9 +11,9 @@ public enum Exporter {
 
     /// Pretty-printed, key-sorted JSON of the snapshot. When `redact` is true,
     /// serial numbers and other identifying values are removed (see
-    /// `redacted(_:)` for the list).
-    public static func json(_ snapshot: HostSnapshot, redact: Bool = true) throws -> Data {
-        try makeEncoder().encode(redact ? redacted(snapshot) : snapshot)
+    /// `redacted(_:serials:)` for the list).
+    public static func json(_ snapshot: HostSnapshot, redact: Bool = true, serials: Set<String> = []) throws -> Data {
+        try makeEncoder().encode(redact ? redacted(snapshot, serials: serials) : snapshot)
     }
 
     /// Pretty-printed, key-sorted JSON of a raw capture (for bug reports and

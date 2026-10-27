@@ -373,10 +373,47 @@ struct RedactionTests {
         #expect(Exporter.redacted(connected).title.contains(serial))
     }
 
+    /// A device that has left: its serial is no longer in the snapshot, so it is passed in.
+    @Test func serialsOfDevicesNoLongerConnectedAreRedacted() throws {
+        let serial = "SNXYZ123"
+        let gone = TopologyBuilder.build(try captureWithSerialInName(serial))
+        #expect(Exporter.serialStrings(in: gone).contains(serial))
+        let snapshot = S.snapshot(.studioDesk)
+        #expect(!Exporter.serialStrings(in: snapshot).contains(serial))
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .deviceDisconnected,
+                                    title: "Drive \(serial) disconnected", detail: "Drive \(serial) on Left")
+        let redacted = Exporter.redacted(event, serialsFrom: [snapshot], serials: Exporter.serialStrings(in: gone))
+        #expect(redacted.title == "Drive REDACTED disconnected" && redacted.detail == "Drive REDACTED on Left")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).title.contains(serial))
+
+        // A diagnostic still names it (a device that keeps disconnecting), in the snapshot and in exports.
+        var withFinding = snapshot
+        withFinding.diagnostics.append(Diagnostic(id: "flaky", kind: .flakyConnection, severity: .warning,
+                                                  title: "Drive \(serial) keeps disconnecting", detail: ""))
+        let serials: Set<String> = [serial]
+        #expect(Exporter.redacted(withFinding, serials: serials).diagnostics.last?.title
+                == "Drive REDACTED keeps disconnecting")
+        #expect(!text(try Exporter.json(withFinding, serials: serials)).contains(serial))
+        #expect(!Exporter.markdown(withFinding, serials: serials).contains(serial))
+        #expect(Exporter.markdown(withFinding).contains(serial))
+    }
+
     @Test func wholeWordsOnly() {
         #expect(Exporter.redacted("Drive SN-12/34 (SN-12/34)", serials: ["SN-12/34"]) == "Drive REDACTED (REDACTED)")
-        #expect(Exporter.redacted("512345 and 1234", serials: ["1234"]) == "512345 and REDACTED")
+        #expect(Exporter.redacted("51234Z and 1234Z", serials: ["1234Z"]) == "51234Z and REDACTED")
         #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
+    }
+
+    /// Display serial 8544 is "2160" in hex; a resolution or a year must not match a short number.
+    @Test func shortHexSerialsStayOutOfFreeText() {
+        #expect(String(8544, radix: 16) == "2160")
+        #expect(Exporter.redacted("3840 × 2160 @ 60 Hz in 2026", serials: ["2160", "2026", "8544"])
+                == "3840 × 2160 @ 60 Hz in 2026")
+        #expect(Exporter.redacted("Drive 2C4109F3", serials: ["2C4109F3"]) == "Drive REDACTED")
+        #expect(Exporter.redacted("Drive SN12", serials: ["SN12"]) == "Drive REDACTED")
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .displayConnected,
+                                    title: "LG UltraFine connected", detail: "3840 × 2160 @ 60 Hz")
+        #expect(Exporter.redacted(event, serials: ["2160"]).detail == "3840 × 2160 @ 60 Hz")
     }
 
     // MARK: EDID

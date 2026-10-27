@@ -10,7 +10,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Fixed
 
-- The desktop widgets' data file no longer keeps the serial number of an unplugged device whose name includes it. Its "disconnected" event is now redacted like the rest of the file.
+- The desktop widgets' data file and redacted exports no longer show the serial number of a device whose name includes it once the device is unplugged, in its events or in a "keeps disconnecting" finding, including after Bus Stop restarts. The history now keeps those serial numbers with the events that hold them. A history saved by 1.2.0 or earlier has no such list, so its older events are not covered.
+- Redaction no longer removes short all-hex numbers, such as "2160" in "3840 × 2160", from names and text. A display's serial number could match them.
 - The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.
 
 ## [1.2.0] - 2026-10-26

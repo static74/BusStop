@@ -98,6 +98,25 @@ struct HistoryArchiveTests {
 
     // MARK: Caps
 
+    /// Only serials that an event's text holds are kept, and they go with the last such event.
+    @Test func serialsAreKeptWithTheEventsThatNameThem() throws {
+        var archive = HistoryArchive()
+        let named = ConnectionEvent(id: "a", date: start, kind: .deviceDisconnected,
+                                    title: "Drive SNXYZ123 disconnected", detail: "")
+        archive.append([named], model: model, serials: ["SNXYZ123", "OTHER999", "2160"])
+        #expect(archive.serials(model: model) == ["SNXYZ123"])
+        let decoded = try HistoryArchive.decode(archive.encoded())
+        #expect(decoded.serials(model: model) == ["SNXYZ123"])
+
+        archive.trim(now: start.addingTimeInterval(HistoryArchive.eventAge + 1))
+        #expect(archive.events(model: model).isEmpty)
+        #expect(archive.serials(model: model).isEmpty)
+
+        archive.append([named], model: model, serials: ["SNXYZ123"])
+        archive.clearEvents(model: model)
+        #expect(archive.serials(model: model).isEmpty)
+    }
+
     @Test func eventsCappedByCountAndAge() {
         var archive = HistoryArchive()
         archive.append((0..<(HistoryArchive.maxEvents + 10)).map { event("e\($0)", Double($0)) }, model: model)
