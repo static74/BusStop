@@ -56,14 +56,14 @@ With Xcode 27 or Xcode 26.6 installed:
 git clone https://github.com/static74/BusStop.git
 cd BusStop
 scripts/install.sh              # build, install to /Applications and open
-scripts/install.sh --link-cli   # the same, plus the busstop command on your PATH
+scripts/install.sh --link-cli   # the same, plus a link to the busstop command
 ```
 
 A build from source includes the widgets, but macOS shows them only when the app is signed with an Apple developer certificate. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how.
 
 ## Command-line tool
 
-The app bundle contains `busstop` at `Bus Stop.app/Contents/Helpers/busstop`; `scripts/install.sh --link-cli` links it into `/usr/local/bin`, or `~/.local/bin` when that is not writable.
+The app bundle contains `busstop` at `Bus Stop.app/Contents/Helpers/busstop`; `scripts/install.sh --link-cli` links it into `/usr/local/bin`, or `~/.local/bin` when that is missing or not writable.
 
 ```
 busstop                         # human-readable tree
