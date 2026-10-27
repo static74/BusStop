@@ -122,7 +122,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
 
 ### 3.4 Settings window
 
-Tabs:
+Toolbar tabs, each with an icon; the window takes the selected tab's name:
 
 - **General**: Launch at login (SMAppService, with status and an "Open Login Items" fallback), show menu bar item, show Dock icon while a window is open, popover layout (cards / compact), hide empty ports, port order (physical / connected first).
 - **Menu Bar**: icon style, text content, power units precision, pinned port (None or one of this Mac's ports) and what it shows (power, link speed, or both).

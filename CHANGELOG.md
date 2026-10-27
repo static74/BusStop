@@ -4,6 +4,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Fixed
+
+- The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
