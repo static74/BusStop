@@ -7,7 +7,7 @@ import Foundation
 /// tag. Bump `string` and add a `CHANGELOG.md` entry together.
 public enum BusStopVersion {
     /// Marketing version, e.g. "1.0.0".
-    public static let string = "1.2.0"
+    public static let string = "1.2.1"
 
     /// The project's home page.
     public static let projectURL = "https://github.com/static74/BusStop"
