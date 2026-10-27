@@ -20,7 +20,8 @@ extension Exporter {
 /// Builds the Markdown report line by line.
 private struct MarkdownReport {
     let redact: Bool
-    /// Serial numbers removed from all text, at least 4 characters as elsewhere.
+    /// Serial numbers removed from all text: the snapshot's, chosen by `SerialEntry.isText`, and
+    /// the caller's of at least 4 characters.
     let serials: Set<String>
     private(set) var lines: [String] = []
 

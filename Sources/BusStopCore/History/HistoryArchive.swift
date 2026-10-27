@@ -283,7 +283,6 @@ extension HistoryArchive.Section {
         lastCaptureAt = try c.decodeIfPresent(Date.self, forKey: .lastCaptureAt)
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
         trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
-        // A file edited by hand, or events dropped on their own above, can leave serials no event holds.
         // An event dropped above may have been the last to hold a serial. Only then is the log
         // searched, oldest first, since a serial is most often held by events from long ago.
         if decodedEvents?.skipped == true, !serials.isEmpty { serials = Self.serials(serials, in: events.reversed()) }

@@ -428,6 +428,76 @@ struct RedactionTests {
         #expect(later.events.first?.title == "Drive REDACTED disconnected")
     }
 
+    /// Studio desk with the external display named after `serial`, which is its serial number.
+    private func displayNamedAfterItsSerial(_ serial: Int) throws -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { $0.name == "Studio Display XDR" })
+        raw.displays[index].serialNumber = serial
+        raw.displays[index].name = "Studio Display \(serial)"
+        return raw
+    }
+
+    /// Studio desk with the charger named after `serial`, which is its serial number.
+    private func chargerNamedAfterItsSerial(_ serial: String) throws -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        var battery = try #require(raw.battery).values
+        guard case .dict(var details) = battery["AdapterDetails"] else { throw CancellationError() }
+        details["Name"] = .string("Charger \(serial)")
+        details["SerialString"] = .string(serial)
+        battery["AdapterDetails"] = .dict(details)
+        raw.battery = PropertyBag(battery)
+        var adapter = raw.adapter?.values ?? [:]
+        adapter["Name"] = .string("Charger \(serial)")
+        adapter["SerialString"] = .string(serial)
+        raw.adapter = PropertyBag(adapter)
+        return raw
+    }
+
+    /// A display named after a 4-digit serial: its event id carries the serial, and the title names it.
+    @Test func displayNamedAfterAShortSerialIsRedactedInItsEvents() {
+        let event = ConnectionEvent(id: "displayDisconnected:display:610:ae3a:8544:1790000000000", date: S.date,
+                                    kind: .displayDisconnected, title: "Studio Display 8544 disconnected",
+                                    detail: "3840 × 2160 @ 60 Hz", deviceID: "display:610:ae3a:8544")
+        let redacted = Exporter.redacted(event)
+        #expect(redacted.title == "Studio Display REDACTED disconnected")
+        #expect(redacted.detail == "3840 × 2160 @ 60 Hz")
+    }
+
+    /// The raw capture knows the names of displays and chargers, so a short serial in them goes too.
+    @Test func rawDisplayAndChargerNamesLoseTheirShortSerials() throws {
+        let display = text(try Exporter.rawJSON(try displayNamedAfterItsSerial(8544), redact: true))
+        #expect(display.contains("Studio Display") && !display.contains("Studio Display 8544"))
+        let charger = text(try Exporter.rawJSON(try chargerNamedAfterItsSerial("1234"), redact: true))
+        #expect(charger.contains("Charger REDACTED") && !charger.contains("Charger 1234"))
+    }
+
+    /// A serial in the vendor's name ("Vendor 1234") is removed as one in the product name is.
+    @Test func shortSerialsInTheVendorNameAreRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string("1234")
+        values["USB Vendor Name"] = .string("Vendor 1234")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.vendorName == "Vendor 1234" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Vendor 1234"))
+        #expect(!text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot))).contains("Vendor 1234"))
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Vendor 1234"))
+        #expect(Exporter.serialsInNames(of: snapshot).contains("1234"))
+    }
+
+    /// A charger is on the Mac and on its port, and a display has a device row of the same name:
+    /// a name met twice is still only its own, so the serial is kept for after unplug.
+    @Test func chargerAndDisplaySerialsInTheirNamesAreKept() throws {
+        let charger = TopologyBuilder.build(try chargerNamedAfterItsSerial("C4H12345"))
+        #expect(charger.power.charger?.name == "Charger C4H12345")
+        #expect(Exporter.serialsInNames(of: charger).contains("C4H12345"))
+        let display = TopologyBuilder.build(try displayNamedAfterItsSerial(12345))
+        #expect(display.allDevices.contains { $0.device.name == "Studio Display 12345" })
+        #expect(Exporter.serialsInNames(of: display).contains("12345"))
+    }
+
     /// A serial that another connected device's name holds as a word is not kept after unplug,
     /// where it would turn "USB3.1 Hub" into "REDACTED.1 Hub".
     @Test func serialsOtherNamesHoldAreNotKept() throws {
@@ -505,10 +575,9 @@ struct RedactionTests {
         #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Panel REDACTED flickers")
     }
 
-    /// A serial without a digit (an ordinary word), one only in the vendor's name, or one that is
-    /// only part of a word of the product name, is not kept.
+    /// A serial without a digit (an ordinary word), or one that is only part of a word of its name, is not kept.
     @Test(arguments: [("Generic", "Generic Card Reader", "Kingston"), ("Card", "SD Card Reader", "Generic"),
-                      ("SN1234", "Mass Storage Device", "SN1234 Tech"), ("Data7", "Data7Traveler 3.0", "Kingston")])
+                      ("Data7", "Data7Traveler 3.0", "Kingston")])
     func serialsThatAreNotTheirOwnWordAreNotKept(_ serial: String, _ product: String, _ vendor: String) throws {
         var raw = DemoScenario.studioDesk.raw(at: S.date)
         let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })

@@ -11,8 +11,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Fixed
 
-- When a device puts its serial number in its name, the widgets no longer show that number after you unplug the device, in its events or in a "keeps disconnecting" finding, even after Bus Stop restarts. Redacted exports and `busstop --watch` hide it in that finding too. The history now keeps those serial numbers with the events that hold them. A history saved by 1.2.0 or earlier has no such list, so its events can still show such a serial number in the widgets until they are 30 days old or you clear the history.
-- Redacted exports, `busstop --watch` and the widgets no longer replace a resolution such as "3840 × 2160", or a year, with "REDACTED" when a display's serial number, or a device's 4-digit serial number, happens to match it.
+- When a device puts its serial number in its name, the widgets no longer show that number after you unplug the device, in its events or in a "keeps disconnecting" finding, even after Bus Stop restarts. Redacted exports and `busstop --watch` hide it in that finding too. The history now keeps those serial numbers with the events that hold them. Not covered: a history saved by 1.2.0 or earlier, whose events can still show such a number in the widgets until they are 30 days old or you clear the history; a serial number without a digit; and one that another connected device's name also holds, such as "USB3" beside a "USB3.1 Hub". The last two show in the device's events once it is unplugged.
+- Redacted exports, `busstop --watch` and the widgets no longer replace a resolution such as "3840 × 2160", or a year, with "REDACTED" when a display's serial number, or a device's 4-digit serial number, happens to match it. They still do while the device carrying it is named after that number ("Drive 2160"), and for up to 30 days after it is unplugged.
 - The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.
 
 ## [1.2.0] - 2026-10-26
