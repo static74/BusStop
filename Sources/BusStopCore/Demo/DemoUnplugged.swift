@@ -24,6 +24,7 @@ enum DemoUnplugged {
         r.hpmPort(number: 2, uuid: uuids.port2, state: DemoPortState(supported: thunderboltPort, plugEvents: 140))
         r.hpmPort(number: 4, uuid: uuids.port4, state: DemoPortState(supported: thunderboltPort, plugEvents: 27))
         r.hdmiPort(hotPlug: false)
+        r.sdCardSlot()
 
         for (acio, socket) in [(0, 1), (1, 2), (2, 4)] {
             r.hostSwitch(acio: acio, socket: socket, uid: 0x05AC_9E04_17B5_0000 + Int64(socket),
@@ -41,7 +42,7 @@ enum DemoUnplugged {
                                               cycleCount: 212, minutesRemaining: 318)
 
         let displays = [
-            RawDisplay(id: 1, name: "Built-in Liquid Retina XDR Display", vendorID: 0x610, productID: 0xA051,
+            RawDisplay(id: 1, name: "Color LCD", vendorID: 0x610, productID: 0xA051,
                        isBuiltin: true, isMain: true, pixelWidth: 3024, pixelHeight: 1964, refreshHz: 120),
         ]
 

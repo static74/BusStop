@@ -54,6 +54,7 @@ enum DemoClassChain {
 
     static let barePort = ["IOPort", "IOPortFamily", "IOService", "IORegistryEntry"]
     static let hdmiPort = ["AppleHDMIPortController", "IOPort", "IOPortFamily", "IOService", "IORegistryEntry"]
+    static let sdCardSlot = ["AppleSDXCSlot", "IOPort", "IOPortFamily", "IOService", "IORegistryEntry"]
 
     static func transport(_ kind: String) -> [String] {
         let usb = kind == "USB2" || kind == "USB3"
@@ -87,13 +88,13 @@ enum DemoClassChain {
 /// A physical port node, with what the child builders need to know about it.
 struct DemoPortRef {
     let id: UInt64
-    /// IOKit `PortType`: 2 USB-C, 17 MagSafe 3, 6 HDMI.
+    /// IOKit `PortType`: 2 USB-C, 17 MagSafe 3, 6 HDMI, 11 SD Card.
     let type: Int
     let number: Int
-    /// `PortTypeDescription`: "USB-C", "MagSafe 3", "HDMI".
+    /// `PortTypeDescription`: "USB-C", "MagSafe 3", "HDMI", "SD Card".
     let typeDescription: String
     /// The port's CC transport, parent of its USB-PD components. Ports
-    /// without one (bare `IOPort`, HDMI) use their own ID.
+    /// without one (bare `IOPort`, HDMI, the SD card slot) use their own ID.
     var cc: UInt64
 
     init(id: UInt64, type: Int, number: Int, typeDescription: String) {
@@ -240,6 +241,30 @@ extension DemoRegistry {
         ]
         portNodes.append(RawNode(id: port.id, parentID: Self.rootID, className: "AppleHDMIPortController",
                                  classChain: DemoClassChain.hdmiPort, name: "Port-HDMI",
+                                 location: String(number, radix: 16, uppercase: true), properties: PropertyBag(p)))
+        return port
+    }
+
+    /// The SD card slot (`AppleSDXCSlot`, `PortType` 11), empty.
+    @discardableResult
+    mutating func sdCardSlot(number: Int = 1) -> DemoPortRef {
+        let port = DemoPortRef(id: newID(), type: 11, number: number, typeDescription: "SD Card")
+        let p: [String: PlistValue] = [
+            "PortTypeDescription": "SD Card",
+            "PortType": .int(Int64(port.type)),
+            "PortNumber": .int(Int64(number)),
+            "PortDescription": .string(port.registryName),
+            "Description": .string(port.registryName),
+            "BuiltIn": true,
+            "ConnectionActive": false,
+            "Card Present": false,
+            "ConnectionCount": 0,
+            "TransportsSupported": ["SD"],
+            "TransportsProvisioned": ["SD"],
+            "TransportsActive": [],
+        ]
+        portNodes.append(RawNode(id: port.id, parentID: Self.rootID, className: "AppleSDXCSlot",
+                                 classChain: DemoClassChain.sdCardSlot, name: "Port-SD Card",
                                  location: String(number, radix: 16, uppercase: true), properties: PropertyBag(p)))
         return port
     }

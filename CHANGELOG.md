@@ -7,6 +7,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 ### Changed
 
 - The README is shorter and written for people using Bus Stop; build and project details live in CONTRIBUTING.md and docs/. The tagline in the About window, `busstop --help` and the Ports widget's description now says "the ports on your Mac" rather than "every port", since macOS does not report some SD card slots.
+- The demo setups match what real Macs report: the MacBook Pro demos list their empty SD card slot, built-in displays are named "Color LCD", and examples in Settings and the docs name the Samsung drive "PSSD T9", the name the drive itself reports.
 
 ### Fixed
 

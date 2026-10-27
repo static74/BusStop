@@ -239,7 +239,7 @@ struct HealthWidgetTests {
         let payload = Self.livePayload(.studioDesk)
         let strip = try #require(HealthWidgetModel(payload).strip)
         // The HDMI port has no counters, so it would always read "No connections".
-        #expect(strip.map(\.title) == ["Left Rear", "Left Center", "Left Front", "Right Center"])
+        #expect(strip.map(\.title) == ["Left Rear", "Left Center", "Left Front", "Right Front", "Right Center"])
         #expect(strip.allSatisfy { $0.days.count == 7 })
         #expect(HealthWidgetModel(payload).days.count == 7)
     }
@@ -258,7 +258,7 @@ struct HealthWidgetTests {
     @Test func weekTotalsThePorts() {
         let model = HealthWidgetModel(Self.withWeek(Self.livePayload(.studioDesk)))
         // The third problem is today's: the drive that fell back to USB 2.
-        #expect(model.week == "Last 7 days: 56 connections · 3 problems")
+        #expect(model.week == "Last 7 days: 80 connections · 3 problems")
     }
 
     // MARK: Review images

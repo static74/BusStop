@@ -46,7 +46,7 @@ public enum PopoverText {
         return unattributed > 0 ? unattributed : nil
     }
 
-    /// The compact row's middle text: "Samsung T9", "3 devices", the
+    /// The compact row's middle text: "PSSD T9", "3 devices", the
     /// charger's name, "Connected" or "Nothing connected". `devices` includes
     /// ghosts (`PortStore.devicesWithGhosts(on:)`), so a device that just left
     /// keeps its line until its ghost goes. "N devices" counts every level,
@@ -107,7 +107,7 @@ public enum PopoverText {
         return power.direction == .input ? phrase + " in" : phrase
     }
 
-    /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts",
+    /// "Left Front USB-C port, PSSD T9 connected at 10 gigabits per second, 4.5 watts",
     /// then ", pinned to the menu bar" when `isPinned`, then the titles of its
     /// `health` findings. `speaksLink` adds the port's link speed ("link at 40
     /// gigabits per second") unless the one device already says it; the compact

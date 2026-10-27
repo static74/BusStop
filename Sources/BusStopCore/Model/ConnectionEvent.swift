@@ -17,7 +17,7 @@ public struct ConnectionEvent: Sendable, Hashable, Codable, Identifiable {
     public var id: String
     public var date: Date
     public var kind: Kind
-    /// "Samsung T9 connected"
+    /// "PSSD T9 connected"
     public var title: String
     /// "Left Front · USB-C · USB 3.2 Gen 2 @ 10 Gb/s"
     public var detail: String

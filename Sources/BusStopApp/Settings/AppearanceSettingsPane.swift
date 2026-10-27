@@ -132,7 +132,7 @@ struct AppearancePreviewSwatch: View {
                     Text("Left Front · USB-C")
                         .lagoonFont(.callout, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
-                    Text("Samsung T9 · 4.5 W")
+                    Text("PSSD T9 · 4.5 W")
                         .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textSecondary)
                 }
