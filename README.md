@@ -63,7 +63,7 @@ A build from source includes the widgets, but macOS shows them only when the app
 
 ## Command-line tool
 
-The app bundle contains `busstop` at `Bus Stop.app/Contents/Helpers/busstop`; `scripts/install.sh --link-cli` puts it on your PATH.
+The app bundle contains `busstop` at `Bus Stop.app/Contents/Helpers/busstop`; `scripts/install.sh --link-cli` links it into `/usr/local/bin`, or `~/.local/bin` when that is not writable.
 
 ```
 busstop                         # human-readable tree

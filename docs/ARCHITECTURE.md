@@ -183,7 +183,7 @@ CI runs on every pull request, and again on each push to it. Plain branch pushes
 - **macOS 26 (Xcode 26.6)**: build, test, universal bundle, smoke test without the live checks.
 - **macOS 27 (Xcode 27)**, by hand only: build, test, bundle, full smoke test, upload of `BusStop.zip`.
 
-Tags named `v*` run `.github/workflows/release.yml`, which builds a universal bundle stamped with the tag's version, signs it with the Developer ID and has Apple notarize the app and then the image, packs it into `BusStop.dmg`, runs the smoke test and publishes the disk image with its SHA-256 checksum.
+Tags named `v*` run `.github/workflows/release.yml`, which builds a universal bundle stamped with the tag's version, signs it with the Developer ID, has Apple notarize it, packs it into `BusStop.dmg`, which is signed and notarized too, runs the smoke test and publishes the disk image with its SHA-256 checksum.
 
 Starting `.github/workflows/screenshots.yml` by hand captures new screenshots on the `xcode-27` runner. Its `capture` job builds the app with a read-only token that the checkout does not store, captures every demo setup, the settings panes and the About window, and uploads the images as an artifact. Its `publish` job, the only one with write access, runs no project or third-party code: it downloads the artifact and force-pushes it to the `screenshots` branch, which the README's images come from.
 

@@ -152,7 +152,7 @@ busstop --no-smc                # do not read per-port power from the SMC
 busstop --version | --help
 ```
 
-Exit status is 0 on success, 1 on a runtime error and 2 on a usage error; errors go to standard error. Device names pass through `Format.terminalSafe`. With `--watch --demo`, a sample device is unplugged and replugged every few seconds, so the flaky-connection line appears after about 40 seconds.
+Exit status is 0 on success, 1 on a runtime error and 2 on a usage error; errors go to standard error. Device names pass through `Format.terminalSafe`. With `--watch --demo` (except `unplugged`, which has no devices), a sample device is unplugged and replugged every few seconds, so the flaky-connection line appears after about 40 seconds.
 
 ---
 
