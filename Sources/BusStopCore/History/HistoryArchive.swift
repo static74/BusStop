@@ -269,7 +269,8 @@ extension HistoryArchive.Section {
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        events = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)?.elements ?? []
+        let decodedEvents = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)
+        events = decodedEvents?.elements ?? []
         // Only for redaction, so a value of the wrong type is dropped, not the whole file.
         serials = Set((try? c.decodeIfPresent(LossyList<String>.self, forKey: .serials))??.elements ?? [])
         power = try c.decodeIfPresent(LossyList<HistoryArchive.PowerBucket>.self, forKey: .power)?.elements ?? []
@@ -283,8 +284,9 @@ extension HistoryArchive.Section {
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
         trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
         // A file edited by hand, or events dropped on their own above, can leave serials no event holds.
-        // Oldest first: a serial is most often held only by events about a device unplugged long ago.
-        if !serials.isEmpty { serials = Self.serials(serials, in: events.reversed()) }
+        // An event dropped above may have been the last to hold a serial. Only then is the log
+        // searched, oldest first, since a serial is most often held by events from long ago.
+        if decodedEvents?.skipped == true, !serials.isEmpty { serials = Self.serials(serials, in: events.reversed()) }
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
@@ -420,8 +422,10 @@ extension HistoryArchive.Section {
 
     /// Drops those of `held` (from `serialsHeld(by:)`) that no event left holds.
     /// Only they are looked for, oldest events first, since the events that
-    /// still name a device are most likely the next to go, so dropping one event
-    /// at the count cap stays cheap.
+    /// still name a device are most likely the next to go. The cost is one scan
+    /// of the log for each serial whose event was dropped, at worst: about 5 ms
+    /// for an append at the count cap, and 85 ms for an age trim that drops
+    /// 1,000 events naming 20 serials (release build).
     mutating func pruneSerials(_ held: Set<String>) {
         guard !held.isEmpty else { return }
         serials.subtract(held.subtracting(Self.serials(held, in: events.reversed())))
@@ -460,6 +464,8 @@ extension HistoryArchive.Section {
 /// skipped instead of failing the whole list.
 private struct LossyList<Element: Decodable>: Decodable {
     var elements: [Element] = []
+    /// True when an entry did not decode and was stepped over.
+    var skipped = false
 
     /// Decodes nothing, so a bad entry can be stepped over.
     private struct Skip: Decodable {
@@ -474,6 +480,7 @@ private struct LossyList<Element: Decodable>: Decodable {
             } else {
                 // A failed decode does not move the container on; this does.
                 _ = try container.decode(Skip.self)
+                skipped = true
             }
         }
     }

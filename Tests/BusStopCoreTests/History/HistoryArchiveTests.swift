@@ -153,12 +153,13 @@ struct HistoryArchiveTests {
         #expect(try HistoryArchive.decode(kept).serials(model: model) == ["SNXYZ123"])
     }
 
-    /// A bad entry drops only itself, and a serial no event holds is dropped on load.
+    /// A bad entry drops only itself, and a serial that only a dropped event held goes with it.
     @Test func serialsDecodeEntryByEntry() throws {
         let json = #"""
         {"schemaVersion":1,"sections":{"Mac17,9":{"serials":["SNXYZ123",5,"GONE1234"],
         "events":[{"id":"a","date":800000000,"kind":"deviceDisconnected","title":"Drive SNXYZ123 disconnected",
-        "detail":"","isDowngrade":false}]}}}
+        "detail":"","isDowngrade":false},{"id":"b","date":800000001,"kind":"fromANewerVersion",
+        "title":"Drive GONE1234 did something new","detail":"","isDowngrade":false}]}}}
         """#
         let archive = try HistoryArchive.decode(Data(json.utf8))
         #expect(archive.events(model: model).count == 1)

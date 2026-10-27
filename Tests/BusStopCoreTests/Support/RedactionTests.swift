@@ -404,6 +404,39 @@ struct RedactionTests {
         #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
     }
 
+    /// A 4-digit device serial in its own name is removed, connected or gone, as before the
+    /// rule that keeps "2160" in resolutions.
+    @Test(arguments: ["1234", "2160"])
+    func fourDigitSerialsInTheirOwnNameAreRedacted(_ serial: String) throws {
+        let raw = try captureWithSerialInName(serial)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Drive \(serial)"))
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Drive \(serial)"))
+        #expect(!Exporter.markdown(snapshot, redact: true).contains("Drive \(serial)"))
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .deviceConnected,
+                                    title: "Drive \(serial) connected", detail: "")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).title == "Drive REDACTED connected")
+        let payload = text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot, events: [event])))
+        #expect(!payload.contains("Drive \(serial)"))
+        // Unplugged: the serial is kept for the events about it.
+        let serials = Exporter.serialsInNames(of: snapshot)
+        #expect(serials.contains(serial))
+        var gone = event
+        gone.title = "Drive \(serial) disconnected"
+        let later = WidgetPayload(snapshot: S.snapshot(.studioDesk), events: [gone], serials: serials)
+        #expect(later.events.first?.title == "Drive REDACTED disconnected")
+    }
+
+    /// A serial that another connected device's name holds as a word is not kept after unplug,
+    /// where it would turn "USB3.1 Hub" into "REDACTED.1 Hub".
+    @Test func serialsOtherNamesHoldAreNotKept() throws {
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName("USB3"))
+        #expect(snapshot.allDevices.contains { $0.device.name == "USB3.1 Hub" })
+        #expect(!Exporter.serialsInNames(of: snapshot).contains("USB3"))
+        #expect(Exporter.serialsInNames(of: TopologyBuilder.build(try captureWithSerialInName("USB7"))).contains("USB7"))
+    }
+
     /// Short device serials in a name are still removed, as before the display rule.
     @Test(arguments: ["1A2B3", "12345", "C0DE", "SN12"])
     func shortDeviceSerialsInNamesAreRedacted(_ serial: String) throws {

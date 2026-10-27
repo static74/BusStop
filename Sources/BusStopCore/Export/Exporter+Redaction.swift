@@ -297,13 +297,17 @@ extension Exporter {
     /// The snapshot's serial numbers that appear as a whole word in the product
     /// name of the device, charger or display that carries them (some devices
     /// put their serial in their product name), for redacting events and
-    /// diagnostics about it after it is gone. A serial without a digit, such as
-    /// "Generic" or "Card", is an ordinary word even when the name holds it, so
-    /// it is left out and not removed from other devices' names for weeks.
+    /// diagnostics about it after it is gone. Kept for weeks, they are removed
+    /// from every name and event, so ordinary words are left out: a serial
+    /// without a digit ("Generic", "Card"), and one that another device's name
+    /// also holds as a word ("USB3" when a "USB3.1 Hub" is connected).
     public static func serialsInNames(of snapshot: HostSnapshot) -> Set<String> {
-        Set(serialEntries(in: snapshot).filter { entry in
-            entry.isText && entry.serial.contains(where: \.isNumber)
-                && IDShape.containsWord(entry.serial, in: entry.name ?? "")
+        let names = snapshot.displays.map(\.name)
+            + snapshot.allDevices.flatMap { [$0.device] + ($0.device.internalParts ?? []) }.map(\.name)
+            + ([snapshot.power.charger] + snapshot.ports.map(\.charger)).compactMap { $0?.name }
+        return Set(serialEntries(in: snapshot).filter { entry in
+            entry.isInOwnName && entry.serial.contains(where: \.isNumber)
+                && names.filter { IDShape.containsWord(entry.serial, in: $0) }.count == 1
         }.map(\.serial))
     }
 
@@ -340,21 +344,22 @@ extension Exporter {
     /// keys are display serials (or a descriptor index), so they count as numbers.
     private static func serialEntries(in raw: RawSnapshot) -> [SerialEntry] {
         var entries: [SerialEntry] = []
-        func collect(_ values: [String: PlistValue]) {
+        // `name` is the registry entry's, which a USB device takes from its product string.
+        func collect(_ values: [String: PlistValue], name: String?) {
             for (key, value) in values {
                 if isSensitiveKey(key), key.lowercased() != "connectionuuid" {
-                    if let text = value.stringValue { entries.append(SerialEntry(serial: text, isNumber: false)) }
+                    if let text = value.stringValue { entries.append(SerialEntry(serial: text, isNumber: false, name: name)) }
                     if case .int(let number) = value { entries.append(SerialEntry(serial: String(number), isNumber: true)) }
                 }
-                if case .dict(let items) = value { collect(items) }
+                if case .dict(let items) = value { collect(items, name: name) }
                 if case .array(let items) = value {
-                    for case .dict(let item) in items { collect(item) }
+                    for case .dict(let item) in items { collect(item, name: name) }
                 }
             }
         }
         let nodes = raw.portNodes + raw.usbDevices.map(\.node) + raw.thunderboltSwitches.flatMap { [$0.node] + $0.ports }
-        for node in nodes { collect(node.properties.values) }
-        for bag in [raw.battery, raw.adapter] { if let bag { collect(bag.values) } }
+        for node in nodes { collect(node.properties.values, name: node.name) }
+        for bag in [raw.battery, raw.adapter] { if let bag { collect(bag.values, name: nil) } }
         for display in raw.displays {
             if let serial = display.serialNumber, serial != 0 {
                 entries.append(SerialEntry(serial: String(serial), isNumber: true))
@@ -376,10 +381,17 @@ struct SerialEntry {
     /// Whether it is removed from free text: at least 4 characters, or 5 for a
     /// display's number or a serial of digits only, whose 4-digit forms ("2160",
     /// the hex of 8544, or "2026") would otherwise match a resolution such as
-    /// "3840 × 2160", or a year.
+    /// "3840 × 2160", or a year. A 4-character one in its own name ("Drive 1234")
+    /// is removed all the same, as before.
     var isText: Bool {
         let serial = serial.trimmingCharacters(in: .whitespaces)
-        return serial.count >= (isNumber || serial.allSatisfy(\.isNumber) ? 5 : 4)
+        return serial.count >= (isNumber || serial.allSatisfy(\.isNumber) ? 5 : 4) || isInOwnName
+    }
+
+    /// Whether it is a whole word of its own product name, at least 4 characters.
+    var isInOwnName: Bool {
+        let serial = serial.trimmingCharacters(in: .whitespaces)
+        return serial.count >= 4 && IDShape.containsWord(serial, in: name ?? "")
     }
 }
 

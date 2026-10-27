@@ -15,7 +15,11 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *Events saved redacted, or a second redacted copy of each.* The Events page shows names as the device reports them, and two copies double the largest part of the file.
 - *Leaving restored events out of the payload.* The Health widget would lose real events after every relaunch.
 
-**Risks.** A history saved by 1.2.0 or earlier has no list, and 1.2.0 drops it when it saves the file again after a downgrade; those events can show the serial in the widgets until they age out.
+**Risks.**
+
+- A history saved by 1.2.0 or earlier has no list, and 1.2.0 drops it when it saves the file again after a downgrade; those events can show the serial in the widgets until they age out.
+- A serial-like word with a digit, such as "V1.0", that no other connected device's name holds is kept and removed from every name and event for up to 30 days, so a device plugged in later can show "REDACTED" in its name.
+- A serial without a digit ("ABCDEFGH", "DEADBEEF") is not kept, so the events about its device show it once the device is unplugged.
 
 ## 2026-10-26: Settings uses AppKit toolbar tabs, not a SwiftUI `TabView`
 
