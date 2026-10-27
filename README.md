@@ -23,10 +23,10 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Port health.** Each port's plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days, next to the hardware's all-time counts, with a gentle note when one port has far more problems than its siblings. An overcurrent warning lasts 24 hours, even across a relaunch.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
-- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets; they appear only when Bus Stop is in `/Applications`.
+- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets. They appear only from a signed copy in `/Applications` (see [Install](#install)), and Bus Stop must be running to keep them current.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
-- **Settings** for the theme (Dark, Light or Match System), the colours for link speeds, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
+- **Settings** for the theme (Dark, Light or Match System), data colours for links by speed (Lagoon, eight other presets or Match System), text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
 
 ## Screenshots
 
@@ -50,7 +50,7 @@ Both show demo mode, so you can see the same setups on your own Mac (Settings �
 ### From a release
 
 1. Download [`BusStop.dmg`](https://github.com/static74/BusStop/releases/latest/download/BusStop.dmg) from the [latest release](https://github.com/static74/BusStop/releases/latest).
-2. Open the disk image and drag **Bus Stop** onto the Applications folder beside it.
+2. Open the disk image and drag **Bus Stop** onto the Applications folder beside it. Keep it there: macOS shows the desktop widgets only from a signed copy in `/Applications`, and the release is signed with a Developer ID.
 
 Each release also lists the SHA-256 checksum of the disk image. To check it, download `BusStop.dmg.sha256` next to the image and run `shasum -a 256 -c BusStop.dmg.sha256`.
 
@@ -69,7 +69,7 @@ scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 
 `install.sh` builds for your Mac and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. macOS opens an app you built yourself without asking.
 
-macOS shows the desktop widgets only from an app signed by a developer team and installed in `/Applications`. The release is signed that way, so drag it to Applications as above. A build from source includes the widgets, but they appear in Edit Widgets only when you sign it with an Apple Development or Developer ID certificate and install it in `/Applications` ([CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how).
+A build from source includes the desktop widgets, but `install.sh` signs it without a developer team, and macOS shows widgets only from a team-signed copy in `/Applications`. To see them, sign it with your Apple Development or Developer ID certificate: `SIGN_IDENTITY="<certificate name or SHA-1 hash>" scripts/install.sh`. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) has the details.
 
 ## Command-line tool
 
@@ -83,7 +83,7 @@ busstop --raw                   # raw IORegistry capture as JSON, for bug report
 busstop --watch                 # print connection changes as they happen (Control-C to stop)
 busstop --watch --json          # the same, one JSON object per line
 busstop --demo studioDesk       # any of the above against a demo setup
-busstop --input capture.json    # any output above from a saved raw capture (not with --demo or --watch)
+busstop --input capture.json    # any of the above from a capture saved with --raw, except --watch
 busstop --version
 busstop --help
 ```
@@ -96,8 +96,10 @@ The default output looks like this:
 MacBook Pro (14-inch, 2026, M5 Pro) · macOS 27.0
 Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% · 4.5 W to ports
 ├─ Left Rear · MagSafe   96W USB-C Power Adapter   ↓ 61 W
+├─ Left Center · USB-C   (empty)
 ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
-│  └─ Samsung T9 · 10 Gb/s · 4.5 W
+│  └─ PSSD T9 · 10 Gb/s · 4.5 W
+├─ Right Rear · HDMI   (empty)
 └─ Right Center · USB-C   (empty)
 
 Displays
