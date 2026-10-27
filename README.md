@@ -6,7 +6,7 @@
 
 <p align="center"><strong>A live map of every port on your Mac.</strong></p>
 
-Bus Stop is a free, open-source menu bar app for macOS. It was designed for macOS 27 and also runs on macOS 26. It shows every physical port on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
+Bus Stop is a free, open-source menu bar app for macOS. It was designed for macOS 27 and also runs on macOS 26. It shows every physical port on your Mac (USB-C and Thunderbolt, MagSafe, USB-A, HDMI, SD card), what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and daisy-chained Thunderbolt devices appear as trees, and every device is labelled with the port it hangs off. Everything stays on your Mac: Bus Stop has no network code and no telemetry.
 
 ## Features
 
@@ -23,7 +23,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Port health.** Each port's plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days, next to the hardware's all-time counts, with a gentle note when one port has far more problems than its siblings. An overcurrent warning lasts 24 hours, even across a relaunch.
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
-- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets. They appear only from the release, or from a source build signed with your developer certificate, installed in `/Applications` (see [Install](#install)). Bus Stop must be running to keep them current.
+- **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and in Extra Large the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets ([Install](#install) says which copies of Bus Stop show them). Bus Stop must be running to keep them current.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
 - **Settings** for the theme (Dark, Light or Match System), the data colours that show link speeds (Lagoon, eight other presets or Match System), text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
@@ -69,7 +69,7 @@ scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 
 `install.sh` builds for your Mac and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. macOS opens an app you built yourself without asking.
 
-A build from source includes the desktop widgets, but `install.sh` signs it without a developer team, and macOS shows widgets only from a team-signed copy in `/Applications`. To see them, build it signed with your Apple Development or Developer ID certificate: `SIGN_IDENTITY="<certificate name or SHA-1 hash>" scripts/install.sh`. The app must end up in `/Applications`, so run it from an account that can write there. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) has the details.
+A build from source includes the desktop widgets, but macOS shows them only when the app is signed with an Apple developer certificate and installed in `/Applications`. To build it that way, run `SIGN_IDENTITY="<certificate name or SHA-1 hash>" scripts/install.sh` from an account that can write to `/Applications`. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) has the details.
 
 ## Command-line tool
 
@@ -83,7 +83,7 @@ busstop --raw                   # raw IORegistry capture as JSON, for bug report
 busstop --watch                 # print connection changes as they happen (Control-C to stop)
 busstop --watch --json          # the same, one JSON object per line
 busstop --demo studioDesk       # any of the above against a demo setup
-busstop --input capture.json    # any output above from a capture saved with --raw (not with --demo or --watch)
+busstop --input capture.json    # the same outputs from a capture saved with --raw (not --watch)
 busstop --version
 busstop --help
 ```
@@ -99,6 +99,7 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% ·
 ├─ Left Center · USB-C   (empty)
 ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
 │  └─ PSSD T9 · 10 Gb/s · 4.5 W
+├─ Right Front · SD Card   (empty)
 ├─ Right Rear · HDMI   (empty)
 └─ Right Center · USB-C   (empty)
 

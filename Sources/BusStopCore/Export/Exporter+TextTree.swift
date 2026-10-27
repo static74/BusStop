@@ -10,6 +10,7 @@ extension Exporter {
     /// ├─ Left Center · USB-C   (empty)
     /// ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
     /// │  └─ PSSD T9 · 10 Gb/s · 4.5 W
+    /// ├─ Right Front · SD Card   (empty)
     /// ├─ Right Rear · HDMI   (empty)
     /// └─ Right Center · USB-C   (empty)
     ///
@@ -17,8 +18,8 @@ extension Exporter {
     /// └─ Color LCD · 3024 × 1964 @ 120 Hz · built-in
     /// ```
     ///
-    /// Then, when present, sections for other devices, displays and
-    /// diagnostics. The output is deterministic, has no colour codes and no
+    /// The Other devices, Displays and Diagnostics sections appear only when
+    /// they have entries. The output is deterministic, has no colour codes and no
     /// trailing spaces, and ends with a newline. Text from the capture
     /// (names, versions) goes through `Format.terminalSafe`, so it cannot
     /// carry control characters or terminal escape sequences.
@@ -128,7 +129,7 @@ enum TextTree {
         }
     }
 
-    /// "Samsung T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
+    /// "PSSD T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
     /// as they get no card on the map.
     static func deviceText(_ device: DeviceNode) -> String {
         let name = Format.terminalSafe(device.name)
