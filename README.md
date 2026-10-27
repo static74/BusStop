@@ -24,7 +24,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Cable details** when the port reports them: active or passive, optical.
 - **Export** a JSON snapshot, a Markdown report or a raw IORegistry capture for bug reports. Serial numbers are redacted by default.
 - **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets.
-- **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in.
+- **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
 - **Settings** for a dark or light theme, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
 
@@ -38,11 +38,11 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 
 *The topology window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
 
-A CI workflow captures these images from the real app, running in demo mode on macOS 27. A maintainer runs it by hand, so the images can trail the newest commits. The [`screenshots` branch](https://github.com/static74/BusStop/tree/screenshots) has the other demo setups and every settings pane.
+Both show demo mode, so you can see the same setups on your own Mac (Settings › Advanced › Demo mode). [More screenshots](https://github.com/static74/BusStop/tree/screenshots) show the other demo setups and every settings pane.
 
 ## Requirements
 
-- macOS 26 Tahoe or later. Bus Stop was designed for macOS 27 Golden Gate and also runs on macOS 26 Tahoe; CI builds and tests it on both.
+- macOS 26 Tahoe or later. Bus Stop was designed for macOS 27 Golden Gate and also runs on macOS 26 Tahoe.
 - Apple silicon recommended. Bus Stop runs on Intel Macs with macOS 26, but their port controllers do not publish the per-port detail it reads, so the map is less complete there.
 
 ## Install
@@ -58,7 +58,7 @@ Bus Stop lives in the menu bar and has no Dock icon. Left-click the icon for the
 
 ### Build from source
 
-You need Xcode 27 (or Xcode 26.6) and its command-line tools. There is no Xcode project; the app is a Swift package plus a bundling script.
+You need Xcode 27 (or Xcode 26.6) and its command-line tools.
 
 ```sh
 git clone https://github.com/static74/BusStop.git
@@ -67,19 +67,9 @@ scripts/install.sh              # build, copy to /Applications and open
 scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 ```
 
-`install.sh` builds for your Mac's architecture and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. A build made on your own Mac is signed ad hoc, but it carries no quarantine attribute, so macOS opens it without asking.
+`install.sh` builds for your Mac and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. macOS opens an app you built yourself without asking.
 
-Widgets need a build signed by a team and installed in `/Applications`. Release builds are. A build from source is signed ad hoc: it bundles the widgets, but macOS leaves them out of Edit Widgets. [CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how to sign a build with your own certificate.
-
-To build without installing:
-
-```sh
-swift build                     # debug build of everything
-swift test                      # unit tests
-scripts/build-app.sh            # build/Bus Stop.app and build/BusStop.zip
-scripts/make-dmg.sh             # build/BusStop.dmg from the app
-ARCHS=universal scripts/build-app.sh   # arm64 and x86_64 in one bundle
-```
+The desktop widgets appear in the release download, or in a build you sign with your own Apple developer certificate ([CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how). macOS only lists widgets from signed apps, so an unsigned build from source includes them but they don't appear in Edit Widgets.
 
 ## Command-line tool
 
@@ -115,12 +105,12 @@ Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% ·
 
 - No network code, no analytics, no crash reporting, no accounts. The app does not ask for network access.
 - Bus Stop only reads: IORegistry properties, the power-source API and the SMC's read-only power keys. It never ejects, powers off or reconfigures anything.
-- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. For the widgets, the app also writes what they show to `widget-payload.json` in its App Group container (`~/Library/Group Containers/`), readable only by your user account, with serial numbers redacted; clearing the history or turning it off deletes it. Nothing is written anywhere else unless you export.
+- Settings and port names are stored in the app's preferences. The event log, power history and port counts are saved in `~/Library/Application Support/io.github.static74.busstop/history.json`, readable only by your user account. It holds device names, display serial numbers and Thunderbolt device IDs, and the Mac's model identifier but not its serial number or name. Settings › Advanced › History clears it or turns saving off. Demo mode never touches it. For the widgets, the app also writes what they show to `widget-payload.json` in a folder it shares only with them (in `~/Library/Group Containers/`), readable only by your user account, with serial numbers redacted; clearing the history or turning it off deletes it. Nothing is written anywhere else unless you export.
 - Exports and `busstop --watch` redact serial numbers and the computer name by default.
 
 ## How it works
 
-Bus Stop reads the Mac's port controllers, USB and Thunderbolt device trees, power telemetry and displays from IOKit into a plain, platform-neutral snapshot of raw registry properties. A pure Swift topology builder turns that snapshot into ports, device trees, link speeds and power figures, a diagnostics engine adds findings, and a differ compares consecutive snapshots to produce connection events. IOKit notifications trigger a new capture within a quarter of a second of any change. Because the raw snapshot is plain data, the same pipeline runs on demo data, on saved captures and in tests. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data flow and the threading model, and [docs/SPEC.md](docs/SPEC.md) is the full specification.
+macOS already knows a great deal about every port: which controller drives it, what is plugged in, the speed each link negotiated and the power flowing through it. Bus Stop reads that information and turns it into a map of ports and the devices behind them. It works out link speeds and power, checks for problems, and notices within a quarter of a second when something is plugged in or out. It only ever reads; it never changes anything. For the technical details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/SPEC.md](docs/SPEC.md).
 
 ## Contributing
 
