@@ -29,7 +29,7 @@ struct AboutView: View {
                     .textSelection(.enabled)
             }
 
-            Text("A live map of every port on your Mac.")
+            Text("A live map of the ports on your Mac.")
                 .lagoonFont(.headline, weight: .semibold, design: .rounded)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Lagoon.accent)

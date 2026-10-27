@@ -180,7 +180,7 @@ enum ArgumentParser {
             .map { "                      \($0.rawValue.padding(toLength: 12, withPad: " ", startingAt: 0)) \($0.title)" }
             .joined(separator: "\n")
         return """
-        busstop \(BusStopVersion.string): a live map of every port on your Mac.
+        busstop \(BusStopVersion.string): a live map of the ports on your Mac.
 
         Usage: busstop [--json | --markdown | --raw] [--watch] [--demo <scenario>]
                        [--input <file>] [--no-redact] [--no-smc]
