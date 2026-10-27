@@ -5,11 +5,16 @@ extension Exporter {
     ///
     /// ```
     /// MacBook Pro (14-inch, 2026, M5 Pro) · macOS 27.0
-    /// Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%
+    /// Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% · 4.5 W to ports
     /// ├─ Left Rear · MagSafe   96W USB-C Power Adapter   ↓ 61 W
+    /// ├─ Left Center · USB-C   (empty)
     /// ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
-    /// │  └─ Samsung T9 · 10 Gb/s · 4.5 W
+    /// │  └─ PSSD T9 · 10 Gb/s · 4.5 W
+    /// ├─ Right Rear · HDMI   (empty)
     /// └─ Right Center · USB-C   (empty)
+    ///
+    /// Displays
+    /// └─ Color LCD · 3024 × 1964 @ 120 Hz · built-in
     /// ```
     ///
     /// Then, when present, sections for other devices, displays and

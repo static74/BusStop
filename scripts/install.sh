@@ -12,8 +12,8 @@
 # not writable. A build made on this Mac carries no quarantine attribute;
 # the script removes it anyway in case the source came from a download.
 #
-# Environment: VERSION, BUILD, CONFIGURATION and SIGN_IDENTITY go to build-app.sh.
-# ARCHS defaults to this Mac's architecture.
+# Environment: VERSION, BUILD, CONFIGURATION and SIGN_IDENTITY go to
+# build-app.sh. ARCHS defaults to this Mac's architecture.
 
 set -euo pipefail
 

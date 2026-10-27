@@ -20,7 +20,7 @@ open "build/Bus Stop.app"
 
 Run the app from the bundle rather than with `swift run BusStopApp`: notifications, launch at login and the app icon need a real bundle with an `Info.plist`.
 
-`scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD` and `CONFIGURATION=debug`; the comment at the top of the script describes them.
+`scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD`, `CONFIGURATION=debug` and `SIGN_IDENTITY`; the comment at the top of the script describes them.
 
 ### Testing widgets
 
