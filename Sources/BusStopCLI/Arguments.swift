@@ -205,10 +205,9 @@ enum ArgumentParser {
                             unplugged and plugged back in every few seconds.
 
         Other:
-          --no-redact       Keep serial numbers, other unit identifiers and the
-                            computer name in the text tree and in --json,
-                            --markdown, --raw and --watch output (redacted by
-                            default).
+          --no-redact       Keep serial numbers and other unit identifiers in
+                            the text tree and in --json, --markdown, --raw and
+                            --watch output (redacted by default).
           --no-smc          Do not read per-port power from the SMC.
           --version         Print the version.
           -h, --help        Print this help.

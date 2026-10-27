@@ -10,7 +10,7 @@ struct PortsWidget: Widget {
             PortsWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Ports")
-        .description("Every port, what is plugged into it, its speed and its power.")
+        .description("The ports on your Mac, what is plugged into each, its speed and its power.")
         .supportedFamilies([.systemLarge, .systemExtraLarge])
     }
 }
