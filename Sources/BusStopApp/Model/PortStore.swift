@@ -79,6 +79,11 @@ final class PortStore {
     /// Nil in an ad hoc build, which has no App Group: the widgets then get no data.
     @ObservationIgnored let widgetFile: WidgetPayloadFile?
     @ObservationIgnored private var widgetGate = WidgetWriteGate()
+    /// Every serial number captured this session, so the widget payload can redact
+    /// events about devices that have since been unplugged. Kept in memory only.
+    /// shortcut: events saved by an earlier launch, about a device not seen since, are
+    /// not covered; that needs the history to keep their serial numbers too.
+    @ObservationIgnored private var seenSerials = Set<String>()
     /// Called after each payload write or delete; tests replace it.
     @ObservationIgnored var reloadWidgets: () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
     /// Changes on every capture, so no view observes it.
@@ -441,7 +446,8 @@ final class PortStore {
                                                   step: WidgetPayload.dayPowerStep) : [],
             events: keep ? events : [],
             portHealth: keep ? portHealth : [:],
-            portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil
+            portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil,
+            serials: seenSerials
         )
         do {
             try widgetFile.write(payload)
@@ -630,6 +636,7 @@ final class PortStore {
             isDemo: isDemo
         )
         var built = TopologyBuilder.build(raw, options: options)
+        seenSerials.formUnion(Exporter.serialStrings(in: built))
 
         if raw.capturedAt != lastRecordedAt {
             // A clock set back is a gap too.

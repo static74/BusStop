@@ -103,6 +103,33 @@ struct WidgetWriterTests {
         return store
     }
 
+    /// A drive that puts its serial number in its name, unplugged: the event names it,
+    /// but the snapshot the payload is built from no longer has its serial.
+    @Test func unpluggedDeviceSerialStaysOutOfThePayload() throws {
+        let serial = "SNXYZ123"
+        var raw = capture(0)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["USB Product Name"] = .string("Drive \(serial)")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = "Drive \(serial)"
+        var unplugged = raw
+        unplugged.capturedAt = start + 2
+        unplugged.usbDevices.remove(at: index)
+
+        let sandbox = Sandbox()
+        let store = sandbox.store()
+        store.loadHistoryIfNeeded()
+        store.ingest(raw)
+        store.ingest(unplugged)
+        #expect(store.events.contains { $0.title.contains(serial) })
+        let payload = try #require(sandbox.file.read())
+        #expect(payload.events.contains { $0.kind == .deviceDisconnected })
+        let json = String(decoding: try Data(contentsOf: sandbox.file.url), as: UTF8.self)
+        #expect(!json.contains(serial))
+    }
+
     @Test func clearHistoryDeletesThePayload() throws {
         let sandbox = Sandbox()
         let store = try storeWithEvents(sandbox)

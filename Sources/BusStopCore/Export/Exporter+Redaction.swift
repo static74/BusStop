@@ -131,9 +131,10 @@ extension Exporter {
     /// its ids: the serial number at the end of a `display:` id and the UID
     /// in a `tb:` id become "REDACTED", and the same values are removed from
     /// the title and detail wherever they appear as a whole word. So are the
-    /// serial numbers of `snapshots` (the ones the event was diffed from),
-    /// which an event title can carry in a device's name.
-    public static func redacted(_ event: ConnectionEvent, serialsFrom snapshots: [HostSnapshot] = []) -> ConnectionEvent {
+    /// serial numbers of `snapshots` (the ones the event was diffed from) and
+    /// `serials`, which an event title can carry in a device's name.
+    public static func redacted(_ event: ConnectionEvent, serialsFrom snapshots: [HostSnapshot] = [],
+                                serials: Set<String> = []) -> ConnectionEvent {
         var found = Set<String>()
         func scrub(_ id: String) -> String {
             IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
@@ -142,7 +143,7 @@ extension Exporter {
         copy.id = scrub(event.id)
         copy.deviceID = event.deviceID.map(scrub)
         copy.subjectID = event.subjectID.map(scrub)
-        let words = found.union(snapshots.flatMap(serialStrings(in:))).filter { $0.count >= 4 }
+        let words = found.union(serials).union(snapshots.flatMap(serialStrings(in:))).filter { $0.count >= 4 }
         copy.title = IDShape.removing(words, from: event.title)
         copy.detail = IDShape.removing(words, from: event.detail)
         return copy
@@ -274,7 +275,7 @@ extension Exporter {
     }
 
     /// Serial numbers in the snapshot, as they could appear inside ids.
-    static func serialStrings(in snapshot: HostSnapshot) -> Set<String> {
+    public static func serialStrings(in snapshot: HostSnapshot) -> Set<String> {
         var serials = Set<String>()
         for display in snapshot.displays {
             if let serial = display.serialNumber, serial != 0 {
