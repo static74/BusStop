@@ -117,6 +117,54 @@ struct HistoryArchiveTests {
         #expect(archive.serials(model: model).isEmpty)
     }
 
+    /// `count` events, oldest first; the one at `named` (if any) names a drive by its serial.
+    private func events(_ count: Int, naming named: Int?) -> [ConnectionEvent] {
+        (0..<count).map { index in
+            index == named
+                ? ConnectionEvent(id: "e\(index)", date: start.addingTimeInterval(Double(index)),
+                                  kind: .deviceDisconnected, title: "Drive SNXYZ123 disconnected", detail: "")
+                : event("e\(index)", Double(index))
+        }
+    }
+
+    @Test func serialsGoWithEventsDroppedAtTheCountCap() {
+        var archive = HistoryArchive()
+        archive.append(events(HistoryArchive.maxEvents, naming: 200), model: model, serials: ["SNXYZ123"])
+        // 100 more drop the 100 oldest; e200, which names the drive, stays.
+        for index in 0..<100 { archive.append([event("n\(index)", 1e6 + Double(index))], model: model) }
+        #expect(archive.serials(model: model) == ["SNXYZ123"])
+        // 101 more drop it.
+        for index in 100..<201 { archive.append([event("n\(index)", 1e6 + Double(index))], model: model) }
+        #expect(!archive.events(model: model).contains { $0.title.contains("SNXYZ123") })
+        #expect(archive.serials(model: model).isEmpty)
+    }
+
+    @Test func serialsGoWithEventsDroppedForTheByteCap() throws {
+        var archive = HistoryArchive()
+        archive.append(events(2_000, naming: 0), model: model, serials: ["SNXYZ123"])
+        let full = try archive.encoded(maxBytes: .max)
+        #expect(String(decoding: full, as: UTF8.self).contains("SNXYZ123"))
+        let shrunk = try archive.encoded(maxBytes: full.count / 4)
+        #expect(!String(decoding: shrunk, as: UTF8.self).contains("SNXYZ123"))
+
+        var newest = HistoryArchive()
+        newest.append(events(2_000, naming: 1_999), model: model, serials: ["SNXYZ123"])
+        let kept = try newest.encoded(maxBytes: try newest.encoded(maxBytes: .max).count / 4)
+        #expect(try HistoryArchive.decode(kept).serials(model: model) == ["SNXYZ123"])
+    }
+
+    /// A bad entry drops only itself, and a serial no event holds is dropped on load.
+    @Test func serialsDecodeEntryByEntry() throws {
+        let json = #"""
+        {"schemaVersion":1,"sections":{"Mac17,9":{"serials":["SNXYZ123",5,"GONE1234"],
+        "events":[{"id":"a","date":800000000,"kind":"deviceDisconnected","title":"Drive SNXYZ123 disconnected",
+        "detail":"","isDowngrade":false}]}}}
+        """#
+        let archive = try HistoryArchive.decode(Data(json.utf8))
+        #expect(archive.events(model: model).count == 1)
+        #expect(archive.serials(model: model) == ["SNXYZ123"])
+    }
+
     @Test func eventsCappedByCountAndAge() {
         var archive = HistoryArchive()
         archive.append((0..<(HistoryArchive.maxEvents + 10)).map { event("e\($0)", Double($0)) }, model: model)

@@ -45,7 +45,7 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
         self.snapshot = Self.withoutProperties(Exporter.redacted(snapshot, serials: serials))
         self.recentPower = recentPower
         self.dayPower = dayPower
-        let textSerials = serials.union(Exporter.serialStrings(in: snapshot)).filter(Exporter.isTextSerial)
+        let textSerials = serials.filter { $0.count >= 4 }.union(Exporter.textSerials(in: snapshot))
         self.events = events.prefix(Self.eventLimit).map { Exporter.redacted($0, textSerials: textSerials) }
         self.portHealth = portHealth
         self.portDays = portDays

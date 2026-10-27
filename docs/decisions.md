@@ -2,6 +2,21 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-27: The history keeps the serial numbers its events hold
+
+**Question.** The widget payload and redacted exports must not name a device by its serial number, but some devices put their serial in their product name, and the events and "keeps disconnecting" findings about a device outlive it. After a relaunch the history's events name devices the app has not seen this session. How does redaction know their serials?
+
+**Decision.** Each history section keeps `serials`: the serial numbers that a device put in its own name (`Exporter.serialsInNames`), saved when an event that holds one is added and dropped with the last such event, or with Clear History. The app redacts the payload and exports against these plus this session's. A serial that is not in its own device's name (some devices report "Generic") is never kept, so it is not removed from other devices' names. In free text a display's numeric serial needs 6 characters, since its short forms match resolutions.
+
+**Why.** The serials are already in the history, in the event titles that hold them, so the list adds nothing the file did not already carry. That differs from the saved best link turned down on 2026-10-19 ("Flaky connections are found by watching snapshots"), which would have written identity keys, with the serials of every device, into the file.
+
+**Rejected alternatives.**
+
+- *Events saved redacted, or a second redacted copy of each.* The Events page shows names as the device reports them, and two copies double the largest part of the file.
+- *Leaving restored events out of the payload.* The Health widget would lose real events after every relaunch.
+
+**Risks.** A history saved by 1.2.0 or earlier has no list, and 1.2.0 drops it when it saves the file again after a downgrade; those events can show the serial in the widgets until they age out.
+
 ## 2026-10-26: Settings uses AppKit toolbar tabs, not a SwiftUI `TabView`
 
 **Question.** The Settings window's tab labels looked blurry on a 1x display (issue #45). Why, and what should draw the tabs?

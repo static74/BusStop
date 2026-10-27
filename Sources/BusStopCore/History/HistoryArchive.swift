@@ -252,7 +252,6 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
             var dropped = false
             for model in copy.sections.keys {
                 dropped = copy.sections[model]!.dropOldest(keeping: keep) || dropped
-                copy.sections[model]!.pruneSerials()
             }
             guard dropped else { break }
             data = try encoder.encode(copy)
@@ -271,7 +270,7 @@ extension HistoryArchive.Section {
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         events = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)?.elements ?? []
-        serials = try c.decodeIfPresent(Set<String>.self, forKey: .serials) ?? []
+        serials = Set(try c.decodeIfPresent(LossyList<String>.self, forKey: .serials)?.elements ?? [])
         power = try c.decodeIfPresent(LossyList<HistoryArchive.PowerBucket>.self, forKey: .power)?.elements ?? []
         pendingPower = try c.decodeIfPresent(LossyList<PowerSample>.self, forKey: .pendingPower)?.elements ?? []
         portDays = try c.decodeIfPresent([String: LossyList<HistoryArchive.PortDay>].self, forKey: .portDays)?
@@ -282,6 +281,8 @@ extension HistoryArchive.Section {
         lastCaptureAt = try c.decodeIfPresent(Date.self, forKey: .lastCaptureAt)
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
         trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
+        // A file edited by hand, or events dropped on their own above, can leave serials no event holds.
+        if !serials.isEmpty { serials = Self.serials(serials, in: events) }
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
@@ -387,8 +388,9 @@ extension HistoryArchive.Section {
         let now = trimDate(now: now)
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
         if let oldest = events.last, oldest.date < eventCutoff {
+            let dropped = events.filter { $0.date < eventCutoff }
             events.removeAll { $0.date < eventCutoff }
-            pruneSerials()
+            pruneSerials(dropping: dropped)
         }
         trimCount()
         let powerCutoff = now.addingTimeInterval(-HistoryArchive.powerAge)
@@ -402,20 +404,24 @@ extension HistoryArchive.Section {
 
     mutating func trimCount() {
         guard events.count > HistoryArchive.maxEvents else { return }
-        events.removeLast(events.count - HistoryArchive.maxEvents)
-        pruneSerials()
+        let drop = events.count - HistoryArchive.maxEvents
+        let dropped = events.suffix(drop)
+        events.removeLast(drop)
+        pruneSerials(dropping: dropped)
     }
 
-    /// Keeps the serials that some event still holds. Run after events are dropped.
-    mutating func pruneSerials() {
-        if !serials.isEmpty { serials = Self.serials(serials, in: events) }
+    /// Keeps the serials that some event still holds, after `dropped` left the
+    /// log. Only a dropped event that held a serial calls for a look through
+    /// the rest, so dropping one event at the count cap stays cheap.
+    mutating func pruneSerials(dropping dropped: some Collection<ConnectionEvent>) {
+        guard !serials.isEmpty, !Self.serials(serials, in: dropped).isEmpty else { return }
+        serials = Self.serials(serials, in: events)
     }
 
-    /// Those of `serials` that `Exporter.isTextSerial` passes and that appear,
-    /// in any case, in the title or detail of one of `events`.
-    static func serials(_ serials: Set<String>, in events: [ConnectionEvent]) -> Set<String> {
+    /// Those of `serials` that appear, in any case, in the title or detail of one of `events`.
+    static func serials(_ serials: Set<String>, in events: some Collection<ConnectionEvent>) -> Set<String> {
         serials.filter { serial in
-            Exporter.isTextSerial(serial) && events.contains {
+            events.contains {
                 $0.title.localizedCaseInsensitiveContains(serial) || $0.detail.localizedCaseInsensitiveContains(serial)
             }
         }
@@ -427,7 +433,9 @@ extension HistoryArchive.Section {
         func dropCount(_ count: Int) -> Int { count - Int(Double(count) * fraction) }
         let eventDrop = dropCount(events.count)
         let powerDrop = dropCount(power.count)
+        let droppedEvents = events.suffix(eventDrop)
         events.removeLast(eventDrop)
+        pruneSerials(dropping: droppedEvents)
         power.removeFirst(powerDrop)
         var dropped = eventDrop + powerDrop > 0
         for (key, days) in portDays {

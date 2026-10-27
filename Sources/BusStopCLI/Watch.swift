@@ -28,6 +28,9 @@ final class WatchSession {
     private let options: CLIOptions
     private var previous: HostSnapshot?
     private var archive = HistoryArchive()
+    /// Serials devices put in their names this run, so a device that keeps
+    /// disconnecting is redacted in its lines even after it is gone.
+    private var seenSerials = Set<String>()
     private var health = ConnectionHealth()
     private var eventCount = 0
     private var stopMonitoring: (@Sendable () -> Void)?
@@ -121,8 +124,9 @@ final class WatchSession {
         var events = SnapshotDiffer.events(from: previous, to: snapshot, at: snapshot.capturedAt)
         archive.append(events, model: snapshot.machine.model)
         if options.redact {
+            seenSerials.formUnion(Exporter.serialsInNames(of: snapshot))
             let snapshots = [previous, snapshot].compactMap { $0 }
-            events = events.map { Exporter.redacted($0, serialsFrom: snapshots) }
+            events = events.map { Exporter.redacted($0, serialsFrom: snapshots, serials: seenSerials) }
         }
         previous = snapshot
         for event in events {

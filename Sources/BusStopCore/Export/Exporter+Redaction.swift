@@ -34,7 +34,9 @@ extension Exporter {
     /// removed too, for serial numbers of devices no longer connected that a
     /// diagnostic can still name.
     public static func redacted(_ snapshot: HostSnapshot, serials: Set<String> = []) -> HostSnapshot {
-        let redactor = Redactor(serials: serialStrings(in: snapshot).union(serials))
+        let entries = serialEntries(in: snapshot)
+        let redactor = Redactor(serials: Set(entries.map(\.serial)).union(serials),
+                                textSerials: textSerials(entries).union(serials.filter { $0.count >= 4 }))
         var copy = snapshot
         copy.ports = snapshot.ports.map { port in
             var port = port
@@ -75,7 +77,8 @@ extension Exporter {
     /// and SMC UUIDs replaced, and no computer name. Serials found under
     /// serial keys are also removed from every other string in the capture.
     public static func redacted(_ raw: RawSnapshot) -> RawSnapshot {
-        let redactor = Redactor(serials: serialStrings(in: raw))
+        let entries = serialEntries(in: raw)
+        let redactor = Redactor(serials: Set(entries.map(\.serial)), textSerials: textSerials(entries))
         var copy = raw
         copy.machine.computerName = nil
         copy.portNodes = raw.portNodes.map(redactor.node)
@@ -122,7 +125,7 @@ extension Exporter {
 
     /// A copy of the bag with sensitive values replaced, at every depth.
     public static func redacted(_ bag: PropertyBag) -> PropertyBag {
-        Redactor(serials: []).bag(bag)
+        Redactor(serials: [], textSerials: []).bag(bag)
     }
 
     /// The event with serial numbers and per-unit hardware identifiers removed
@@ -137,11 +140,14 @@ extension Exporter {
     /// `serials`, which an event title can carry in a device's name.
     public static func redacted(_ event: ConnectionEvent, serialsFrom snapshots: [HostSnapshot] = [],
                                 serials: Set<String> = []) -> ConnectionEvent {
-        redacted(event, textSerials: serials.union(snapshots.flatMap(serialStrings(in:))).filter(isTextSerial))
+        redacted(event, textSerials: serials.filter { $0.count >= 4 }
+            .union(snapshots.flatMap(textSerials(in:))))
     }
 
-    /// `redacted(_:serialsFrom:serials:)` with the serials already filtered by
-    /// `isTextSerial`, so a list of events shares one set.
+    /// `redacted(_:serialsFrom:serials:)` with the serials to remove from the
+    /// title and detail already chosen, so a list of events shares one set.
+    /// Values found in its ids are display serials and UIDs, so they follow the
+    /// rule for numbers in `SerialEntry.isText`.
     static func redacted(_ event: ConnectionEvent, textSerials: Set<String>) -> ConnectionEvent {
         var found = Set<String>()
         func scrub(_ id: String) -> String {
@@ -151,7 +157,8 @@ extension Exporter {
         copy.id = scrub(event.id)
         copy.deviceID = event.deviceID.map(scrub)
         copy.subjectID = event.subjectID.map(scrub)
-        let words = found.isEmpty ? textSerials : textSerials.union(found.filter(isTextSerial))
+        let words = found.isEmpty ? textSerials
+            : textSerials.union(found.filter { SerialEntry(serial: $0, isNumber: true).isText })
         copy.title = IDShape.removing(words, from: event.title)
         copy.detail = IDShape.removing(words, from: event.detail)
         return copy
@@ -166,20 +173,11 @@ extension Exporter {
         return IDShape.scrub(id, found: &found, display: { _ in redactedText }, uid: { _, _ in redactedText })
     }
 
-    /// The text with each of `serials` that passes `isTextSerial` replaced by
+    /// The text with each of `serials` (at least 4 characters) replaced by
     /// "REDACTED" wherever it appears as a whole word, for free text such as
     /// "Copy Details".
     public static func redacted(_ text: String, serials: [String]) -> String {
-        IDShape.removing(Set(serials.filter(isTextSerial)), from: text)
-    }
-
-    /// True for serial numbers worth removing from free text: at least 4
-    /// characters, or at least 6 when every character is a hex digit. A short
-    /// number such as the hex form of a display serial ("2160") would
-    /// otherwise turn "3840 × 2160" or a year into "REDACTED"; ids still match
-    /// it as a whole part.
-    public static func isTextSerial(_ serial: String) -> Bool {
-        serial.count >= (serial.allSatisfy(\.isHexDigit) ? 6 : 4)
+        IDShape.removing(Set(serials.filter { $0.count >= 4 }), from: text)
     }
 
     /// True for property keys whose values identify a specific unit and are
@@ -291,35 +289,62 @@ extension Exporter {
         bytes[start + 127] = UInt8((256 - sum) & 0xFF)
     }
 
-    /// Serial numbers in the snapshot, as they could appear inside ids.
-    public static func serialStrings(in snapshot: HostSnapshot) -> Set<String> {
-        var serials = Set<String>()
+    /// The snapshot's serial numbers to remove from free text, chosen by `SerialEntry.isText`.
+    static func textSerials(in snapshot: HostSnapshot) -> Set<String> {
+        textSerials(serialEntries(in: snapshot))
+    }
+
+    /// The snapshot's serial numbers that appear in the name of the device,
+    /// charger or display that carries them (some devices put their serial in
+    /// their product name), for redacting events and diagnostics about it
+    /// after it is gone. A serial such as "Generic" that the device does not
+    /// put in its name is left out, so it is not removed from other names.
+    public static func serialsInNames(of snapshot: HostSnapshot) -> Set<String> {
+        Set(serialEntries(in: snapshot).filter { entry in
+            entry.isText && entry.names.contains { $0.localizedCaseInsensitiveContains(entry.serial) }
+        }.map(\.serial))
+    }
+
+    /// The serials of `entries` to remove from free text.
+    private static func textSerials(_ entries: [SerialEntry]) -> Set<String> {
+        Set(entries.filter(\.isText).map(\.serial))
+    }
+
+    /// Every serial number in the snapshot, with the names of what carries it.
+    private static func serialEntries(in snapshot: HostSnapshot) -> [SerialEntry] {
+        var entries: [SerialEntry] = []
         for display in snapshot.displays {
             if let serial = display.serialNumber, serial != 0 {
-                serials.insert(String(serial))
-                serials.insert(String(serial, radix: 16))
+                entries.append(SerialEntry(serial: String(serial), isNumber: true, names: [display.name]))
+                entries.append(SerialEntry(serial: String(serial, radix: 16), isNumber: true, names: [display.name]))
             }
         }
         for entry in snapshot.allDevices {
             for device in [entry.device] + (entry.device.internalParts ?? []) {
-                if let serial = device.serialNumber { serials.insert(serial) }
+                guard let serial = device.serialNumber else { continue }
+                // A display's row carries its numeric serial in decimal.
+                entries.append(SerialEntry(serial: serial, isNumber: device.bus == .displayPort,
+                                           names: [device.name, device.vendorName].compactMap { $0 }))
             }
         }
         for charger in [snapshot.power.charger] + snapshot.ports.map(\.charger) {
-            if let serial = charger?.serialNumber { serials.insert(serial) }
+            guard let charger, let serial = charger.serialNumber else { continue }
+            entries.append(SerialEntry(serial: serial, isNumber: false,
+                                       names: [charger.name, charger.manufacturer].compactMap { $0 }))
         }
-        return serials
+        return entries
     }
 
     /// Serial numbers in a raw capture: the values under serial keys in every
-    /// property bag, at any depth, and display serials.
-    private static func serialStrings(in raw: RawSnapshot) -> Set<String> {
-        var serials = Set<String>()
+    /// property bag, at any depth, and display serials. Numbers under serial
+    /// keys are display serials (or a descriptor index), so they count as numbers.
+    private static func serialEntries(in raw: RawSnapshot) -> [SerialEntry] {
+        var entries: [SerialEntry] = []
         func collect(_ values: [String: PlistValue]) {
             for (key, value) in values {
                 if isSensitiveKey(key), key.lowercased() != "connectionuuid" {
-                    if let text = value.stringValue { serials.insert(text) }
-                    if case .int(let number) = value { serials.insert(String(number)) }
+                    if let text = value.stringValue { entries.append(SerialEntry(serial: text, isNumber: false)) }
+                    if case .int(let number) = value { entries.append(SerialEntry(serial: String(number), isNumber: true)) }
                 }
                 if case .dict(let items) = value { collect(items) }
                 if case .array(let items) = value {
@@ -332,12 +357,26 @@ extension Exporter {
         for bag in [raw.battery, raw.adapter] { if let bag { collect(bag.values) } }
         for display in raw.displays {
             if let serial = display.serialNumber, serial != 0 {
-                serials.insert(String(serial))
-                serials.insert(String(serial, radix: 16))
+                entries.append(SerialEntry(serial: String(serial), isNumber: true))
+                entries.append(SerialEntry(serial: String(serial, radix: 16), isNumber: true))
             }
         }
-        return serials
+        return entries
     }
+}
+
+/// One serial number found in a capture.
+struct SerialEntry {
+    var serial: String
+    /// A display's serial, which is a number: its decimal and hex forms.
+    var isNumber: Bool
+    /// The names of the device, charger or display that carries it.
+    var names: [String] = []
+
+    /// Whether it is removed from free text: at least 4 characters, or 6 for a
+    /// display's number, whose short forms ("2160", the hex of 8544) would
+    /// otherwise match a resolution such as "3840 × 2160", or a year.
+    var isText: Bool { serial.trimmingCharacters(in: .whitespaces).count >= (isNumber ? 6 : 4) }
 }
 
 /// Redacts one export. Created per export call, so stand-ins are numbered
@@ -348,14 +387,14 @@ private final class Redactor {
     /// Parts shorter than three characters are left alone: displays without
     /// a serial report 0 or 1, and such short values identify nothing.
     private let serials: Set<String>
-    /// The serials removed from free text: those that pass `Exporter.isTextSerial`.
+    /// The serials removed from free text, chosen by `SerialEntry.isText`.
     private let textSerials: Set<String>
     private var uids: [UInt64: UInt64] = [:]
     private var uuids: [String: Int] = [:]
 
-    init(serials: Set<String>) {
+    init(serials: Set<String>, textSerials: Set<String>) {
         self.serials = Set(serials.map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count >= 3 })
-        textSerials = self.serials.filter(Exporter.isTextSerial)
+        self.textSerials = Set(textSerials.map { $0.trimmingCharacters(in: .whitespaces) })
     }
 
     /// The text with every known serial removed where it is a whole word.

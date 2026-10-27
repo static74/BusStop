@@ -377,12 +377,12 @@ struct RedactionTests {
     @Test func serialsOfDevicesNoLongerConnectedAreRedacted() throws {
         let serial = "SNXYZ123"
         let gone = TopologyBuilder.build(try captureWithSerialInName(serial))
-        #expect(Exporter.serialStrings(in: gone).contains(serial))
+        #expect(Exporter.serialsInNames(of: gone).contains(serial))
         let snapshot = S.snapshot(.studioDesk)
-        #expect(!Exporter.serialStrings(in: snapshot).contains(serial))
+        #expect(!Exporter.textSerials(in: snapshot).contains(serial))
         let event = ConnectionEvent(id: "1", date: S.date, kind: .deviceDisconnected,
                                     title: "Drive \(serial) disconnected", detail: "Drive \(serial) on Left")
-        let redacted = Exporter.redacted(event, serialsFrom: [snapshot], serials: Exporter.serialStrings(in: gone))
+        let redacted = Exporter.redacted(event, serialsFrom: [snapshot], serials: Exporter.serialsInNames(of: gone))
         #expect(redacted.title == "Drive REDACTED disconnected" && redacted.detail == "Drive REDACTED on Left")
         #expect(Exporter.redacted(event, serialsFrom: [snapshot]).title.contains(serial))
 
@@ -400,20 +400,53 @@ struct RedactionTests {
 
     @Test func wholeWordsOnly() {
         #expect(Exporter.redacted("Drive SN-12/34 (SN-12/34)", serials: ["SN-12/34"]) == "Drive REDACTED (REDACTED)")
-        #expect(Exporter.redacted("51234Z and 1234Z", serials: ["1234Z"]) == "51234Z and REDACTED")
+        #expect(Exporter.redacted("512345 and 1234", serials: ["1234"]) == "512345 and REDACTED")
         #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
     }
 
-    /// Display serial 8544 is "2160" in hex; a resolution or a year must not match a short number.
-    @Test func shortHexSerialsStayOutOfFreeText() {
-        #expect(String(8544, radix: 16) == "2160")
-        #expect(Exporter.redacted("3840 × 2160 @ 60 Hz in 2026", serials: ["2160", "2026", "8544"])
-                == "3840 × 2160 @ 60 Hz in 2026")
-        #expect(Exporter.redacted("Drive 2C4109F3", serials: ["2C4109F3"]) == "Drive REDACTED")
-        #expect(Exporter.redacted("Drive SN12", serials: ["SN12"]) == "Drive REDACTED")
+    /// Short device serials in a name are still removed, as before the display rule.
+    @Test(arguments: ["1A2B3", "12345", "C0DE", "SN12"])
+    func shortDeviceSerialsInNamesAreRedacted(_ serial: String) throws {
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName(serial))
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Drive \(serial)"))
+        #expect(!Exporter.markdown(snapshot, redact: true).contains("Drive \(serial)"))
+        let payload = text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot)))
+        #expect(!payload.contains("Drive \(serial)"))
+        #expect(Exporter.serialsInNames(of: snapshot).contains(serial))
+    }
+
+    /// Display serial 8544 is "2160" in hex: a resolution or a year must not match a display's short number.
+    @Test func shortDisplaySerialsStayOutOfFreeText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        raw.displays[index].serialNumber = 8544
+        var snapshot = TopologyBuilder.build(raw)
+        #expect(!Exporter.textSerials(in: snapshot).contains("2160"))
+        snapshot.diagnostics.append(Diagnostic(id: "res", kind: .flakyConnection, severity: .info,
+                                               title: "Runs at 3840 × 2160 since 2026", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Runs at 3840 × 2160 since 2026")
+        #expect(Exporter.markdown(snapshot).contains("3840 × 2160"))
         let event = ConnectionEvent(id: "1", date: S.date, kind: .displayConnected,
                                     title: "LG UltraFine connected", detail: "3840 × 2160 @ 60 Hz")
-        #expect(Exporter.redacted(event, serials: ["2160"]).detail == "3840 × 2160 @ 60 Hz")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).detail == "3840 × 2160 @ 60 Hz")
+        // A display's long serial is still removed from free text.
+        let long = String(0x2C41_09F3)
+        var named = event
+        named.detail = "Panel \(long)"
+        #expect(Exporter.redacted(named, serialsFrom: [S.snapshot(.studioDesk)]).detail == "Panel REDACTED")
+    }
+
+    /// A serial the device does not put in its name ("Generic") is not kept for later redaction.
+    @Test func serialsNotInTheirOwnNameAreNotKept() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string("Generic")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == "Generic" })
+        #expect(!Exporter.serialsInNames(of: snapshot).contains("Generic"))
     }
 
     // MARK: EDID
