@@ -133,7 +133,7 @@ Toolbar tabs, each with an icon; the window takes the selected tab's name:
 
 ### 3.5 Notifications
 
-Local `UserNotifications`. Title names the device; body names the port and link, e.g. "PSSD T9 connected · Left Front · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification. New warning and critical findings, the connection health ones included (§5.4), notify under the diagnostics toggle, and each finding alerts at most once every 30 minutes.
+Local `UserNotifications`. Title names the device; body names the port and link, e.g. title "PSSD T9 connected", body "Left Front · USB-C · USB 3.2 Gen 2 @ 10 Gb/s". Downgrade alerts name both speeds. Rate-limited so a dock with 10 devices yields one grouped notification. New warning and critical findings, the connection health ones included (§5.4), notify under the diagnostics toggle, and each finding alerts at most once every 30 minutes.
 
 ### 3.6 Command-line tool
 

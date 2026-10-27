@@ -88,13 +88,13 @@ enum DemoClassChain {
 /// A physical port node, with what the child builders need to know about it.
 struct DemoPortRef {
     let id: UInt64
-    /// IOKit `PortType`: 2 USB-C, 17 MagSafe 3, 6 HDMI.
+    /// IOKit `PortType`: 2 USB-C, 17 MagSafe 3, 6 HDMI, 11 SD Card.
     let type: Int
     let number: Int
-    /// `PortTypeDescription`: "USB-C", "MagSafe 3", "HDMI".
+    /// `PortTypeDescription`: "USB-C", "MagSafe 3", "HDMI", "SD Card".
     let typeDescription: String
     /// The port's CC transport, parent of its USB-PD components. Ports
-    /// without one (bare `IOPort`, HDMI) use their own ID.
+    /// without one (bare `IOPort`, HDMI, the SD card slot) use their own ID.
     var cc: UInt64
 
     init(id: UInt64, type: Int, number: Int, typeDescription: String) {
@@ -258,6 +258,7 @@ extension DemoRegistry {
             "BuiltIn": true,
             "ConnectionActive": false,
             "Card Present": false,
+            "ConnectionCount": 0,
             "TransportsSupported": ["SD"],
             "TransportsProvisioned": ["SD"],
             "TransportsActive": [],

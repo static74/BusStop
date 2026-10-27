@@ -131,7 +131,7 @@ final class WatchSession {
         }
     }
 
-    /// "Watching MacBook Pro (demo: Studio desk): 4 ports, 6 devices. Press Control-C to stop."
+    /// "Watching MacBook Pro (14-inch, 2026, M5 Pro) (demo: Studio desk): 6 ports, 8 devices. Press Control-C to stop."
     ///
     /// For a demo setup with nothing to unplug, a second line says that no
     /// events will appear.

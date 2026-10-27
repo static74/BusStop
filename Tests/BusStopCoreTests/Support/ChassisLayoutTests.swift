@@ -106,6 +106,17 @@ struct ChassisLayoutTests {
         #expect(layout.slots.prefix(3).map(\.position) == [0.25, 0.5, 0.75])
     }
 
+    @Test func unreportedSDSlotIsPassive() {
+        // Some Macs do not publish their SD card slot; the catalogue still places it.
+        var raw = DemoScenario.unplugged.raw(at: S.date)
+        raw.portNodes.removeAll { $0.className == "AppleSDXCSlot" }
+        let snapshot = TopologyBuilder.build(raw, options: BuildOptions(isDemo: true))
+        let layout = layout(snapshot)
+        #expect(!snapshot.ports.contains { $0.kind == .sdCard })
+        #expect(layout.slots.filter { $0.portKey == nil }.map(\.connector) == ["sd"])
+        #expect(names(layout, in: snapshot).last == "sd Right Front")
+    }
+
     @Test func desktopAreaOnlyFallback() {
         // Mac mini M4 numbered rear Thunderbolt 1-3 and front USB 5 and 6: the labeler places them by area.
         let thunderbolt = ["CC", "USB2", "USB3", "DisplayPort", "CIO"]
