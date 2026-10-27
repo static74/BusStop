@@ -1,8 +1,8 @@
 # Bus Stop: product and technical specification
 
-Version 1.0 (October 2026). Status: implemented in this repository.
+Version 1.2 (October 2026). Status: implemented in this repository; kept in step with CHANGELOG.md.
 
-Bus Stop is a free, open-source (MIT) macOS menu bar utility that shows every physical port on a Mac, what is plugged into each one, how fast each link runs, and how much power flows through it. It is an open alternative to the commercial ViewPorts app ("See what's connected", $6.99, macOS 26+), rebuilt from public information and original code, and designed for macOS 27 "Golden Gate" with a turquoise-on-true-black Liquid Glass look by default, and a light theme.
+Bus Stop is a free, open-source (MIT) macOS menu bar utility that shows the physical ports on a Mac, what is plugged into each one, how fast each link runs, and how much power flows through it. It is an open alternative to the commercial ViewPorts app ("See what's connected", $6.99, macOS 26+), rebuilt from public information and original code, and designed for macOS 27 "Golden Gate" with a turquoise-on-true-black Liquid Glass look by default, and a light theme.
 
 ---
 
@@ -84,7 +84,7 @@ These close gaps users reported against similar tools (WhatCable, WhatPort and P
 - Relaunching the app while it is running opens the popover.
 - The item can be hidden from Settings; when hidden, launching the app opens the topology window.
 
-### 3.2 Popover (380 pt wide, up to 640 pt tall, scrolls)
+### 3.2 Popover (380 pt wide at the Small and Medium text sizes, wider in step with Large and Extra Large text; up to 640 pt tall, scrolls)
 
 From top to bottom:
 
@@ -118,7 +118,7 @@ An `NSWindow` hosting SwiftUI, default 1280 × 820 when the screen allows (never
   - *Events*: reverse-chronological timeline of the saved event log (§5.6) with filters, grouped by day. The subtitle gives the number of events and when the oldest happened ("12 events since Oct 4, 09:15"). The filter menu offers All events, Problems (warning and critical findings and slower links) and each event kind. The filter menu and Clear sit beside the title, or under it when the column is too narrow for one row. An event's times sit beside its title, or under it when the title does not fit beside them on one line, so the title never breaks inside a word. Clear removes this Mac model's events from the saved history too, and with them the connection errors counted from them (§5.4 "Port health"). The sidebar's Events badge counts only events since launch.
   - *Diagnostics*: list of findings with explanations and suggested fixes. The severity chip sits beside a finding's title, or under it when both do not fit on one line.
 - **Inspector** (trailing, toggleable): all known fields of the selected port, device or link, plus an "IORegistry keys" disclosure with raw values for power users. A dock's inspector has a "Built into this dock" section listing each built-in part (§5.4) with its name, vendor, speed and power; parts are not selectable, and searching for one finds the dock. A device that has dropped and come back, or runs slower than it has on this port, gets a "Connection history" section: reconnections in the last 10 minutes, its best link on this port, its current link, and the likely cause once it counts as flaky (§5.4 "Connection health"). A selected device or display that disconnects stays selected: the inspector says it is disconnected and shows it again when it returns, so a device that keeps dropping out can still be inspected. A device that becomes one of a dock's built-in parts selects the dock instead, and a port macOS stops reporting selects the Mac. A port's Health section gives the hardware's all-time Connections, Plug events and Overcurrent events counters, each with how many came in the last 7 days ("7 total · 2 in the last 7 days") and left out when the port lacks that counter, then liquid detections and connection errors in the last 7 days. The 7-day figures come from the saved history (§5.6), the totals from the hardware. It ends with the stands-out finding's explanation when the port has one (§5.4 "Port health").
-- **Toolbar**: Refresh, Tree/Graph toggle, Export menu, Inspector toggle, search field.
+- **Toolbar**: Refresh, Graph/List toggle, Export menu, Inspector toggle, search field.
 
 ### 3.4 Settings window
 
@@ -140,13 +140,19 @@ Local `UserNotifications`. Title names the device; body names the port and link,
 `busstop` (built alongside the app, also embedded in the app bundle at `Contents/Helpers/busstop`, because `busstop` and `BusStop` would collide in `Contents/MacOS` on a case-insensitive disk):
 
 ```
-busstop                 # human-readable tree
-busstop --json          # HostSnapshot as JSON
-busstop --raw           # raw IORegistry capture as JSON (for bug reports / test fixtures)
-busstop --watch         # print events as they happen (Ctrl-C to stop)
-busstop --demo <name>   # run any of the above against a demo scenario
-busstop --version
+busstop                         # human-readable tree
+busstop --json                  # HostSnapshot as JSON
+busstop --markdown              # Markdown report
+busstop --raw                   # raw IORegistry capture as JSON (bug reports, test fixtures)
+busstop --input <file>          # read a saved raw capture instead of this Mac; - reads standard input
+busstop --watch [--json]        # print events as they happen (Control-C to stop); not with --input
+busstop --demo <name>           # studioDesk, travel, dockStation, unplugged or flakyCable; not with --input
+busstop --no-redact             # keep serial numbers and other unit identifiers
+busstop --no-smc                # do not read per-port power from the SMC
+busstop --version | --help
 ```
+
+Exit status is 0 on success, 1 on a runtime error and 2 on a usage error; errors go to standard error. Device names pass through `Format.terminalSafe`. With `--watch --demo` (except `unplugged`, which has no devices), a sample device is unplugged and replugged every few seconds, so the flaky-connection line appears after about 40 seconds.
 
 ---
 
@@ -272,13 +278,14 @@ Each record keeps its IORegistry properties as a `PropertyBag` (`[String: PlistV
 
 - `machine`: `hw.model`, `hw.targettype`, OS version, whether a battery is present.
 - `portNodes`: every node in the `IOPort` registry plane (macOS 26+) plus all `IOAccessoryManager` / `IOPort` services found by class matching, each with `parentID`, class name, name, location and properties. This covers ports, transport states (`IOPortTransportStateCC/USB2/USB3/DisplayPort/CIO`), features (`IOPortFeaturePowerIn`, `IOPortFeaturePowerSource`, LDCM), PD components (SOP, SOP', SOP'') and Apple charger identity (`IOPortTransportProtocolAppleUVDM`).
-- `hpmControllers`: `UUID` of each port's parent HPM device (join key for SMC channels).
+- `portControllerUUIDs`: port key → `UUID` of the HPM controller that owns the port (join key for SMC channels).
+- `portLocations`: port key → the controller's `port-location` ("back-left"), when the firmware publishes it.
 - `usbDevices`: every `IOUSBHostDevice` with derived ancestry: nearest parent USB device, controller class chain, `UsbIOPort` path, `usb-drdN` `port-number`, and the IOPort-plane transport it hangs under.
 - `thunderboltSwitches`: every `IOThunderboltSwitch*` with its `IOThunderboltPort` children, parent switch and `acioN` index.
 - `battery`: selected `AppleSmartBattery` keys (`AdapterDetails`, `PowerTelemetryData`, `PowerOutDetails`, `PortControllerInfo`, `ExternalConnected`, `IsCharging`, `FullyCharged`, `CurrentCapacity`, `MaxCapacity`, `NotChargingReason`, `BatteryInstalled`).
 - `adapter`: `IOPSCopyExternalPowerAdapterDetails()`.
 - `smcChannels`: per-port live power from SMC keys `DxUI`, `DxJV`, `DxJI`, `DxPR` (x = 1…4).
-- `displays`: CoreGraphics online displays with vendor, model, serial, resolution, refresh and built-in flag.
+- `displays`: CoreGraphics online displays with vendor, model, serial, resolution, refresh and built-in flag, and whether a hardware framebuffer drives it (software displays are dropped, §5.4).
 
 ### 5.4 Topology rules (`TopologyBuilder`)
 
@@ -394,7 +401,7 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 - Unsandboxed, with the hardened runtime. Pull request builds are signed ad hoc; releases are signed with a Developer ID and notarized. Users who build from source run their own binary.
 - The saved history (§5.6) stays on the Mac, readable only by the user's account (mode 0600). It records the Mac's model identifier (`hw.model`), never its serial number or computer name. Like port names, it is not redacted: event titles carry device names, and event ids carry display serial numbers (`display:<vendor>:<product>:<serial>`) and Thunderbolt device UIDs (`tb:<UID>`). Clear History, or turning "Keep history between launches" off, deletes it.
 - The desktop widgets never read hardware: the extension is sandboxed, and the app hands it a payload, `widget-payload.json` in the App Group container `<team>.io.github.static74.busstop` (`~/Library/Group Containers/`). The app writes it atomically, readable only by the user's account (mode 0600). It holds the snapshot through the same redaction as exports, without the raw IORegistry properties, so it carries no serial numbers; device and port names stay. It also holds the last 10 minutes and 24 hours of power, the newest 20 events and each port's health over 7 days. Clear History, or turning "Keep history between launches" off, deletes it, since it holds events; with history off, the payload written afterwards leaves out the events, the 24-hour power and the port health. An ad hoc build has no team, so no App Group and no payload.
-- Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default). Redaction also replaces per-unit identifiers: Thunderbolt router UIDs (also inside `tb:` device ids), HPM controller and SMC channel UUIDs, USB and DisplayID container IDs, `ConnectionUUID`, EDID and DisplayID serial fields, and the computer name. A known serial number is also removed wherever it appears as a whole word in names, diagnostic text and property strings, since some devices put it in their product name. EDID data shorter than one 128-byte block, and bytes after the last whole block, are dropped, and a DisplayID block whose structure cannot be walked is blanked, because their serial fields cannot be found. Stand-ins keep their shape so a redacted raw capture still builds the same topology. `busstop --watch`, the CLI's text tree and "Copy Details" apply the same redaction.
+- Device serial numbers are shown in the inspector and included in exports; the export sheet has a "Redact serial numbers" option (on by default). Redaction also replaces per-unit identifiers: Thunderbolt router UIDs (also inside `tb:` device ids), HPM controller and SMC channel UUIDs, USB and DisplayID container IDs, `ConnectionUUID`, EDID and DisplayID serial fields. The capture never includes the computer name. A known serial number is also removed wherever it appears as a whole word in names, diagnostic text and property strings, since some devices put it in their product name. EDID data shorter than one 128-byte block, and bytes after the last whole block, are dropped, and a DisplayID block whose structure cannot be walked is blanked, because their serial fields cannot be found. Stand-ins keep their shape so a redacted raw capture still builds the same topology. `busstop --watch`, the CLI's text tree and "Copy Details" apply the same redaction.
 
 ---
 
@@ -403,9 +410,9 @@ Settings, port renames, menu bar pins and window frames are in `UserDefaults`. H
 - `swift build` builds everything; `swift test` runs the core, Kit and app tests.
 - `scripts/build-app.sh` assembles `build/Bus Stop.app` (Info.plist with `LSUIElement`, icon, embedded CLI), signs it (ad hoc, or with the identity in `SIGN_IDENTITY`) and zips it. `scripts/make-dmg.sh` packs the app and a link to `/Applications` into `build/BusStop.dmg`. `scripts/notarize.sh` has Apple notarize the zip or the disk image and staples the ticket to the app or the image.
 - `scripts/install.sh` builds and copies the app to `/Applications`. A locally built app carries no quarantine attribute.
-- GitHub Actions, on pull requests:
-  - `macos-27`: `xcode-27` runner (macOS 27, Xcode 27, Swift 6.4), build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip. Runs only when the workflow is started by hand, because the runner is paid.
-  - `macos-26`: `macos-26` runner with Xcode 26.6 for backward compatibility.
+- GitHub Actions (`ci.yml`):
+  - `macos-26` (Xcode 26.6), on every pull request: build, test, assemble a universal app, smoke test without the live checks.
+  - `macos-27` (`xcode-27` runner: macOS 27, Xcode 27, Swift 6.4), only when the workflow is started by hand, because the runner is paid: build, test, assemble the app, run the CLI against demo data and the live (virtual) machine, upload the zip.
 - Releases: tagged builds attach `BusStop.dmg`, with the app and the image each signed with the Developer ID, notarized and stapled. Without the signing secrets the release workflow signs ad hoc, and the release notes explain "Open Anyway" in System Settings › Privacy & Security.
 
 ---

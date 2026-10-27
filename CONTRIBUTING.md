@@ -20,7 +20,7 @@ open "build/Bus Stop.app"
 
 Run the app from the bundle rather than with `swift run BusStopApp`: notifications, launch at login and the app icon need a real bundle with an `Info.plist`.
 
-`scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD` and `CONFIGURATION=debug`; the comment at the top of the script describes them.
+`scripts/install.sh` builds and installs into `/Applications` in one step. `scripts/build-app.sh` accepts `ARCHS=universal`, `VERSION`, `BUILD`, `CONFIGURATION=debug` and `SIGN_IDENTITY`; the comment at the top of the script describes them.
 
 ### Testing widgets
 
@@ -60,7 +60,7 @@ The most useful bug report includes a raw capture from the Mac that shows the pr
 
 (or `busstop --raw > capture.json` if you linked the command with `scripts/install.sh --link-cli`). You can also use **Export › Raw Capture for Bug Reports** in the app.
 
-The capture is a JSON copy of the IORegistry properties Bus Stop reads. Serial numbers and the computer name are redacted by default; look through the file before attaching it anyway. Please also say:
+The capture is a JSON copy of the IORegistry properties Bus Stop reads. Serial numbers and other per-unit identifiers are redacted by default, and the capture never includes the computer name; look through the file before attaching it anyway. Please also say:
 
 - which Mac it is (Apple menu › About This Mac) and the macOS version,
 - what is plugged into which physical port,
@@ -72,7 +72,7 @@ To see how a capture is interpreted without the hardware, run `busstop --input c
 
 Every topology bug should end up as a test, so it stays fixed.
 
-1. Make the capture as small as the bug allows. It is plain JSON: `portNodes`, `usbDevices`, `thunderboltSwitches`, `battery`, `adapter`, `smcChannels` and `displays`. Remove records that have nothing to do with the bug, and keep the registry IDs and `parentID` links of the records you keep consistent.
+1. Make the capture as small as the bug allows. It is plain JSON: `machine`, `portNodes`, `portControllerUUIDs`, `portLocations`, `usbDevices`, `thunderboltSwitches`, `battery`, `adapter`, `smcChannels`, `displays` and `captureNotes`, plus `schemaVersion` and `capturedAt`. Remove records that have nothing to do with the bug, and keep the registry IDs and `parentID` links of the records you keep consistent.
 2. Check that it still reproduces the problem: `swift run busstop --input capture.json`.
 3. Add it to `Tests/BusStopCoreTests`. Small captures can go straight into a Swift raw string literal (`#"""…"""#`) next to the test. Larger ones go in a `.json` file under `Tests/BusStopCoreTests/Fixtures/`, declared in `Package.swift` with `resources: [.copy("Fixtures/<folder>")]` on the test target and loaded with `Bundle.module`.
 4. Write the test: decode with `Exporter.decodeRaw`, build with `TopologyBuilder.build`, and assert on what the bug was about (a device's port, a link speed, a power figure). Tests use Swift Testing (`import Testing`, `@Test`, `#expect`).
@@ -132,5 +132,3 @@ Please also send the new entry upstream to PortScope, so both projects benefit.
 ## Releases
 
 Maintainers release from an up-to-date `main` with `scripts/release.sh 1.1.0`. The script sets `BusStopVersion.string`, turns the `[Unreleased]` section of `CHANGELOG.md` into `[1.1.0]`, runs `swift test`, commits and tags `v1.1.0`, and prints the push command. Pushing the tag starts the release workflow, which fails if the tag and `BusStopVersion.string` differ, then builds a universal app, signs it with the Developer ID, has Apple notarize it, packs it into a disk image that is signed and notarized too, runs the smoke test and publishes `BusStop.dmg` with its SHA-256 checksum. The certificate and notary credentials are secrets of the `release` environment, listed at the top of `.github/workflows/release.yml`, and each run waits for a maintainer to approve it there; without them the release is signed ad hoc and the workflow warns. To check the secrets without releasing, start the Release workflow by hand from the Actions tab: it does everything but publish and uploads the disk image as a workflow artifact. Choose the number by [Semantic Versioning](https://semver.org/): a fix raises the patch number, a new feature the minor number, and a change that breaks the command-line output or the saved history the major number. The build number (`CFBundleVersion`) is the commit count and needs no bump.
-
-The first release with the desktop widgets needs one check by hand before its tag: start the Release workflow from the Actions tab on `main`, install the notarized app from its artifact on a Mac with no development certificates, on macOS 26 and on 27, and confirm that notarization accepted the app and extension with the App Group entitlement, that the widgets appear in Edit Widgets and show live data, that no "access data from other apps" prompt appears, and that they read well in full colour, monochrome, tinted and clear styles. Remove this paragraph once that release is out.

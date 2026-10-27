@@ -4,6 +4,10 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- The README is shorter and written for people using Bus Stop; build and project details live in CONTRIBUTING.md and docs/. The tagline in the About window, `busstop --help` and the Ports widget's description now says "the ports on your Mac" rather than "every port", since macOS does not report some SD card slots.
+
 ### Fixed
 
 - The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.

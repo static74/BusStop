@@ -1,6 +1,6 @@
 // swift-tools-version: 6.2
 //
-// Bus Stop — a live map of every physical port on your Mac.
+// Bus Stop — a live map of the ports on your Mac.
 //
 // BusStopCore holds the parsing and topology logic with no hardware access or
 // UI, so its tests run on saved captures and demo data. IOKit lives in
