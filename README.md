@@ -26,7 +26,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Desktop widgets** in Large and Extra Large. Ports lists each port with its device, link speed and watts, and the devices behind hubs and docks; Power shows the charger and its USB-PD contract, the battery, watts in and out and a power chart; Health shows current diagnostics and flaky connections, or "All links healthy". Add them with right-click on the desktop › Edit Widgets.
 - **Demo mode** with realistic sample setups, for trying Bus Stop on a Mac with nothing plugged in (Settings › Advanced).
 - **Command-line tool** `busstop` with text, JSON, Markdown and raw output, a watch mode and the demo scenarios.
-- **Settings** for a dark or light theme, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
+- **Settings** for the theme (Dark, Light or Match System), data colours, text size, background opacity, popover layout, menu bar content and pinned port, notifications and launch at login.
 
 ## Screenshots
 
@@ -69,7 +69,7 @@ scripts/install.sh --link-cli   # the same, plus a busstop command on your PATH
 
 `install.sh` builds for your Mac and copies the app to `/Applications`, or to `~/Applications` when `/Applications` is not writable. macOS opens an app you built yourself without asking.
 
-The desktop widgets appear in the release download, or in a build you sign with your own Apple developer certificate ([CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how). macOS only lists widgets from signed apps, so an unsigned build from source includes them but they don't appear in Edit Widgets.
+macOS shows the desktop widgets only from an app signed by a developer team and installed in `/Applications`, as the release download is. A build from source includes the widgets, but they appear in Edit Widgets only when you sign it with your own Apple developer certificate and install it in `/Applications` ([CONTRIBUTING.md](CONTRIBUTING.md#testing-widgets) explains how).
 
 ## Command-line tool
 
@@ -83,7 +83,7 @@ busstop --raw                   # raw IORegistry capture as JSON, for bug report
 busstop --watch                 # print connection changes as they happen (Control-C to stop)
 busstop --watch --json          # the same, one JSON object per line
 busstop --demo studioDesk       # any of the above against a demo setup
-busstop --input capture.json    # any of the above against a saved raw capture
+busstop --input capture.json    # any of the above except --watch, against a saved raw capture
 busstop --version
 busstop --help
 ```
