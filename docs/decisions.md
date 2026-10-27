@@ -21,7 +21,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - A serial-like word with a digit, such as "V1.0", that no other connected device's name holds is kept and removed from every name and event for up to 30 days, so a device plugged in later can show "REDACTED" in its name.
 - A serial without a digit ("ABCDEFGH", "DEADBEEF") is not kept, so the events about its device show it once the device is unplugged. Nor is one that another connected device's name held when it was seen ("Drive USB3" beside a "USB3.1 Hub").
 - The shared-word check sees only what is connected at the time: "USB3" on a "Drive USB3" seen before any "USB3.1 Hub" is kept, and the hub's name then shows "REDACTED.1 Hub" for up to 30 days.
-- A kept 4-digit serial is removed from all text, not only its device's: after "Drive 2160" or "Drive 2026" is unplugged, "3840 × 2160" and "MacBook Pro (14-inch, 2026, M5 Pro)" show "REDACTED" for up to 30 days, or until the events about it are cleared.
+- A 4-digit serial in its own device's name is removed from all text, not only its device's: while "Drive 2160" or "Drive 2026" is connected, "3840 × 2160" and "MacBook Pro (14-inch, 2026, M5 Pro)" show "REDACTED", and after it is unplugged they still do until Bus Stop quits and the events about it are cleared or 30 days old.
 
 ## 2026-10-26: Settings uses AppKit toolbar tabs, not a SwiftUI `TabView`
 

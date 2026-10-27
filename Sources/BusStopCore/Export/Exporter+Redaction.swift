@@ -307,9 +307,13 @@ extension Exporter {
         // A set: the same charger is on the Mac and on its port, and a display has a device row of the same name.
         let names = Set(snapshot.displays.map(\.name) + devices.flatMap { [$0.name, $0.vendorName] }.compactMap { $0 }
             + chargers.flatMap { [$0.name, $0.manufacturer] }.compactMap { $0 })
-        return Set(serialEntries(in: snapshot).filter { entry in
+        let entries = serialEntries(in: snapshot)
+        // Every name that carries the serial is its own: a hub's two halves, or a dock's built-in parts.
+        var ownNames: [String: Set<String>] = [:]
+        for entry in entries { ownNames[entry.serial, default: []].formUnion(entry.names) }
+        return Set(entries.filter { entry in
             entry.isInOwnName && entry.serial.contains(where: \.isNumber)
-                && !names.subtracting(entry.names).contains { IDShape.containsWord(entry.serial, in: $0) }
+                && !names.subtracting(ownNames[entry.serial] ?? []).contains { IDShape.containsWord(entry.serial, in: $0) }
         }.map(\.serial))
     }
 
@@ -348,10 +352,12 @@ extension Exporter {
     /// keys are display serials (or a descriptor index), so they count as numbers.
     private static func serialEntries(in raw: RawSnapshot) -> [SerialEntry] {
         var entries: [SerialEntry] = []
-        // `names` start with the registry entry's, which a USB device takes from its product
-        // string; a bag's own name and vendor (a charger's, say) are added.
+        // `names` start with the registry entry's; a bag's own product and vendor names are
+        // added, under every key the parsers read them from (a charger's on its AppleUVDM node, say).
+        let nameKeys = ["Name", "Manufacturer", "User String", "Vendor", "USB Product Name", "kUSBProductString",
+                        "USB Vendor Name", "kUSBVendorString"]
         func collect(_ values: [String: PlistValue], names: [String]) {
-            let names = names + ["Name", "Manufacturer", "USB Vendor Name"].compactMap { values[$0]?.stringValue }
+            let names = names + nameKeys.compactMap { values[$0]?.stringValue }
             for (key, value) in values {
                 if isSensitiveKey(key), key.lowercased() != "connectionuuid" {
                     if let text = value.stringValue { entries.append(SerialEntry(serial: text, isNumber: false, names: names)) }
@@ -390,8 +396,8 @@ struct SerialEntry {
     /// Whether it is removed from free text: at least 4 characters, or 5 for a
     /// display's number or a serial of digits only, whose 4-digit forms ("2160",
     /// the hex of 8544, or "2026") would otherwise match a resolution such as
-    /// "3840 × 2160", or a year. A 4-character one in its own name ("Drive 1234")
-    /// is removed all the same, as before.
+    /// "3840 × 2160", or a year. A 4-character one that is a word of its own name
+    /// ("Drive 1234") is removed all the same.
     var isText: Bool {
         let serial = serial.trimmingCharacters(in: .whitespaces)
         return serial.count >= (isNumber || serial.allSatisfy(\.isNumber) ? 5 : 4) || isInOwnName
