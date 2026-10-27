@@ -27,9 +27,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// Bumped to switch an open topology window to a requested page.
     private var pageRequests = 0
     private var settingsWindow: NSWindow?
-    private var settingsHost: NSHostingController<SettingsRoot>?
-    /// Bumped to rebuild the settings view on a requested tab.
-    private var settingsGeneration = 0
+    private var settingsTabs: SettingsTabViewController?
     private var aboutWindow: NSWindow?
     /// Whether the topology window is counted in `store.setUIVisible`: only
     /// while it is on screen and not fully covered, so fast polling stops
@@ -76,29 +74,31 @@ final class WindowManager: NSObject, NSWindowDelegate {
     /// given, switches to that tab.
     func showSettings(tab: SettingsTab? = nil) {
         guard let store else { return }
-        if let window = settingsWindow, let host = settingsHost {
+        if let window = settingsWindow, let settingsTabs {
             if let tab {
-                settingsGeneration += 1
-                host.rootView = SettingsRoot(store: store, tab: tab, generation: settingsGeneration)
+                settingsTabs.select(tab)
             }
             present(window)
             return
         }
 
-        let host = NSHostingController(rootView: SettingsRoot(store: store, tab: tab ?? .general,
-                                                              generation: settingsGeneration))
-        // Keep our window title; let the content add toolbar items if it has any.
-        host.sceneBridgingOptions = [.toolbars]
-        let window = NSWindow(contentViewController: host)
-        window.title = "Bus Stop Settings"
-        window.styleMask = [.titled, .closable]
+        let (window, tabs) = Self.makeSettingsWindow(store: store, tab: tab ?? .general)
         configureCommon(window)
         // Centred once, at its real size; later it opens where the user left it.
-        sizeToContent(window, host: host)
         window.center()
-        settingsHost = host
+        settingsTabs = tabs
         settingsWindow = window
         present(window)
+    }
+
+    /// The settings window around its toolbar tabs, at its final size.
+    static func makeSettingsWindow(store: PortStore, tab: SettingsTab) -> (NSWindow, SettingsTabViewController) {
+        let tabs = SettingsTabViewController(store: store, tab: tab)
+        let window = NSWindow(contentViewController: tabs)
+        window.styleMask = [.titled, .closable]
+        window.toolbarStyle = .preference
+        window.setContentSize(SettingsPaneRoot.size)
+        return (window, tabs)
     }
 
     /// Re-applies the Dock icon policy (Settings › General) to the windows
@@ -360,19 +360,5 @@ final class WindowManager: NSObject, NSWindowDelegate {
         if (notification.object as? NSWindow) === topologyWindow {
             refreshTopologyCounted()
         }
-    }
-}
-
-/// Root of the settings window. Changing `generation` gives `SettingsView` a
-/// new identity, so it starts again on `tab` even if it keeps its selected
-/// tab in `@State`.
-struct SettingsRoot: View {
-    var store: PortStore
-    var tab: SettingsTab
-    var generation: Int
-
-    var body: some View {
-        SettingsView(store: store, initialTab: tab)
-            .id(generation)
     }
 }

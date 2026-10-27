@@ -2,6 +2,26 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-26: Settings uses AppKit toolbar tabs, not a SwiftUI `TabView`
+
+**Question.** The Settings window's tab labels looked blurry on a 1x display (issue #45). Why, and what should draw the tabs?
+
+**Decision.** `SettingsTabViewController`, an `NSTabViewController` with `tabStyle = .toolbar`, is the window's content: one toolbar tab per `SettingsTab` with its SF Symbol and title, each hosting a `SettingsPaneRoot` of a fixed 620 × 460 pt. The window uses the `.preference` toolbar style and takes the selected pane's title, as System Settings does. `WindowManager.showSettings(tab:)` selects a tab on the open window instead of rebuilding the view.
+
+**Why.** In an `NSHostingController` window, SwiftUI builds `TabView` as an AppKit `NSTabView` with a segmented control on top. `NSTabView` centres that control without rounding: the tab view was 634 pt wide and the control 521 pt, so the control sat at x = 56.5, and at y = 4.5 inside its own layout. On a 1x display each label bitmap was drawn half a pixel off on both axes and blurred; on Retina 0.5 pt is a whole pixel, which is why it went unnoticed. Moving the control onto whole points raised the count of sharp edges in the tab bar from 266 to 910. `NSTabView` also ignored the `systemImage` in `.tabItem`, so the tabs had no icons. A layer scan of every Settings tab, every topology page, the popover and About, at all four Text Sizes, found no other text off the pixel grid.
+
+The toolbar tabs measured clean: no off-grid bitmap layers on any tab at any Text Size. Their item views also sit on half points, because the toolbar centres them, but the toolbar rounds where it draws them. A window one point wider, which moves the views by half a point, drew the labels on exactly the same pixels.
+
+**Consequences.** Each pane keeps its state while another tab is shown, as before. The toolbar labels use the system font at the system size, so they do not follow Text Size, as the old tabs did not. The selected tab uses the system highlight, not the Lagoon accent.
+
+**Rejected alternatives.**
+
+- *A segmented `Picker` above a `switch`.* Sharp and smaller, but text only, and it rebuilds a pane at each switch, so a running Identify a Port stopped when the user left Ports.
+- *Change the window width.* The vertical half point is inside `NSTabView`, and the horizontal one depends on the label widths.
+- *`.tabViewStyle(.grouped)` or `.tabBarOnly`.* The same `NSTabView` and the same offsets.
+- *`.sidebarAdaptable`.* Sharp, but turns Settings into a sidebar layout.
+- *Move the private segmented control by hand.* AppKit lays it out again.
+
 ## 2026-10-26: The widget extension is a SwiftPM target, not an Xcode project
 
 **Question.** Desktop widgets need a WidgetKit app extension. Xcode builds one from an app extension target in a project. Bus Stop has no Xcode project (SPEC §9). Can the package build the extension?
