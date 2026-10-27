@@ -17,7 +17,6 @@ final class SettingsTabViewController: NSTabViewController {
             // The window shows the selected pane's title, as in System Settings.
             host.title = settingsTab.title
             let item = NSTabViewItem(viewController: host)
-            item.identifier = settingsTab.rawValue
             item.label = settingsTab.title
             item.image = NSImage(systemSymbolName: settingsTab.symbolName, accessibilityDescription: nil)
             addTabViewItem(item)

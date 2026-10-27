@@ -82,17 +82,23 @@ final class WindowManager: NSObject, NSWindowDelegate {
             return
         }
 
-        let tabs = SettingsTabViewController(store: store, tab: tab ?? .general)
-        let window = NSWindow(contentViewController: tabs)
-        window.styleMask = [.titled, .closable]
-        window.toolbarStyle = .preference
+        let (window, tabs) = Self.makeSettingsWindow(store: store, tab: tab ?? .general)
         configureCommon(window)
         // Centred once, at its real size; later it opens where the user left it.
-        window.setContentSize(SettingsPaneRoot.size)
         window.center()
         settingsTabs = tabs
         settingsWindow = window
         present(window)
+    }
+
+    /// The settings window around its toolbar tabs, at its final size.
+    static func makeSettingsWindow(store: PortStore, tab: SettingsTab) -> (NSWindow, SettingsTabViewController) {
+        let tabs = SettingsTabViewController(store: store, tab: tab)
+        let window = NSWindow(contentViewController: tabs)
+        window.styleMask = [.titled, .closable]
+        window.toolbarStyle = .preference
+        window.setContentSize(SettingsPaneRoot.size)
+        return (window, tabs)
     }
 
     /// Re-applies the Dock icon policy (Settings › General) to the windows

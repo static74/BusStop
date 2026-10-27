@@ -8,18 +8,14 @@ import Testing
 @MainActor
 @Suite("Settings tabs", .serialized)
 struct SettingsTabsTests {
-    /// A settings window built as `WindowManager.showSettings` builds it.
+    /// The settings window `WindowManager.showSettings` shows.
     private func makeWindow(tab: SettingsTab) -> (NSWindow, SettingsTabViewController, () -> Void) {
         let suite = "BusStopAppTests.SettingsTabs"
         let settings = AppSettings(defaults: UserDefaults(suiteName: suite)!)
         settings.demoMode = true
         let store = PortStore(settings: settings)
-        let tabs = SettingsTabViewController(store: store, tab: tab)
-        let window = NSWindow(contentViewController: tabs)
+        let (window, tabs) = WindowManager.makeSettingsWindow(store: store, tab: tab)
         window.isReleasedWhenClosed = false
-        window.styleMask = [.titled, .closable]
-        window.toolbarStyle = .preference
-        window.setContentSize(SettingsPaneRoot.size)
         window.orderFront(nil)
         for _ in 0..<5 {
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
@@ -35,8 +31,10 @@ struct SettingsTabsTests {
         let (window, _, close) = makeWindow(tab: .general)
         defer { close() }
         let toolbar = try #require(window.toolbar)
-        let items = toolbar.items.filter { $0.itemIdentifier.rawValue != NSToolbarItem.Identifier.flexibleSpace.rawValue }
-        #expect(items.map(\.label) == SettingsTab.allCases.map(\.title))
+        // Only the tabs: AppKit adds its own spacers around them.
+        let titles = SettingsTab.allCases.map(\.title)
+        let items = toolbar.items.filter { titles.contains($0.label) }
+        #expect(items.map(\.label) == titles)
         #expect(items.allSatisfy { $0.image != nil })
     }
 
