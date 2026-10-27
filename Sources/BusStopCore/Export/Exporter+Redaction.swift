@@ -315,7 +315,9 @@ extension Exporter {
         for entry in entries { ownNames[key(entry.serial), default: []].formUnion(entry.names) }
         return Set(entries.filter { entry in
             entry.isInOwnName && entry.serial.contains(where: \.isNumber)
-                && !names.subtracting(ownNames[key(entry.serial)] ?? []).contains { IDShape.containsWord(entry.serial, in: $0) }
+                && !names.subtracting(ownNames[key(entry.serial)] ?? []).contains {
+                    IDShape.containsWord(entry.serial.trimmingCharacters(in: .whitespaces), in: $0)
+                }
         }.map(\.serial))
     }
 

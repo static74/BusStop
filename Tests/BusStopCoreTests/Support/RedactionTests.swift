@@ -584,6 +584,18 @@ struct RedactionTests {
         #expect(Exporter.serialsInNames(of: TopologyBuilder.build(try captureWithSerialInName("USB7"))).contains("USB7"))
     }
 
+    /// A serial padded with spaces (from a snapshot not built by the parser, which trims) is
+    /// matched trimmed in other names too.
+    @Test func paddedSerialsOtherNamesHoldAreNotKept() throws {
+        let built = TopologyBuilder.build(try captureWithSerialInName("USB3"))
+        let json = text(try JSONEncoder().encode(built))
+        #expect(json.contains(#""serialNumber":"USB3""#))
+        let padded = json.replacingOccurrences(of: #""serialNumber":"USB3""#, with: #""serialNumber":" USB3 ""#)
+        let snapshot = try JSONDecoder().decode(HostSnapshot.self, from: Data(padded.utf8))
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == " USB3 " })
+        #expect(Exporter.serialsInNames(of: snapshot).isDisjoint(with: [" USB3 ", "USB3"]))
+    }
+
     /// Short device serials in a name are removed, although a display's 4-digit serial is not.
     @Test(arguments: ["1A2B3", "12345", "C0DE", "SN12"])
     func shortDeviceSerialsInNamesAreRedacted(_ serial: String) throws {
