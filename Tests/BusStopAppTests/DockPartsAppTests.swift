@@ -12,10 +12,34 @@ struct DockPartsAppTests {
     static let rootHub = "usb:00200000:8087:5787"
     static let realtekHub = "usb:00210000:0bda:0483"
 
-    static func snapshot(_ fixture: String = "AnkerPrimeTB5") throws -> HostSnapshot {
+    static func raw(_ fixture: String = "AnkerPrimeTB5") throws -> RawSnapshot {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appendingPathComponent("../BusStopCoreTests/Fixtures/\(fixture).json").standardizedFileURL
-        return TopologyBuilder.build(try Exporter.decodeRaw(Data(contentsOf: url)))
+        return try Exporter.decodeRaw(Data(contentsOf: url))
+    }
+
+    static func snapshot(_ fixture: String = "AnkerPrimeTB5") throws -> HostSnapshot {
+        TopologyBuilder.build(try raw(fixture))
+    }
+
+    /// The owner's later setup: the Benchmark DAC and the Keychron keyboard
+    /// plugged into two dock ports that the dock's captive VIA hub serves
+    /// (`AnkerPrimeDockTests.portDevicesRaw` builds the same, with container IDs).
+    static func portDevicesSnapshot() throws -> HostSnapshot {
+        var raw = try raw()
+        // Registry ID → location on the captive hub's USB 2 half, and `USBPortType`.
+        let moves: [UInt64: (location: Int64, portType: Int64)] = [
+            4_295_376_488: (0x0014_2100, 1), // Benchmark 1.0
+            4_295_376_436: (0x0014_2200, 0), // Keychron Q3 Pro
+        ]
+        for index in raw.usbDevices.indices {
+            guard let move = moves[raw.usbDevices[index].id] else { continue }
+            raw.usbDevices[index].parentDeviceID = 4_295_376_094
+            raw.usbDevices[index].node.location = String(format: "%08llx", move.location)
+            raw.usbDevices[index].node.properties["locationID"] = .int(move.location)
+            raw.usbDevices[index].node.properties["USBPortType"] = .int(move.portType)
+        }
+        return TopologyBuilder.build(raw)
     }
 
     static func dock(_ snapshot: HostSnapshot) throws -> DeviceNode {
@@ -31,6 +55,23 @@ struct DockPartsAppTests {
         #expect(!cables.contains { $0.childName.hasPrefix("Anker") })
         #expect(cables.filter { $0.parentName == dock.name }.map(\.childName)
                 == ["4-Port USB 3.0 Hub", "billboard", "Dell U4924DW", "Gigabyte M32U", "USB3.1 Hub"])
+    }
+
+    /// Devices on the dock's own ports are drawn, so they have cables to the
+    /// dock, and a search for one finds the device, not the dock.
+    @Test func devicesOnTheDocksOwnPortsAreDrawn() throws {
+        let snapshot = try Self.portDevicesSnapshot()
+        let port = try #require(snapshot.ports.first { !$0.devices.isEmpty })
+        let cables = SidebarCable.cables(below: port.devices, from: port.label.title)
+        let dock = try Self.dock(snapshot)
+        #expect(cables.filter { $0.parentName == dock.name }.map(\.childName)
+                == ["4-Port USB 3.0 Hub", "Benchmark 1.0", "billboard", "Dell U4924DW", "Gigabyte M32U",
+                    "Keychron Q3 Pro", "USB3.1 Hub"])
+        for name in ["Benchmark", "Keychron"] {
+            #expect(!TopologySearch.device(dock, matches: name))
+            #expect(TopologySearch.prune(dock, query: name)?.children.count == 1)
+        }
+        #expect(WindowText.deviceAccessibility(dock, portTitle: "Left Center · USB-C").contains("7 built-in parts"))
     }
 
     @Test func linkPageNamesTheDockAndTheBuiltInHub() throws {

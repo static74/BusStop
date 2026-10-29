@@ -15,7 +15,9 @@ import Testing
 /// "Built-in dock parts"): the tunnelled root hub, the two USB functions
 /// with the dock's own vendor and product IDs, the VIA hub that holds one
 /// of them on a captive port, the captive VIA hub below it and the Ethernet
-/// and card reader on that hub.
+/// and card reader on that hub. The last two fold because the dock's
+/// catalogue entry lists them; a device plugged into one of the dock's ports
+/// that the captive hub serves stays.
 @Suite("Topology: Anker Prime TB5 dock capture")
 struct AnkerPrimeDockTests {
     static let dockSwitchID: UInt64 = 4_295_375_469
@@ -49,8 +51,8 @@ struct AnkerPrimeDockTests {
     static let viaRootHub = "usb:00240000:2109:0822"       // D: holds the 480 Mb/s identity on captive port 5
     static let primeFunction = "usb:00145000:291a:83b5"    // B: dock identity, 480 Mb/s
     static let captiveHub = "usb:00242000:2109:0822"       // C: captive below the D hub, both halves
-    static let ethernet = "usb:00242400:0bda:8156"         // E: function on the captive hub
-    static let cardReader = "usb:00242300:05e3:0764"       // E: function on the captive hub
+    static let ethernet = "usb:00242400:0bda:8156"         // E: listed function on the captive hub
+    static let cardReader = "usb:00242300:05e3:0764"       // E: listed function on the captive hub
     static let expectedParts: Set<String> = [rootHub, tb5Function, viaRootHub, primeFunction, captiveHub, ethernet,
                                              cardReader]
 
@@ -120,6 +122,102 @@ struct AnkerPrimeDockTests {
         #expect(via.flattened().contains { $0.device.name == "Keychron Q3 Pro" })
     }
 
+    // MARK: - Devices on the dock's own ports
+
+    /// Container IDs as the owner's later capture grouped them: one for the
+    /// Intel and Fresco root hubs, one for the VIA hubs and the 480 Mb/s
+    /// function.
+    static let rootContainer = "3F0C2A9E-5B71-4D2E-9A64-0E8B1C7D2F10"
+    static let viaContainer = "8D4B6E12-2C9F-4A73-B05E-7F1A3D9C6E21"
+    static let benchmark = "usb:00142100:04d8:feea"
+    static let keychron = "usb:00142200:3434:0630"
+
+    /// The owner's setup a few weeks after the capture: the Benchmark DAC and
+    /// the Keychron keyboard plugged straight into the dock, on two ports that
+    /// the captive VIA hub serves (ports 1 and 2 of its USB 2 half). As a live
+    /// capture showed, the DAC's port reports captive and the DAC carries the
+    /// VIA group's container ID (macOS seems to give a device on a captive
+    /// port its hub's), while the keyboard's port is standard and it reports
+    /// none, like the Ethernet and card reader. Made from the capture by
+    /// moving the two devices and adding the container IDs.
+    static func portDevicesRaw() throws -> RawSnapshot {
+        var raw = try raw()
+        let containers: [UInt64: String] = [
+            4_295_375_556: rootContainer, 4_295_375_554: rootContainer,
+            4_295_375_600: viaContainer, 4_295_375_733: viaContainer,
+            4_295_375_801: viaContainer, 4_295_376_094: viaContainer,
+            4_295_376_433: viaContainer, 4_295_376_488: viaContainer,
+        ]
+        // Registry ID → location on the captive hub's USB 2 half, and `USBPortType`.
+        let moves: [UInt64: (location: Int64, portType: Int64)] = [
+            4_295_376_488: (0x0014_2100, 1), // Benchmark 1.0
+            4_295_376_436: (0x0014_2200, 0), // Keychron Q3 Pro
+        ]
+        for index in raw.usbDevices.indices {
+            let id = raw.usbDevices[index].id
+            if let container = containers[id] {
+                raw.usbDevices[index].node.properties["kUSBContainerID"] = .string(container)
+            }
+            guard let move = moves[id] else { continue }
+            raw.usbDevices[index].parentDeviceID = 4_295_376_094
+            raw.usbDevices[index].node.location = String(format: "%08llx", move.location)
+            raw.usbDevices[index].node.properties["locationID"] = .int(move.location)
+            raw.usbDevices[index].node.properties["USBPortType"] = .int(move.portType)
+        }
+        return raw
+    }
+
+    /// The keyboard and the DAC stay on the map, hanging off the dock with
+    /// the captive hub as their built-in parent, and the dock's own parts stay
+    /// folded: the catalogue entry lets rule E fold only the Ethernet and the
+    /// card reader on that hub.
+    @Test func devicesOnTheDocksOwnPortsStayOnTheMap() throws {
+        let raw = try Self.portDevicesRaw()
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(Self.partIDs(snapshot) == Self.expectedParts)
+        let dock = try Self.dock(in: snapshot)
+        let plugged = dock.children.filter { [Self.benchmark, Self.keychron].contains($0.id) }
+        #expect(plugged.map(\.name) == ["Benchmark 1.0", "Keychron Q3 Pro"])
+        #expect(plugged.allSatisfy { $0.internalParentID == Self.captiveHub && $0.children.isEmpty })
+        // They moved from behind the external VIA hub, so the count is the same.
+        #expect(dock.descendantCount == 19)
+        let via = try #require(dock.children.first { $0.id == "usb:00241000:2109:0822" })
+        #expect(!via.flattened().contains { [Self.benchmark, Self.keychron].contains($0.device.id) })
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// `busstop` draws the two devices straight below the dock, and still
+    /// leaves out the dock's Ethernet and card reader.
+    @Test func textTreeShowsTheDevicesOnTheDocksOwnPorts() throws {
+        let text = Exporter.textTree(TopologyBuilder.build(try Self.portDevicesRaw()))
+        let dockLine = "│  └─ Prime Docking Station (14-in-1, 8K, Thunderbolt 5) · 80 Gb/s · 22 W\n"
+        #expect(text.contains(dockLine), "\(text)")
+        #expect(text.contains("│     ├─ Benchmark 1.0 · 12 Mb/s\n"), "\(text)")
+        #expect(text.contains("│     ├─ Keychron Q3 Pro · 12 Mb/s · 2.5 W\n"), "\(text)")
+        #expect(!text.contains("USB 10_100 LAN") && !text.contains("USB Storage"), "\(text)")
+    }
+
+    /// The same dock reporting a model ID the catalogue does not list: its
+    /// root hub, functions and VIA hubs still fold, but no rule says the
+    /// functions on the captive hub are the dock's, so the Ethernet and card
+    /// reader stay on the map beside the keyboard and the DAC.
+    @Test func withoutACatalogueEntryFunctionsOnTheCaptiveHubStay() throws {
+        var raw = try Self.portDevicesRaw()
+        let model: Int64 = 0x83B6
+        let switchIndex = try #require(raw.thunderboltSwitches.firstIndex { $0.id == Self.dockSwitchID })
+        raw.thunderboltSwitches[switchIndex].node.properties["Device Model ID"] = .int(model)
+        for index in raw.usbDevices.indices where raw.usbDevices[index].node.properties.int("idProduct") == 0x83B5 {
+            raw.usbDevices[index].node.properties["idProduct"] = .int(model)
+        }
+        let dock = try Self.dock(in: TopologyBuilder.build(raw))
+        #expect(dock.internalParts?.map(\.name) == [
+            "Anker Prime Docking Station", "Anker Thunderbolt 5 Docking Station", "USB3 HUB", "USB3.1 Hub", "USB3.1 Hub",
+        ])
+        let onCaptiveHub = dock.children.filter { $0.internalParentID == Self.captiveHub }
+        #expect(Set(onCaptiveHub.map(\.id)) == [Self.benchmark, Self.keychron, Self.ethernet, Self.cardReader])
+        DockPartsInvariantTests.check(raw)
+    }
+
     // MARK: - Counts and power
 
     /// Counts are drawn devices only: 26 below the dock before, 19 after.
@@ -183,14 +281,20 @@ struct AnkerPrimeDockTests {
     }
 
     /// The Fresco USB 2 root hub, no longer a hub, cannot pair with the
-    /// Intel one: everything on it stays on the map, and so does the VIA hub
-    /// whose identity function hangs off the Fresco half.
-    @Test func unmergedUSB2HalfLeavesOnlyTheRootHub() throws {
+    /// Intel one: everything on it stays on the map, the dock's own functions
+    /// too, so the identity rules find nothing. The VIA hub is then the one
+    /// catalogued device on the Intel root hub's ports, and the catalogue
+    /// (rule G) folds it and the captive VIA hub on its captive port. The
+    /// Ethernet and card reader sit on standard ports and stay.
+    @Test func unmergedUSB2HalfLeavesTheIdentityRulesNothing() throws {
         let raw = try Self.raw(editingUSB: 4_295_375_554) { $0.node.properties["bDeviceClass"] = 0 }
         let snapshot = TopologyBuilder.build(raw)
-        #expect(Self.partIDs(snapshot) == [Self.rootHub])
+        #expect(Self.partIDs(snapshot) == [Self.rootHub, Self.viaRootHub, Self.captiveHub])
         let dock = try Self.dock(in: snapshot)
         #expect(dock.children.contains { $0.name == "USB2.0 Hub" })
+        #expect(dock.children.contains { $0.id == Self.ethernet })
+        #expect(dock.children.contains { $0.id == Self.cardReader })
+        DockPartsInvariantTests.check(raw)
     }
 
     @Test(arguments: [PlistValue.int(0), .string("Anker"), .int(-1), .int(1 << 40)])

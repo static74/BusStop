@@ -22,10 +22,14 @@ import Foundation
 ///   the switch chip's), when no other switch has the same pair.
 /// - C. Captive: a hub or billboard on a captive port (`USBPortType` 1, on
 ///   both halves of a merged hub) of a hub folded by C or D. Not on the root
-///   hub's own ports, whose flags are not reliable.
+///   hub's own ports, whose flags are not reliable. In a product listed in
+///   `catalogue`, only a listed device.
 /// - D. Identity holder: a hub with a B device on a captive port. When more
 ///   than one hub in the dock qualifies, B and D are both off.
-/// - E. A device that is not a hub, on a hub folded by C.
+/// - E. In a product listed in `catalogue`, a listed device that is not a
+///   hub, on a hub folded by C. A dock's own Ethernet and a keyboard on a
+///   dock port wired to the same hub report the same flags, so a product
+///   without an entry has no rule E.
 /// - F. Container: a device on a hub folded by any rule, when every
 ///   `kUSBContainerID` it reports (both halves of a merged hub) is one the
 ///   root hub reports. USB gives every function of one physical product the
@@ -154,8 +158,10 @@ enum DockParts {
             let holders = dock.flattened().map(\.device).filter { isHub($0) && holdsIdentity($0, known, evidence) }
             if holders.count > 1 { identity = nil }
         }
-        let rootContainers = Set(containers(of: dock.children[rootIndex], evidence))
-        let listed = catalogued(dock, root: dock.children[rootIndex], evidence: evidence)
+        let root = dock.children[rootIndex]
+        let rootContainers = Set(containers(of: root, evidence))
+        let entry = catalogueEntry(for: dock, evidence: evidence)
+        let ruleG = entry.map { appliesG($0, root: root) } ?? false
 
         var parts: [DeviceNode] = []
         var children: [DeviceNode] = []
@@ -166,7 +172,8 @@ enum DockParts {
             parts.append(part)
             for child in node.children {
                 if let childRule = self.rule(for: child, parent: node, parentRule: rule, identity: identity,
-                                             rootContainers: rootContainers, listed: listed, evidence: evidence) {
+                                             rootContainers: rootContainers, entry: entry, ruleG: ruleG,
+                                             evidence: evidence) {
                     absorb(child, rule: childRule, parentPartID: node.id)
                 } else {
                     var moved = child
@@ -191,21 +198,24 @@ enum DockParts {
 
     /// The rule that makes `child` of the built-in part `parent` built in
     /// too, or nil when it stays on the map. `rootContainers` are the root
-    /// hub's container IDs, for rule F; `listed` is the dock's catalogue
-    /// entry, for rule G.
+    /// hub's container IDs, for rule F; `entry` is the dock's catalogue
+    /// entry, for rules C, E and G, and `ruleG` says whether G applies.
     static func rule(for child: DeviceNode, parent: DeviceNode, parentRule: Rule, identity: Identity?,
-                     rootContainers: Set<String>, listed: Set<Identity>?, evidence: Evidence) -> Rule? {
+                     rootContainers: Set<String>, entry: Set<Identity>?, ruleG: Bool,
+                     evidence: Evidence) -> Rule? {
         guard child.bus == .usb, child.registryID != nil else { return nil }
         if let identity, matches(child, identity) { return .identity }
         if let identity, isHub(child), holdsIdentity(child, identity, evidence) { return .identityHolder }
         guard isHub(parent) else { return nil }
+        // Nil when the product has no catalogue entry.
+        let inEntry = entry.map { isListed(child, $0) }
         if parentRule == .captive || parentRule == .identityHolder,
-           isHub(child) || isBillboard(child, evidence), isCaptive(child, evidence) {
+           isHub(child) || isBillboard(child, evidence), isCaptive(child, evidence), inEntry ?? true {
             return .captive
         }
-        if parentRule == .captive, !isHub(child) { return .captiveFunction }
-        if let listed, isCataloguePart(child, parent: parent, parentRule: parentRule, parts: listed,
-                                       evidence: evidence) {
+        if parentRule == .captive, !isHub(child), inEntry == true { return .captiveFunction }
+        if let entry, ruleG, isCataloguePart(child, parent: parent, parentRule: parentRule, parts: entry,
+                                             evidence: evidence) {
             return .catalogue
         }
         let own = containers(of: child, evidence)
