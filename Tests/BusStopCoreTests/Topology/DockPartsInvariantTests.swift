@@ -64,18 +64,18 @@ struct DockPartsInvariantTests {
 
         // Nothing a person plugged in folds: every part is a hub, a billboard
         // (rule C), a function with its dock's own IDs (rule B), or a device
-        // that shares a container ID with its holder's hubs (rule F).
+        // that shares a container ID with the root hub (rule F). Only the
+        // root's: a device on a captive port can report its hub's ID.
         let evidence = DockParts.Evidence(raw: raw, companions: [:], usbTunnelSwitchIDs: [])
         for holder in docks {
             let parts = holder.internalParts ?? []
-            let hubContainers = Set(parts.filter(DockParts.isHub).compactMap { part in
-                part.registryID.flatMap { evidence.containerIDs[$0] }
-            })
+            let rootContainers = Set(parts.filter { DockParts.isHub($0) && $0.internalParentID == nil }
+                .compactMap { part in part.registryID.flatMap { evidence.containerIDs[$0] } })
             let identity = holder.registryID.flatMap { evidence.identities[$0] }
             for part in parts {
                 let builtIn = DockParts.isHub(part) || DockParts.isBillboard(part, evidence)
                     || identity.map { DockParts.matches(part, $0) } == true
-                    || part.registryID.flatMap { evidence.containerIDs[$0] }.map(hubContainers.contains) == true
+                    || part.registryID.flatMap { evidence.containerIDs[$0] }.map(rootContainers.contains) == true
                 #expect(builtIn, "\(part.name) folds into \(holder.name)", sourceLocation: sourceLocation)
             }
         }
