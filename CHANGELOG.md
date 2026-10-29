@@ -6,7 +6,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
-- A Thunderbolt display with a USB hub, such as a Dell U4025QW, shows as one card with the devices plugged into it, as a dock does. Its USB hub chips and its own functions (Ethernet, for example) are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
+- A Thunderbolt display with a USB hub, such as a Dell U4025QW, folds its built-in USB hub into its card, as a dock does. Built-in parts are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
+- Bus Stop reads each USB device's container ID, which every part of one physical product shares, and folds the hub chips and functions of a dock or display that share its root hub's ID, even where the hub reports no captive ports. Raw captures and JSON exports include the ID; with redaction on (the default) it is replaced by a stand-in that still shows which devices share one.
 
 ### Fixed
 
