@@ -2,6 +2,23 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-29: A dock folds no device by its port alone
+
+**Question.** Rule E of the 2026-10-14 decision ("A dock's built-in USB parts leave the device tree") folds every device that is not a hub on a hub that rule C folded. On the owner's MacBook Pro, a Keychron Q3 Pro (3434:0630, on a standard port) and a Benchmark 1.0 audio device (04D8:FEEA, on a port the dock flags captive) are plugged into the Anker Prime dock and show as parts built into it, so they vanish from the map. Should a function fold because of the hub it sits on?
+
+**Decision.** No. Rule E is removed, and rules A to D and F are unchanged. A function on a captive hub now shows as a device under the dock, with `internalParentID` naming that hub. `DockPartsInvariantTests` checks on every capture, demo and random input that a built-in part is a hub, a billboard (C), a device with the dock's own IDs (B) or one that shares a container ID with its holder's hubs (F).
+
+**Why.** On the owner's capture (`Tests/BusStopCoreTests/Fixtures/AnkerPrimeTB5Desk.json`), the dock's own Ethernet (0BDA:8156) and card reader (05E3:0764) sit on standard ports of the captive VIA hub, with no container ID, beside the Keychron. The Benchmark sits on a port the dock flags captive. No signal tells the dock's functions apart from devices a person plugged into the dock's ports, so a rule that folds functions by position hides real devices. The Ethernet and card reader are functions people use, so showing them as devices under the dock is accurate. The same principle shapes the hub chips pass of the same day: fold hub chips and the dock's own identity, never a function identified by where it sits.
+
+**Risks.**
+
+- The Anker's Ethernet and card reader appear as two devices under the dock (19 drawn devices below it on `AnkerPrimeTB5.json`, up from 17). Another dock's functions do the same.
+
+**Rejected alternatives.**
+
+- *Keep rule E and skip devices on standard ports.* The Benchmark sits on a port the dock flags captive, and the dock's own Ethernet and card reader sit on standard ones.
+- *Keep rule E and skip known device classes* (keyboards, audio). It would still hide anything outside the list, and the dock's own functions would need a list of their own.
+
 ## 2026-10-29: Thunderbolt displays fold their built-in parts, and captive ports fold hub chips
 
 **Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, what evidence can say so, and how does the answer reach hardware nobody has captured?

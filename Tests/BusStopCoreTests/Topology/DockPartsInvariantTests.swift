@@ -5,8 +5,9 @@ import Testing
 /// Safety properties of folding the built-in parts of docks and hubs
 /// (`DockParts`, `HubChips`), checked on every demo scenario, the real Anker,
 /// Dell and Mac mini captures and the robustness inputs: nothing is lost or
-/// drawn twice, every part hangs off its holder or another part, and
-/// `DeviceNode.unfolded()` gives back the tree as it was.
+/// drawn twice, every part hangs off its holder or another part, nothing a
+/// person plugged in is a part, and `DeviceNode.unfolded()` gives back the
+/// tree as it was.
 @Suite("Topology: built-in dock part invariants")
 struct DockPartsInvariantTests {
     /// A device's identity that survives `makeDeviceIDsUnique`: device IDs
@@ -61,6 +62,24 @@ struct DockPartsInvariantTests {
             #expect(original?.downstreamMilliwatts == dock.downstreamMilliwatts, sourceLocation: sourceLocation)
         }
 
+        // Nothing a person plugged in folds: every part is a hub, a billboard
+        // (rule C), a function with its dock's own IDs (rule B), or a device
+        // that shares a container ID with its holder's hubs (rule F).
+        let evidence = DockParts.Evidence(raw: raw, companions: [:], usbTunnelSwitchIDs: [])
+        for holder in docks {
+            let parts = holder.internalParts ?? []
+            let hubContainers = Set(parts.filter(DockParts.isHub).compactMap { part in
+                part.registryID.flatMap { evidence.containerIDs[$0] }
+            })
+            let identity = holder.registryID.flatMap { evidence.identities[$0] }
+            for part in parts {
+                let builtIn = DockParts.isHub(part) || DockParts.isBillboard(part, evidence)
+                    || identity.map { DockParts.matches(part, $0) } == true
+                    || part.registryID.flatMap { evidence.containerIDs[$0] }.map(hubContainers.contains) == true
+                #expect(builtIn, "\(part.name) folds into \(holder.name)", sourceLocation: sourceLocation)
+            }
+        }
+
         // Unfolding gives back the tree: exactly when no device ID repeats,
         // by registry ID otherwise.
         let sameIDs = (folded.allDevices.map(\.device.id) + docks.flatMap { $0.internalParts ?? [] }.map(\.id))
@@ -85,7 +104,7 @@ struct DockPartsInvariantTests {
     @Test func ankerCapture() throws {
         let raw = try AnkerPrimeDockTests.raw()
         Self.check(raw)
-        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 9)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 7)
     }
 
     @Test func dellMonitorCapture() throws {
