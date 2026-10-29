@@ -12,8 +12,11 @@ import Testing
 /// into it (rule A). Behind it sits one Realtek 4-port hub (0483/5483) with
 /// two more Realtek hubs and the 2.5G Ethernet on captive ports, and the
 /// webcam and two Realtek "USB2.0 HID" devices on the lower hubs' standard
-/// ports. The capture predates `kUSBContainerID`, so the Realtek hubs stay;
-/// the container tests add IDs to show what rule F does with them.
+/// ports. Nothing ties the Realtek hub to the monitor: its port on the
+/// Intel hub is a standard one, and the reporter's `ioreg` shows the Intel
+/// hub with one container ID and the Realtek group with another. The model
+/// is in `DockParts.catalogue`, so rule G folds the Realtek group. The
+/// capture predates `kUSBContainerID`; the container tests add IDs.
 @Suite("Topology: Dell U4025QW capture")
 struct DellU4025QWTests {
     static let portKey = PortKey(type: 2, number: 3)
@@ -44,10 +47,11 @@ struct DellU4025QWTests {
     }
 
     static let rootHub = "usb:02200000:8087:0b40"        // A: tunnelled root hub (with the 1D5C USB 2 half)
-    static let realtekHub = "usb:02240000:0bda:0483"     // the one hub on the root hub
-    static let lowerHub1 = "usb:02241000:0bda:0483"      // captive on the Realtek hub
-    static let lowerHub2 = "usb:02242000:0bda:0483"      // captive on the Realtek hub
-    static let ethernet = "usb:02243000:0bda:8156"       // captive on the Realtek hub
+    static let realtekHub = "usb:02240000:0bda:0483"     // G: the one listed device on the root hub
+    static let lowerHub1 = "usb:02241000:0bda:0483"      // G: captive on the Realtek hub
+    static let lowerHub2 = "usb:02242000:0bda:0483"      // G: captive on the Realtek hub
+    static let ethernet = "usb:02243000:0bda:8156"       // G: captive on the Realtek hub
+    static let expectedParts: Set<String> = [rootHub, realtekHub, lowerHub1, lowerHub2, ethernet]
     // On standard ports of the lower hubs: the monitor's USB ports.
     static let webcam = "usb:02141400:046d:082d"
     static let hid1100 = "usb:02141500:0bda:1100"
@@ -58,6 +62,7 @@ struct DellU4025QWTests {
     static let chipRecords: [UInt64] = [4_294_971_944, 4_294_971_860, 4_294_972_297, 4_294_972_338,
                                         4_294_972_383, 4_294_972_407, 4_294_972_272]
     static let webcamRecord: UInt64 = 4_294_972_429
+    static let ethernetRecord: UInt64 = 4_294_972_272
 
     static let monitorContainer = "6A1F0E43-9B2C-4D8A-8E2F-1C3B5D7E9F00"
     static let otherContainer = "0B4F1A3C-77D2-4E19-9F0A-2C6E8B1D5A47"
@@ -68,26 +73,52 @@ struct DellU4025QWTests {
         #expect(monitor.name == "U4025QW")
     }
 
-    /// Without container IDs only the tunnelled root hub is known to be built
-    /// in: the Realtek hub sits on a root port, whose captive flags are not
-    /// evidence, so it stays with everything behind it.
-    @Test func withoutContainerIDsOnlyTheRootHubFolds() throws {
-        let monitor = try Self.monitor(in: Self.snapshot())
-        #expect(monitor.internalParts?.map(\.id) == [Self.rootHub])
-        let usb = monitor.children.filter { $0.bus == .usb }
-        #expect(usb.map(\.id) == [Self.realtekHub])
-        #expect(usb.first?.internalParentID == Self.rootHub)
+    /// The catalogue entry folds the Realtek group without container IDs:
+    /// the listed hub alone on the root hub, the listed parts on its captive
+    /// ports. The devices on the monitor's ports hang off the monitor.
+    @Test func catalogueFoldsTheMonitorsHubChips() throws {
+        let snapshot = try Self.snapshot()
+        let monitor = try Self.monitor(in: snapshot)
+        #expect(Set((monitor.internalParts ?? []).map(\.id)) == Self.expectedParts)
+        #expect(snapshot.internalPartIDs == Self.expectedParts)
+        let parents = Dictionary(uniqueKeysWithValues: (monitor.internalParts ?? []).map {
+            ($0.id, $0.internalParentID ?? "monitor")
+        })
+        #expect(parents == [
+            Self.rootHub: "monitor",
+            Self.realtekHub: Self.rootHub,
+            Self.lowerHub1: Self.realtekHub,
+            Self.lowerHub2: Self.realtekHub,
+            Self.ethernet: Self.realtekHub,
+        ])
+        let moved = Dictionary(uniqueKeysWithValues: monitor.children.filter { $0.bus == .usb }
+            .map { ($0.id, $0.internalParentID ?? "monitor") })
+        #expect(moved == [Self.webcam: Self.lowerHub1, Self.hid1100: Self.lowerHub1, Self.hid1101: Self.lowerHub2])
     }
 
     /// Counts are drawn devices only: 8 below the monitor before (as the
-    /// reporter's map showed), 7 once the root hub folds.
-    @Test func countsLeaveOutTheRootHub() throws {
+    /// reporter's map showed), 3 once its parts fold.
+    @Test func countsLeaveOutBuiltInParts() throws {
         let folded = try Self.snapshot()
         let unfolded = try Self.snapshot(foldsDockParts: false)
         #expect(try Self.monitor(in: unfolded).descendantCount == 8)
-        #expect(try Self.monitor(in: folded).descendantCount == 7)
+        #expect(try Self.monitor(in: folded).descendantCount == 3)
         #expect(unfolded.port(Self.portKey)?.deviceCount == 9)
-        #expect(folded.port(Self.portKey)?.deviceCount == 8)
+        #expect(folded.port(Self.portKey)?.deviceCount == 4)
+    }
+
+    /// Another model with the same hub chips gets no catalogue entry: only
+    /// the tunnelled root hub folds, and the Realtek hub stays with
+    /// everything behind it.
+    @Test func anotherModelFoldsOnlyTheRootHub() throws {
+        var raw = try Self.raw()
+        let index = try #require(raw.thunderboltSwitches.firstIndex {
+            $0.node.properties.string("Device Model Name") == "U4025QW"
+        })
+        raw.thunderboltSwitches[index].node.properties["Device Model ID"] = .int(0xC403)
+        let monitor = try Self.monitor(in: TopologyBuilder.build(raw))
+        #expect(monitor.internalParts?.map(\.id) == [Self.rootHub])
+        #expect(monitor.children.filter { $0.bus == .usb }.map(\.id) == [Self.realtekHub])
     }
 
     /// Folding moves devices, not power: every figure stays as it was.
@@ -98,31 +129,40 @@ struct DellU4025QWTests {
         #expect(folded.downstreamMilliwatts == unfolded.downstreamMilliwatts)
     }
 
-    /// When the hub chips and the Ethernet report the root hub's container
-    /// ID, they fold too, and the devices on the monitor's ports (a webcam
-    /// of another product, two HID devices with none) hang off the monitor.
+    /// The reporter's real grouping (his `ioreg` labels): the Intel hub has
+    /// one container ID, the Realtek group another. Rule F does not reach the
+    /// group, rule G does, and the shared ID inside the group passes G's check.
+    @Test func reportersContainerGroupsFoldThroughTheCatalogue() throws {
+        var containers: [UInt64: String] = [:]
+        for id in Self.rootRecords { containers[id] = Self.monitorContainer }
+        for id in Self.chipRecords { containers[id] = Self.otherContainer }
+        let raw = try Self.raw(containers: containers)
+        let monitor = try Self.monitor(in: TopologyBuilder.build(raw))
+        #expect(Set((monitor.internalParts ?? []).map(\.id)) == Self.expectedParts)
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// A captive device with a listed ID but a container ID its parent part
+    /// does not report is another product, and stays.
+    @Test func aListedDeviceOfAnotherContainerStays() throws {
+        var containers: [UInt64: String] = [:]
+        for id in Self.rootRecords { containers[id] = Self.monitorContainer }
+        for id in Self.chipRecords { containers[id] = Self.otherContainer }
+        containers[Self.ethernetRecord] = "11111111-2222-3333-4444-555555555555"
+        let monitor = try Self.monitor(in: TopologyBuilder.build(try Self.raw(containers: containers)))
+        #expect(Set((monitor.internalParts ?? []).map(\.id)) == Self.expectedParts.subtracting([Self.ethernet]))
+        #expect(monitor.children.contains { $0.id == Self.ethernet })
+    }
+
+    /// Had the hub chips reported the root hub's container ID, rule F would
+    /// fold them too: the same parts, by either rule.
     @Test func chipsSharingTheRootHubsContainerFold() throws {
         var containers: [UInt64: String] = [Self.webcamRecord: Self.otherContainer]
         for id in Self.rootRecords + Self.chipRecords { containers[id] = Self.monitorContainer }
         let raw = try Self.raw(containers: containers)
         let monitor = try Self.monitor(in: TopologyBuilder.build(raw))
-        #expect(Set((monitor.internalParts ?? []).map(\.id))
-                == [Self.rootHub, Self.realtekHub, Self.lowerHub1, Self.lowerHub2, Self.ethernet])
-        let parents = Dictionary(uniqueKeysWithValues: monitor.children.filter { $0.bus == .usb }
-            .map { ($0.id, $0.internalParentID ?? "monitor") })
-        #expect(parents == [Self.webcam: Self.lowerHub1, Self.hid1100: Self.lowerHub1, Self.hid1101: Self.lowerHub2])
+        #expect(Set((monitor.internalParts ?? []).map(\.id)) == Self.expectedParts)
         #expect(monitor.descendantCount == 3)
         DockPartsInvariantTests.check(raw)
-    }
-
-    /// Hub chips that share a container ID only with each other (a chip
-    /// maker's default, say) are not tied to the monitor, and stay.
-    @Test func chipsSharingOnlyAmongThemselvesStay() throws {
-        var containers: [UInt64: String] = [:]
-        for id in Self.rootRecords { containers[id] = Self.monitorContainer }
-        for id in Self.chipRecords { containers[id] = Self.otherContainer }
-        let monitor = try Self.monitor(in: TopologyBuilder.build(try Self.raw(containers: containers)))
-        #expect(monitor.internalParts?.map(\.id) == [Self.rootHub])
-        #expect(monitor.children.filter { $0.bus == .usb }.map(\.id) == [Self.realtekHub])
     }
 }

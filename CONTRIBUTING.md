@@ -110,6 +110,16 @@ Port names such as "Left Front" come from a catalogue of physical port locations
 
 Please also send the new entry upstream to PortScope, so both projects benefit.
 
+## Adding a dock or monitor to the built-in parts catalogue
+
+Bus Stop folds a Thunderbolt dock's or monitor's own USB hubs and functions into its card (SPEC §5.4 "Built-in dock parts"). Most of them it finds from the hardware's own flags. Some products wire their hub chips so that nothing ties them to the product: the Dell U4025QW's Realtek hubs sit on a standard port of its Thunderbolt chip's hub, with a container ID of their own. Those products need an entry in `DockParts.catalogue` (`Sources/BusStopCore/Topology/DockParts+Catalogue.swift`).
+
+1. Take a capture with only the dock or monitor connected, nothing plugged into it: `busstop --raw > capture.json`.
+2. Find the product's Thunderbolt IDs. In `thunderboltSwitches`, the switch with the product's `Device Model Name` has `Device Vendor ID` and `Device Model ID` (the product's own IDs; `Vendor ID` and `Device ID` are the chip maker's).
+3. Find which USB devices are built in. They hang off the hub that rule A already folds (the one with `UsbTunnel`), and they share a `kUSBContainerID` with each other. In a redacted capture, equal stand-ins mean equal IDs. With nothing plugged in, every USB device under the product is built in.
+4. Add an entry: the product's IDs, mapped to the `idVendor` / `idProduct` of each built-in device, with a comment naming the product and the layout. List both halves of a USB 3 hub (for example 0483 and 5483).
+5. Add the capture as a fixture with a test (see "Turning a capture into a test fixture"), and check with `busstop` that the product shows as one card with only what you plugged into it.
+
 ## Code style
 
 - **Swift 6 language mode with complete concurrency checking.** Core types are `Sendable` values; UI code is `@MainActor`. No `@unchecked Sendable` without a comment explaining why it is safe.

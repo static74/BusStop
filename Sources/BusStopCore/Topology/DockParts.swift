@@ -31,6 +31,11 @@ import Foundation
 ///   root hub reports. USB gives every function of one physical product the
 ///   same container ID, so this reaches hub chips a captive flag cannot. A
 ///   device with no container ID, or an all-zero one, matches nothing.
+/// - G. Catalogue: for a model in `catalogue`, a device with one of the
+///   listed USB IDs, when it is the one listed device on the root hub's
+///   ports, or sits on a captive port of a part G folded without a container
+///   ID that differs from that part's. For products whose flags and
+///   container IDs stop at the Thunderbolt chip's hub (DockParts+Catalogue).
 ///
 /// What hangs off a part and matches no rule moves up to the dock with its
 /// subtree, and its `internalParentID` names the part.
@@ -43,6 +48,7 @@ enum DockParts {
         case identityHolder
         case captiveFunction
         case container
+        case catalogue
     }
 
     /// A device's own USB vendor and product IDs.
@@ -149,6 +155,7 @@ enum DockParts {
             if holders.count > 1 { identity = nil }
         }
         let rootContainers = Set(containers(of: dock.children[rootIndex], evidence))
+        let listed = catalogued(dock, root: dock.children[rootIndex], evidence: evidence)
 
         var parts: [DeviceNode] = []
         var children: [DeviceNode] = []
@@ -159,7 +166,7 @@ enum DockParts {
             parts.append(part)
             for child in node.children {
                 if let childRule = self.rule(for: child, parent: node, parentRule: rule, identity: identity,
-                                             rootContainers: rootContainers, evidence: evidence) {
+                                             rootContainers: rootContainers, listed: listed, evidence: evidence) {
                     absorb(child, rule: childRule, parentPartID: node.id)
                 } else {
                     var moved = child
@@ -184,9 +191,10 @@ enum DockParts {
 
     /// The rule that makes `child` of the built-in part `parent` built in
     /// too, or nil when it stays on the map. `rootContainers` are the root
-    /// hub's container IDs, for rule F.
+    /// hub's container IDs, for rule F; `listed` is the dock's catalogue
+    /// entry, for rule G.
     static func rule(for child: DeviceNode, parent: DeviceNode, parentRule: Rule, identity: Identity?,
-                     rootContainers: Set<String>, evidence: Evidence) -> Rule? {
+                     rootContainers: Set<String>, listed: Set<Identity>?, evidence: Evidence) -> Rule? {
         guard child.bus == .usb, child.registryID != nil else { return nil }
         if let identity, matches(child, identity) { return .identity }
         if let identity, isHub(child), holdsIdentity(child, identity, evidence) { return .identityHolder }
@@ -196,6 +204,10 @@ enum DockParts {
             return .captive
         }
         if parentRule == .captive, !isHub(child) { return .captiveFunction }
+        if let listed, isCataloguePart(child, parent: parent, parentRule: parentRule, parts: listed,
+                                       evidence: evidence) {
+            return .catalogue
+        }
         let own = containers(of: child, evidence)
         if !own.isEmpty, own.allSatisfy(rootContainers.contains) { return .container }
         return nil

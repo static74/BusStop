@@ -90,7 +90,7 @@ struct DockPartsInvariantTests {
     @Test func dellMonitorCapture() throws {
         let raw = try DellU4025QWTests.raw()
         Self.check(raw)
-        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 1)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 5)
     }
 
     @Test func robustnessInputs() {
