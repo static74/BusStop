@@ -52,7 +52,7 @@ The smoke test prints every command's output, so the job log shows what the CLI 
 
 ## Reporting a bug
 
-The most useful bug report includes a raw capture from the Mac that shows the problem:
+Open an issue with the [bug report form](https://github.com/static74/BusStop/issues/new?template=bug_report.yml). The most useful bug report includes a raw capture from the Mac that shows the problem:
 
 ```sh
 "/Applications/Bus Stop.app/Contents/Helpers/busstop" --raw > capture.json

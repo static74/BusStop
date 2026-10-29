@@ -118,7 +118,7 @@ macOS already knows which controller drives each port, what is plugged in, the s
 
 ## Contributing
 
-Bug reports with a raw capture (`busstop --raw > capture.json`) are the most useful thing you can send. [CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing, adding a Mac model to the port catalogue and turning a capture into a test fixture.
+Bug reports with a raw capture (`busstop --raw > capture.json`) are the most useful thing you can send; the [bug report form](https://github.com/static74/BusStop/issues/new?template=bug_report.yml) asks for everything we need. [CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing, adding a Mac model to the port catalogue and turning a capture into a test fixture.
 
 ## Credits
 
