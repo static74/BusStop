@@ -216,6 +216,8 @@ struct DockPartsTests {
         #expect(try Self.childNames(raw) == ["Monitor Hub"])
     }
 
+    /// Behind an external hub nothing is the dock's; the captive hub there
+    /// is a chip of the external hub instead (`HubChips`).
     @Test func captiveHubBelowAnExternalHubStays() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -226,7 +228,8 @@ struct DockPartsTests {
         #expect(try Self.partNames(raw) == ["USB3 HUB"])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(dock.children.map(\.name) == ["Desk Hub"])
-        #expect(dock.descendantCount == 3)
+        #expect(dock.children.first?.internalParts?.map(\.name) == ["Inner Hub"])
+        #expect(dock.descendantCount == 2)
     }
 
     /// The identity on a standard port does not make its hub built-in.
@@ -365,72 +368,6 @@ struct DockPartsTests {
         })
         #expect(try Self.partNames(redacted) == Self.partNames(raw))
         #expect(try Self.childNames(redacted) == Self.childNames(raw))
-    }
-
-    // MARK: - Rule G (catalogue)
-
-    /// A display whose Thunderbolt switch reports the catalogued Dell U4025QW's IDs.
-    static func catalogued() -> RawThunderboltSwitch {
-        dockSwitch(vendorID: 0x413C, modelID: 0xC402, model: "U4025QW Monitor")
-    }
-
-    /// A listed Realtek hub on `parent`'s port of type `portType`.
-    static func realtek(_ id: UInt64, parent: UInt64, name: String, portType: Int = 0) -> RawUSBDevice {
-        device(id, parent: parent, name: name, vendor: 0x0BDA, product: 0x0483, hub: true, portType: portType)
-    }
-
-    /// The monitor's Realtek group: a listed hub on the root hub, a listed hub
-    /// and listed Ethernet on its captive ports, a listed hub on a standard
-    /// port and an unlisted captive function, with a webcam on the inner hub.
-    static func catalogueRaw(dock: RawThunderboltSwitch = catalogued()) -> RawSnapshot {
-        raw(usb: [
-            rootHub(),
-            realtek(30, parent: 10, name: "Realtek Hub"),
-            realtek(31, parent: 30, name: "Inner Hub", portType: 1),
-            device(32, parent: 30, name: "Ethernet", vendor: 0x0BDA, product: 0x8156, portType: 1,
-                   interfaces: [RawUSBInterface(interfaceClass: 2)]),
-            realtek(33, parent: 30, name: "Plugged-in Hub"),
-            device(34, parent: 30, name: "Card Reader", portType: 1),
-            device(40, parent: 31, name: "Webcam"),
-        ], dock: dock)
-    }
-
-    @Test func catalogueFoldsListedPartsOnCaptivePorts() throws {
-        let raw = Self.catalogueRaw()
-        let display = try Self.dock(TopologyBuilder.build(raw))
-        #expect(display.kind == .display)
-        #expect(display.internalParts?.map(\.name) == ["Ethernet", "Inner Hub", "Realtek Hub", "USB3 HUB"])
-        // Listed IDs on a standard port, and an unlisted device on a captive one, stay.
-        #expect(display.children.map(\.name) == ["Card Reader", "Plugged-in Hub", "Webcam"])
-        DockPartsInvariantTests.check(raw)
-    }
-
-    @Test func anotherModelFoldsNothingByCatalogue() throws {
-        let raw = Self.catalogueRaw(dock: Self.dockSwitch(vendorID: 0x413C, modelID: 0xC403, model: "Other Monitor"))
-        #expect(try Self.partNames(raw) == ["USB3 HUB"])
-        #expect(try Self.childNames(raw) == ["Realtek Hub"])
-    }
-
-    /// Two listed devices on the root hub: one may be plugged in, so neither folds.
-    @Test func twoListedDevicesOnTheRootHubTurnOffTheCatalogue() throws {
-        var raw = Self.catalogueRaw()
-        raw.usbDevices.append(Self.realtek(50, parent: 10, name: "Second Realtek Hub"))
-        #expect(try Self.partNames(raw) == ["USB3 HUB"])
-        #expect(try Self.childNames(raw) == ["Realtek Hub", "Second Realtek Hub"])
-    }
-
-    /// A listed captive device whose container ID its parent part does not
-    /// report belongs to another product.
-    @Test func listedDeviceOfAnotherContainerStays() throws {
-        var raw = Self.catalogueRaw()
-        for index in raw.usbDevices.indices where [30, 31].contains(raw.usbDevices[index].id) {
-            raw.usbDevices[index].node.properties["kUSBContainerID"] = .string(Self.product)
-        }
-        let ethernet = try #require(raw.usbDevices.firstIndex { $0.id == 32 })
-        raw.usbDevices[ethernet].node.properties["kUSBContainerID"] = .string(Self.other)
-        let display = try Self.dock(TopologyBuilder.build(raw))
-        #expect(display.internalParts?.map(\.name) == ["Inner Hub", "Realtek Hub", "USB3 HUB"])
-        #expect(display.children.map(\.name).contains("Ethernet"))
     }
 
     // MARK: - Diagnostics and events

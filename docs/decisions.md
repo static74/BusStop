@@ -2,44 +2,52 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
-## 2026-10-29: Thunderbolt displays fold their built-in parts, with container IDs and a model catalogue for hub chips
+## 2026-10-29: Thunderbolt displays fold their built-in parts, and captive ports fold hub chips
 
-**Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, and what evidence can say so?
+**Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, what evidence can say so, and how does the answer reach hardware nobody has captured?
 
 **Decision.**
 
-- `DockParts.fold` also takes a Thunderbolt display, with rules A to E unchanged. The inspector's section reads "Built into this display", and All Devices says "not counting parts built into a display" (or "a dock or display" when both have parts).
+- `DockParts.fold` also takes a Thunderbolt display, with rules A to E unchanged. The inspector's section reads "Built into this display".
 - Bus Stop reads `kUSBContainerID` from every USB device. Rule F, for docks and displays, folds a device on a folded hub when every container ID it reports (both halves of a merged hub) is one the root hub reports. Missing and all-zero IDs match nothing.
-- Rule G folds the hub chips of products listed in `DockParts.catalogue`, by the switch's `Device Vendor ID` / `Device Model ID`: a device with a listed USB ID that is the one listed device on the root hub's ports, or that sits on a captive port of a G part without a container ID that part does not report. The first entry is the U4025QW.
+- A new pass, `HubChips`, runs after `DockParts` on every tree: a USB hub on a captive port of another hub is a chip of that hub and folds into it, down the chain. Devices that are not hubs never fold this way. The inspector says "Built into this hub", and All Devices names every kind of holder it leaves parts out of ("a dock or hub").
 - Exports keep redacting the container ID: its stand-in is the same for every device that shares it, so a redacted capture folds the same parts. An all-zero ID is kept as it is. The widget payload carries no property bags, so the ID never reaches it.
 
 **Why.** On the reporter's capture, by registry ID:
 
 - The monitor's switch (429, Intel JHL8440, "U4025QW") is the port's only switch with a live USB adapter and has a live DisplayPort adapter, so it is a `.display`. Its USB 3 hub (823, 8087:0B40) has `UsbTunnel` on the Mac's `AppleT8142USBXHCI` and pairs with the 1D5C:5801 USB 2 hub (352). Rule A folds it.
 - The switch, and the monitor's USB-PD identity, report 0x413C:0xC402 (Dell). No USB device has those IDs, so B and D find nothing.
-- The Realtek hub 944/860 is the only device on the root hub and reports `USBPortType` 0, as root ports do for everything. The Ethernet (272) and the Realtek hubs 297/338 and 383/407 on it are captive, but C starts below D.
-- The reporter's `ioreg` showed the Intel hub with one container ID and every Realtek chip and the Ethernet with another; the webcam and two HID devices report none. The monitor's EDID has a DisplayID 1.2 extension without a ContainerID block. `Built-In` and `non-removable` are on no record, the hubs report no serial numbers, and the whole tree, webcam included, enumerated in one burst.
+- The Realtek hub 944/860 is the only device on the root hub and reports `USBPortType` 0, as root ports do for everything. The Ethernet (272) and the Realtek hubs 297/338 and 383/407 on it are captive.
 
-So the monitor marks its Realtek group as one unit (captive ports, a shared container ID), and nothing ties that unit to the monitor. On the owner's MacBook Pro the Anker Prime dock shows the same split: its Intel hub reports one container ID, its VIA hubs and own USB function another. Rule F folds nothing on either product; it stays for products that do share the root hub's ID.
+The reporter's `ioreg` showed the Intel hub with one container ID and every Realtek chip and the Ethernet with another. On the owner's MacBook Pro the Anker Prime dock shows the same split. So nothing ties the Realtek group to the monitor, but the monitor does mark that group as one unit. These signals were checked:
 
-A first version of this change folded the Realtek group by layout (a display, one hub alone on the root hub, every device on it captive, a hub and a function among them). The Anker capture has the same Realtek layout, a Dell U4924DW's hub a cable away from the dock, so layout alone cannot tell where the chips are. The catalogue names the product, its USB IDs say which chips, and captive ports and container IDs keep it to that group: devices on the monitor's standard ports, and listed chips of another product, stay.
+| Signal | Result on real hardware | Usable broadly? |
+| --- | --- | --- |
+| Captive hub ports | Correct inside both Dell monitors; the Anker dock flags one user port captive and some internal links standard | Yes, for hub chips |
+| `kUSBContainerID` | Groups a product's chips, but a Thunderbolt chip's hub has its own ID; captive devices seem to inherit their parent's ID | As a guard only |
+| `Built-In`, `non-removable`, hub port connector keys | Not present on any device or port | No |
+| Serial numbers, enumeration timing | Hubs report no serial; everything enumerates in one burst | No |
+| DisplayID ContainerID in EDID | Absent on the U4025QW | No |
+| USB-C cable e-marker, USB-PD identity | Describe the Mac-side cable and the product model only | No |
 
-With the entry, the reporter's monitor shows his webcam and two Realtek HID devices (3 below it instead of 8). The HID devices are probably the monitor's own, but they sit on standard ports and report no container ID, so they stay.
+Captive hub ports are the one signal that every USB product reports and that was right inside both Dell monitors. Limiting the fold to hubs bounds the cost of a wrong flag: the Anker flags a port where a person plugged in an audio device, and under this rule that device stays, because it is not a hub. The result on the reporter's monitor is one Realtek hub card holding the two lower chips, with the Ethernet, the webcam and two HID devices below it (5 below the monitor instead of 8). The Dell U4924DW behind the Anker dock folds the same way, and so does the UGREEN dock's two-chip VIA hub on the Mac mini capture.
 
 The Studio desk demo's Studio Display XDR has a tunnelled root hub too, so its hub is now a built-in part and the PSSD T9 and the camera hang off the display (7 drawn devices, down from 8). The README screenshots show the old tree until the Screenshots workflow runs again.
 
 **Risks.**
 
-- A monitor or dock that is not in the catalogue folds only what A, B, C, D, E and F find. Each new model needs a capture (CONTRIBUTING.md).
+- A hub chip on a port that reports standard stays a card, as before.
+- A wrong captive flag on a port where a person plugged in a hub hides that hub's card; the devices behind it still show, under the hub above.
 - A product that ships every unit with the same container ID (a firmware default Microsoft warns against) would match another unit of the same product plugged into it under F. Its root hub would have to carry that default too.
 - `kUSBContainerID` identifies a physical unit like a serial number. It is shown in the inspector's raw keys, as serial numbers are, and replaced in redacted exports; an export with redaction off carries it.
-- On the owner's Mac a device on a captive port reported its parent hub's container ID, so macOS seems to hand captive devices their parent's ID. A device a user plugs into a port the product wrongly flags captive would then look built in to F and G's container check alike; G still needs a listed USB ID.
 
 **Rejected alternatives.**
 
-- *Fold by layout* (the first version above): the Anker capture shows the same layout outside the product.
+- *A catalogue of monitor models and the USB IDs built into them* (rule G, which shipped briefly on this branch): exact for the U4025QW, but the only product-specific table in the topology code, and every other monitor with the same layout stays broken until someone captures it and adds a row.
+- *Fold by layout* (a display, one hub alone on the root hub, every device on it captive): the Anker capture has the same Realtek layout a cable away from the dock.
+- *Tie the Realtek group to the monitor by container ID alone*: the chips and the Thunderbolt hub report different IDs on both real products.
+- *Fold captive functions too*, as rule E does inside a dock: a wrong flag would then hide a device someone plugged in.
 - *Classify the monitor as a dock.* It is a display, it carries the panel's video link, and the dock rules alone fold only the root hub.
-- *Fold any container group alone on a display's root hub.* Exact about the group's edges, but still a guess about where the group is: a USB hub with Ethernet plugged into a monitor whose ports sit on its root hub would vanish.
 - *Keep `kUSBContainerID` out of captures,* as before: redaction already keeps its matches without the value, and without it a capture cannot show why parts fold.
 
 ## 2026-10-27: The history keeps the serial numbers its events hold

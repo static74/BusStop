@@ -90,7 +90,7 @@ public enum DiagnosticsEngine {
     }
 
     /// The finding for `device`, which runs at USB 2 speed. A part built into
-    /// `dock` is reported against the dock.
+    /// `dock` (a dock, display or hub) is reported against it.
     private static func usb2FallbackFinding(_ device: DeviceNode, parent: DeviceNode?, port: PhysicalPort,
                                             dock: DeviceNode?) -> Diagnostic {
         let name = displayName(device)
@@ -102,8 +102,9 @@ public enum DiagnosticsEngine {
             + "many USB-C cables, including most charging cables, carry only USB 2 data."
         if let dock {
             detail += " It is built into \(displayName(dock))."
-            suggestion = "Unplug the dock and plug it back in firmly. If it stays slow, try the cable that "
-                + "came with the dock."
+            let host = dock.bus == .usb ? "hub" : "dock"
+            suggestion = "Unplug the \(host) and plug it back in firmly. If it stays slow, try the cable that "
+                + "came with the \(host)."
         } else if let parent, isHub(parent), !isUSB3Capable(parent),
                   let parentRate = parent.link?.bitsPerSecond, parentRate <= usb2MaxBitsPerSecond {
             detail += " It is connected through \(displayName(parent)), which only supports USB 2."

@@ -176,6 +176,27 @@ enum TopologyFixtures {
         ]
     }
 
+    // MARK: - Layouts
+
+    /// A USB hub built from `chips` USB 2 hub chips (registry IDs 10, 11, …)
+    /// on USB-C port 1: each chip after the first on port 1 of the one before,
+    /// whose `USBPortType` is `portType` (1 = captive), and a keyboard (ID 99)
+    /// on standard port 2 of the last. At most four chips.
+    static func hubChain(chips: Int, portType: Int = 1) -> RawSnapshot {
+        var usb: [RawUSBDevice] = []
+        var location: UInt32 = 0x0110_0000
+        for level in 0..<chips {
+            if level > 0 { location |= 1 << (16 - 4 * level) }
+            usb.append(self.usb(id: UInt64(10 + level), parent: level == 0 ? nil : UInt64(9 + level), name: "Hub",
+                                location: location, deviceClass: 9, path: level == 0 ? "x/Port-USB-C@1" : nil,
+                                extra: ["USBPortType": .int(level == 0 ? 0 : Int64(portType))]))
+        }
+        usb.append(self.usb(id: 99, parent: UInt64(9 + chips), name: "Keyboard",
+                            location: location | 2 << (16 - 4 * chips),
+                            interfaces: [RawUSBInterface(interfaceClass: 3)], extra: ["USBPortType": 0]))
+        return raw(ports: [port(id: 1, number: 1, connected: true, active: ["CC", "USB2"])], usb: usb)
+    }
+
     // MARK: - Helpers
 
     /// Every device in a snapshot, depth-first, keyed by name. The first of

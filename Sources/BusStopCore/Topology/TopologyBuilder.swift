@@ -32,8 +32,9 @@ public enum TopologyBuilder {
         build(raw, options: options, foldsDockParts: true)
     }
 
-    /// `foldsDockParts` false keeps a dock's built-in parts in the tree, as
-    /// before `DockParts` existed; tests compare the two.
+    /// `foldsDockParts` false keeps the built-in parts of docks and hubs in
+    /// the tree, as before `DockParts` and `HubChips` existed; tests compare
+    /// the two.
     static func build(_ raw: RawSnapshot, options: BuildOptions, foldsDockParts: Bool) -> HostSnapshot {
         let index = TopologyNodeIndex(raw.portNodes)
         let ports = PortParser.parse(index)
@@ -101,8 +102,9 @@ public enum TopologyBuilder {
         otherDevices.append(contentsOf: usb.unattributed)
 
         // A dock's or Thunderbolt display's own USB parts leave the tree
-        // (`DockParts`). Screens from `raw.displays` are added below, so they
-        // are never candidates.
+        // (`DockParts`), and so do the extra chips of a hub (`HubChips`).
+        // Screens from `raw.displays` are added below, so they are never
+        // candidates.
         let dockEvidence = foldsDockParts
             ? DockParts.Evidence(raw: raw, companions: usb.companions,
                                  usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
@@ -111,9 +113,12 @@ public enum TopologyBuilder {
         for record in ports.records {
             let (nested, remaining) = USBTreeBuilder.nest(usb.byPort[record.key] ?? [], into: chains[record.key] ?? [],
                                                           usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
-            devices[record.key] = dockEvidence.map { DockParts.fold(nested + remaining, evidence: $0) }
-                ?? nested + remaining
+            devices[record.key] = dockEvidence.map { evidence in
+                HubChips.fold(DockParts.fold(nested + remaining, evidence: evidence), evidence: evidence)
+            } ?? nested + remaining
         }
+        // A hub built from several chips shows as one (`HubChips`).
+        if let dockEvidence { otherDevices = HubChips.fold(otherDevices, evidence: dockEvidence) }
 
         // Displays.
         var displayIDs = Set<String>()
