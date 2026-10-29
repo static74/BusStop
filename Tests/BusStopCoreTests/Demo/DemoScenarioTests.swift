@@ -21,7 +21,8 @@ struct DemoStudioDeskTests {
         #expect(snapshot.connectedPorts.map(\.key.description) == ["17/1", "2/1", "2/2"])
         #expect(snapshot.ports.first { $0.kind == .usbC }?.capabilityDescription == "Thunderbolt 5")
         #expect(snapshot.otherDevices.isEmpty)
-        #expect(snapshot.deviceCount == 8)
+        // The display's hub is built in and not counted (7 drawn devices).
+        #expect(snapshot.deviceCount == 7)
     }
 
     @Test func magSafeCharger() throws {
@@ -82,16 +83,20 @@ struct DemoStudioDeskTests {
         #expect(display.id == "tb:05ac2b448d100f01")
         #expect(display.link?.label == "USB4 v2 / TB5 @ 80 Gb/s")
 
-        let hub = try #require(display.children.first)
-        #expect(display.children.count == 1)
+        // The display's tunnelled USB hub is built into it (SPEC §5.4 "Built-in
+        // dock parts"), so the drive and the camera hang off the display.
+        let hub = try #require(display.internalParts?.first)
+        #expect(display.internalParts?.count == 1)
         #expect(hub.name == "Studio Display XDR Hub")
         #expect(hub.kind == .hub)
         #expect(hub.isTunneled)
         #expect(hub.link?.label == "USB 3.2 Gen 2 @ 10 Gb/s")
         #expect(hub.power?.isSelfPowered == true)
-        #expect(hub.children.map(\.name) == ["PSSD T9", "Studio Display XDR Camera"])
+        #expect(display.children.map(\.name) == ["PSSD T9", "Studio Display XDR Camera"])
+        #expect(display.children.allSatisfy { $0.internalParentID == hub.id })
+        #expect(display.descendantCount == 2)
 
-        let ssd = try #require(hub.children.first)
+        let ssd = try #require(display.children.first)
         #expect(ssd.kind == .storage)
         #expect(ssd.vendorName == "Samsung")
         #expect(ssd.link?.label == "USB 3.2 Gen 2 @ 10 Gb/s")
@@ -99,7 +104,7 @@ struct DemoStudioDeskTests {
         #expect(ssd.isTunneled)
         #expect(ssd.power?.allocatedMilliwatts == 4_480)
 
-        let camera = try #require(hub.children.last)
+        let camera = try #require(display.children.last)
         #expect(camera.kind == .camera)
         #expect(camera.link?.label == "USB 2.0 @ 480 Mb/s")
         // The display powers its own hub, so nothing counts against the Mac's port.

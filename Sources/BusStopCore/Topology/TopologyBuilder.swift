@@ -100,8 +100,9 @@ public enum TopologyBuilder {
         let usb = USBTreeBuilder.build(raw.usbDevices, context: context, options: options)
         otherDevices.append(contentsOf: usb.unattributed)
 
-        // A dock's own USB parts leave the tree (`DockParts`). Displays are
-        // added below, so they are never candidates.
+        // A dock's or Thunderbolt display's own USB parts leave the tree
+        // (`DockParts`). Screens from `raw.displays` are added below, so they
+        // are never candidates.
         let dockEvidence = foldsDockParts
             ? DockParts.Evidence(raw: raw, companions: usb.companions,
                                  usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)

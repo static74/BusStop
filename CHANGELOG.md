@@ -4,6 +4,14 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- A Thunderbolt display with a USB hub, such as a Dell U4025QW, shows as one card with the devices plugged into it, as a dock does. Its USB hub chips and its own functions (Ethernet, for example) are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
+
+### Fixed
+
+- Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
+
 ## [1.2.1] - 2026-10-27
 
 ### Changed

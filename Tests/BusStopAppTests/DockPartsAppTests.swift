@@ -12,9 +12,9 @@ struct DockPartsAppTests {
     static let rootHub = "usb:00200000:8087:5787"
     static let realtekHub = "usb:00210000:0bda:0483"
 
-    static func snapshot() throws -> HostSnapshot {
+    static func snapshot(_ fixture: String = "AnkerPrimeTB5") throws -> HostSnapshot {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("../BusStopCoreTests/Fixtures/AnkerPrimeTB5.json").standardizedFileURL
+            .appendingPathComponent("../BusStopCoreTests/Fixtures/\(fixture).json").standardizedFileURL
         return TopologyBuilder.build(try Exporter.decodeRaw(Data(contentsOf: url)))
     }
 
@@ -71,6 +71,17 @@ struct DockPartsAppTests {
         #expect(Set(viaHubs).count == 2)
         #expect(viaHubs.allSatisfy { $0.contains("0x0024") })
         #expect(!WindowText.partDetail(hub, siblings: parts).contains("0x"))
+    }
+
+    /// A Thunderbolt display's parts (the Dell U4025QW capture) are named
+    /// as built into the display, a dock's as built into the dock.
+    @Test func partsAreNamedAfterWhatTheyAreBuiltInto() throws {
+        let snapshot = try Self.snapshot("DellU4025QW")
+        let monitor = try #require(snapshot.ports.flatMap(\.devices).first { $0.internalParts != nil })
+        #expect(monitor.kind == .display)
+        #expect(WindowText.builtInHost(monitor) == "display")
+        #expect(WindowText.devicesSubtitle(snapshot).hasSuffix(", not counting parts built into a display"))
+        #expect(WindowText.builtInHost(try Self.dock(Self.snapshot())) == "dock")
     }
 
     /// A built-in part's link change points at the dock, but must not

@@ -270,6 +270,71 @@ struct DockPartsTests {
         #expect(dock.children.first?.kind == .display)
     }
 
+    // MARK: - Rules F and G (Thunderbolt displays)
+
+    /// A Thunderbolt display with a live USB tunnel.
+    static func display() -> RawThunderboltSwitch { dockSwitch(model: "Studio Monitor") }
+
+    /// A display's hub chips on the root hub: a hub whose devices are all on
+    /// captive ports (another hub and Ethernet), with a webcam on a standard
+    /// port and a card reader on a captive one of the inner hub.
+    static func cascade(ethernetPortType: Int = 1) -> [RawUSBDevice] {
+        [
+            Self.device(30, parent: 10, name: "Cascade Hub", hub: true),
+            Self.device(31, parent: 30, name: "Port Hub", hub: true, portType: 1),
+            Self.device(32, parent: 30, name: "Ethernet", portType: ethernetPortType,
+                        interfaces: [RawUSBInterface(interfaceClass: 2)]),
+            Self.device(40, parent: 31, name: "Webcam"),
+            Self.device(41, parent: 31, name: "Card Reader", portType: 1),
+        ]
+    }
+
+    @Test func displayFoldsItsRootHubAndHubCascade() throws {
+        let raw = Self.raw(usb: [Self.rootHub()] + Self.cascade(), dock: Self.display())
+        let display = try Self.dock(TopologyBuilder.build(raw))
+        #expect(display.kind == .display)
+        #expect(display.internalParts?.map(\.name) == ["Card Reader", "Cascade Hub", "Ethernet", "Port Hub",
+                                                       "USB3 HUB"])
+        // The webcam is on a standard port of a built-in hub: one of the display's own ports.
+        #expect(display.children.map(\.name) == ["Webcam"])
+        let portHub = display.internalParts?.first { $0.name == "Port Hub" }
+        #expect(display.children.first?.internalParentID == portHub?.id)
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// A monitor's hub chips look the same when the monitor is plugged into
+    /// a dock (the Anker capture), so a dock never folds them.
+    @Test func cascadeOnADockStays() throws {
+        let raw = Self.raw(usb: [Self.rootHub()] + Self.cascade())
+        #expect(try Self.partNames(raw) == ["USB3 HUB"])
+        #expect(try Self.childNames(raw) == ["Cascade Hub"])
+    }
+
+    @Test func secondDeviceOnTheRootHubTurnsOffTheCascade() throws {
+        let raw = Self.raw(usb: [Self.rootHub()] + Self.cascade() + [Self.device(50, parent: 10, name: "Drive")],
+                           dock: Self.display())
+        #expect(try Self.partNames(raw) == ["USB3 HUB"])
+        #expect(try Self.childNames(raw) == ["Cascade Hub", "Drive"])
+    }
+
+    /// A device on a standard port of the hub shows it can take a cable.
+    @Test func standardPortOnTheCascadeHubTurnsItOff() throws {
+        let raw = Self.raw(usb: [Self.rootHub()] + Self.cascade(ethernetPortType: 0), dock: Self.display())
+        #expect(try Self.partNames(raw) == ["USB3 HUB"])
+        #expect(try Self.childNames(raw) == ["Cascade Hub"])
+    }
+
+    /// Without a hub, or without a device that is not a hub, on its captive
+    /// ports the hub is not taken for the display's hub chips.
+    @Test(arguments: [true, false])
+    func cascadeNeedsAHubAndAFunction(_ keepsHub: Bool) throws {
+        let removed: Set<UInt64> = keepsHub ? [32] : [31, 40, 41]
+        let raw = Self.raw(usb: [Self.rootHub()] + Self.cascade().filter { !removed.contains($0.id) },
+                           dock: Self.display())
+        #expect(try Self.partNames(raw) == ["USB3 HUB"])
+        #expect(try Self.childNames(raw) == ["Cascade Hub"])
+    }
+
     // MARK: - Diagnostics and events
 
     /// The dock's root hub fell back to USB 2: one finding, on the dock card,

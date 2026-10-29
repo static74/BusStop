@@ -3,7 +3,7 @@ import Testing
 @testable import BusStopCore
 
 /// Safety properties of folding a dock's built-in parts, checked on every
-/// demo scenario, the real Anker capture and the robustness inputs: nothing
+/// demo scenario, the real Anker and Dell captures and the robustness inputs: nothing
 /// is lost or drawn twice, every part hangs off the dock or another part,
 /// and `DeviceNode.unfolded()` gives back the tree as it was.
 @Suite("Topology: built-in dock part invariants")
@@ -85,6 +85,12 @@ struct DockPartsInvariantTests {
         let raw = try AnkerPrimeDockTests.raw()
         Self.check(raw)
         #expect(TopologyBuilder.build(raw).internalPartIDs.count == 7)
+    }
+
+    @Test func dellMonitorCapture() throws {
+        let raw = try DellU4025QWTests.raw()
+        Self.check(raw)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 5)
     }
 
     @Test func robustnessInputs() {
