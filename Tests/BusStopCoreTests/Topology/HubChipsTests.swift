@@ -77,6 +77,17 @@ struct HubChipsTests {
         DockPartsInvariantTests.check(raw)
     }
 
+    /// A hub Bus Stop cannot place on a port folds in Other devices too.
+    @Test func foldsInOtherDevices() throws {
+        var raw = F.hubChain(chips: 2)
+        raw.usbDevices[0].usbIOPortPath = nil
+        let snapshot = TopologyBuilder.build(raw)
+        let hub = try #require(snapshot.otherDevices.first)
+        #expect(Self.partIDs(hub) == ["11"])
+        #expect(hub.children.map(\.name) == ["Keyboard"])
+        DockPartsInvariantTests.check(raw)
+    }
+
     @Test func foldingOffKeepsEveryChip() throws {
         let snapshot = TopologyBuilder.build(F.hubChain(chips: 3), options: BuildOptions(), foldsDockParts: false)
         #expect(snapshot.internalPartIDs.isEmpty)

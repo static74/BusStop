@@ -43,8 +43,8 @@ struct AnkerPrimeDockTests {
     }
 
     /// The dock's parts, leaving out the hub chips folded elsewhere.
-    static func partIDs(_ snapshot: HostSnapshot) -> Set<String> {
-        Set(((try? dock(in: snapshot))?.internalParts ?? []).map(\.id))
+    static func partIDs(_ snapshot: HostSnapshot) throws -> Set<String> {
+        Set((try dock(in: snapshot).internalParts ?? []).map(\.id))
     }
 
     // Parts, by rule (see `DockParts`).
@@ -67,7 +67,7 @@ struct AnkerPrimeDockTests {
         let snapshot = try Self.snapshot()
         let dock = try Self.dock(in: snapshot)
         #expect(Set((dock.internalParts ?? []).map(\.id)) == Self.expectedParts)
-        #expect(Self.partIDs(snapshot) == Self.expectedParts)
+        #expect(try Self.partIDs(snapshot) == Self.expectedParts)
         #expect(snapshot.internalPartIDs == Self.expectedParts.union(Self.realtekChips))
         // Parts are a flat list in name order.
         let parts = try #require(dock.internalParts)
@@ -182,13 +182,13 @@ struct AnkerPrimeDockTests {
         var raw = try Self.raw()
         raw.usbDevices.removeAll { $0.id == 4_295_376_433 }
         let snapshot = TopologyBuilder.build(raw)
-        #expect(Self.partIDs(snapshot) == [Self.rootHub, Self.tb5Function])
+        #expect(try Self.partIDs(snapshot) == [Self.rootHub, Self.tb5Function])
     }
 
     @Test func withoutTheTunnelledRootNothingFolds() throws {
         var raw = try Self.raw()
         raw.usbDevices.removeAll { $0.id == 4_295_375_556 }
-        #expect(Self.partIDs(TopologyBuilder.build(raw)).isEmpty)
+        #expect(try Self.partIDs(TopologyBuilder.build(raw)).isEmpty)
     }
 
     /// The Fresco USB 2 root hub, no longer a hub, cannot pair with the
@@ -197,7 +197,7 @@ struct AnkerPrimeDockTests {
     @Test func unmergedUSB2HalfLeavesOnlyTheRootHub() throws {
         let raw = try Self.raw(editingUSB: 4_295_375_554) { $0.node.properties["bDeviceClass"] = 0 }
         let snapshot = TopologyBuilder.build(raw)
-        #expect(Self.partIDs(snapshot) == [Self.rootHub])
+        #expect(try Self.partIDs(snapshot) == [Self.rootHub])
         let dock = try Self.dock(in: snapshot)
         #expect(dock.children.contains { $0.name == "USB2.0 Hub" })
     }
@@ -207,9 +207,9 @@ struct AnkerPrimeDockTests {
         var raw = try Self.raw()
         let index = try #require(raw.thunderboltSwitches.firstIndex { $0.id == Self.dockSwitchID })
         raw.thunderboltSwitches[index].node.properties["Device Vendor ID"] = value
-        #expect(Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
+        #expect(try Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
         raw.thunderboltSwitches[index].node.properties["Device Vendor ID"] = nil
-        #expect(Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
+        #expect(try Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
     }
 
     /// Another switch with the same vendor and model IDs: the IDs no longer
@@ -223,14 +223,14 @@ struct AnkerPrimeDockTests {
         twin.ancestry = []
         twin.ports = []
         raw.thunderboltSwitches.append(twin)
-        #expect(Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
+        #expect(try Self.partIDs(TopologyBuilder.build(raw)) == [Self.rootHub])
     }
 
     /// Only one half of the captive VIA pair says captive: that hub and the
     /// functions on it stay on the map.
     @Test func captiveHubNeedsBothHalvesCaptive() throws {
         let raw = try Self.raw(editingUSB: 4_295_376_094) { $0.node.properties["USBPortType"] = 0 }
-        #expect(Self.partIDs(TopologyBuilder.build(raw))
+        #expect(try Self.partIDs(TopologyBuilder.build(raw))
                 == [Self.rootHub, Self.tb5Function, Self.viaRootHub, Self.primeFunction])
     }
 
