@@ -45,7 +45,8 @@ struct GraphControlHostTests {
         let size = CGSize(width: 1000, height: 700)
         let (window, map) = host(
             TopologyGraphView(store: store, ports: store.snapshot.ports, includeOther: true, searchText: "",
-                              camera: .constant(nil), isWindowVisible: false, scrollRequest: .constant(nil)),
+                              camera: .constant(nil), isWindowVisible: false, scrollRequest: .constant(nil),
+                              onSelect: { store.selection = $0 }),
             size: size
         )
         defer { window.close() }

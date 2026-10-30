@@ -2,6 +2,54 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-29: Thunderbolt displays fold their built-in parts, and captive ports fold hub chips
+
+**Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, what evidence can say so, and how does the answer reach hardware nobody has captured?
+
+**Decision.**
+
+- `DockParts.fold` also takes a Thunderbolt display, with rules A to E unchanged. The inspector's section reads "Built into this display".
+- Bus Stop reads `kUSBContainerID` from every USB device. Rule F, for docks and displays, folds a device on a folded hub when every container ID it reports (both halves of a merged hub) is one the root hub reports. Missing and all-zero IDs match nothing.
+- A new pass, `HubChips`, runs after `DockParts` on every tree: a USB hub on a captive port of another hub is a chip of that hub and folds into it, down the chain. Devices that are not hubs never fold this way. The inspector says "Built into this hub", and All Devices names every kind of holder it leaves parts out of ("a dock or hub").
+- Exports keep redacting the container ID: its stand-in is the same for every device that shares it, so a redacted capture folds the same parts. An all-zero ID is kept as it is. The widget payload carries no property bags, so the ID never reaches it.
+
+**Why.** On the reporter's capture, by registry ID:
+
+- The monitor's switch (429, Intel JHL8440, "U4025QW") is the port's only switch with a live USB adapter and has a live DisplayPort adapter, so it is a `.display`. Its USB 3 hub (823, 8087:0B40) has `UsbTunnel` on the Mac's `AppleT8142USBXHCI` and pairs with the 1D5C:5801 USB 2 hub (352). Rule A folds it.
+- The switch, and the monitor's USB-PD identity, report 0x413C:0xC402 (Dell). No USB device has those IDs, so B and D find nothing.
+- The Realtek hub 944/860 is the only device on the root hub and reports `USBPortType` 0, as root ports do for everything. The Ethernet (272) and the Realtek hubs 297/338 and 383/407 on it are captive.
+
+The reporter's `ioreg` showed the Intel hub with one container ID and every Realtek chip and the Ethernet with another. On the owner's MacBook Pro the Anker Prime dock shows the same split. So nothing ties the Realtek group to the monitor, but the monitor does mark that group as one unit. These signals were checked:
+
+| Signal | Result on real hardware | Usable broadly? |
+| --- | --- | --- |
+| Captive hub ports | Correct inside both Dell monitors; the Anker dock flags one user port captive and some internal links standard | Yes, for hub chips |
+| `kUSBContainerID` | Groups a product's chips, but a Thunderbolt chip's hub has its own ID; captive devices seem to inherit their parent's ID | As a guard only |
+| `Built-In`, `non-removable`, hub port connector keys | Not present on any device or port | No |
+| Serial numbers, enumeration timing | Hubs report no serial; everything enumerates in one burst | No |
+| DisplayID ContainerID in EDID | Absent on the U4025QW | No |
+| USB-C cable e-marker, USB-PD identity | Describe the Mac-side cable and the product model only | No |
+
+Captive hub ports are the one signal that every USB product reports and that was right inside both Dell monitors. Limiting the fold to hubs bounds the cost of a wrong flag: the Anker flags a port where a person plugged in an audio device, and under this rule that device stays, because it is not a hub. The result on the reporter's monitor is one Realtek hub card holding the two lower chips, with the Ethernet, the webcam and two HID devices below it (5 below the monitor instead of 8). The Dell U4924DW behind the Anker dock folds the same way, and so does the UGREEN dock's two-chip VIA hub on the Mac mini capture.
+
+The Studio desk demo's Studio Display XDR has a tunnelled root hub too, so its hub is now a built-in part and the PSSD T9 and the camera hang off the display (7 drawn devices, down from 8). The README screenshots show the old tree until the Screenshots workflow runs again.
+
+**Risks.**
+
+- A hub chip on a port that reports standard stays a card, as before.
+- A wrong captive flag on a port where a person plugged in a hub hides that hub's card; the devices behind it still show, under the hub above.
+- A product that ships every unit with the same container ID (a firmware default Microsoft warns against) would match another unit of the same product plugged into it under F. Its root hub would have to carry that default too.
+- `kUSBContainerID` identifies a physical unit like a serial number. It is shown in the inspector's raw keys, as serial numbers are, and replaced in redacted exports; an export with redaction off carries it.
+
+**Rejected alternatives.**
+
+- *A catalogue of monitor models and the USB IDs built into them* (rule G, which shipped briefly on this branch): exact for the U4025QW, but the only product-specific table in the topology code, and every other monitor with the same layout stays broken until someone captures it and adds a row.
+- *Fold by layout* (a display, one hub alone on the root hub, every device on it captive): the Anker capture has the same Realtek layout a cable away from the dock.
+- *Tie the Realtek group to the monitor by container ID alone*: the chips and the Thunderbolt hub report different IDs on both real products.
+- *Fold captive functions too*, as rule E does inside a dock: a wrong flag would then hide a device someone plugged in.
+- *Classify the monitor as a dock.* It is a display, it carries the panel's video link, and the dock rules alone fold only the root hub.
+- *Keep `kUSBContainerID` out of captures,* as before: redaction already keeps its matches without the value, and without it a capture cannot show why parts fold.
+
 ## 2026-10-27: The history keeps the serial numbers its events hold
 
 **Question.** The widget payload and redacted exports must not name a device by its serial number, but some devices put their serial in their product name, and the events and "keeps disconnecting" findings about a device outlive it. After a relaunch the history's events name devices the app has not seen this session. How does redaction know their serials?

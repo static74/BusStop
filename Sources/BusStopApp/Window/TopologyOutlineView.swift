@@ -14,6 +14,8 @@ struct TopologyOutlineView: View {
     var searchText: String
     /// A row to scroll into view; cleared once handled.
     @Binding var scrollRequest: TopologyScrollRequest?
+    /// Selects a clicked row; the window also opens the inspector.
+    var onSelect: (StoreSelection) -> Void
 
     /// Row IDs of collapsed containers (everything starts expanded).
     @State private var collapsed: Set<String> = []
@@ -90,7 +92,7 @@ struct TopologyOutlineView: View {
         Binding(
             get: { SelectionTag.string(for: store.selection) },
             set: { tag in
-                if let selection = SelectionTag.selection(for: tag) { store.selection = selection }
+                if let selection = SelectionTag.selection(for: tag) { onSelect(selection) }
             }
         )
     }

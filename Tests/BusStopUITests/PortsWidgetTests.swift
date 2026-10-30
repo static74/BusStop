@@ -54,8 +54,9 @@ struct PortsWidgetTests {
     @Test func treesHangOffTheDeviceInTheRow() throws {
         let port = try #require(S.snapshot(.studioDesk).ports.first { $0.label.shortTitle == "Left Center" })
         let tree = PortsWidgetLayout.tree(of: port)
-        #expect(tree.map(\.device.name) == ["Studio Display XDR Hub", "PSSD T9", "Studio Display XDR Camera"])
-        #expect(tree.map(\.depth) == [1, 2, 2])
+        // The display's hub is built in, so the drive and the camera hang off the display.
+        #expect(tree.map(\.device.name) == ["PSSD T9", "Studio Display XDR Camera"])
+        #expect(tree.map(\.depth) == [1, 1])
     }
 
     @Test func extraLargeBalancesColumnsInOrder() {

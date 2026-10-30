@@ -191,6 +191,16 @@ struct RedactionTests {
         #expect(!Exporter.isUnitIdentifierKey("UIDCount"))
     }
 
+    /// An all-zero container ID identifies nothing and stays as it is, so it
+    /// never turns into a stand-in that looks like a real, shared one.
+    @Test func zeroContainerIDIsKept() {
+        let zero = "00000000-0000-0000-0000-000000000000"
+        let bag: PropertyBag = ["kUSBContainerID": .string(zero), "Other UUID": .string(zero)]
+        let redacted = Exporter.redacted(bag)
+        #expect(redacted.string("kUSBContainerID") == zero)
+        #expect(redacted.string("Other UUID") != zero)
+    }
+
     @Test func dashedAndUndashedUUIDsKeepMatching() throws {
         let dashed = "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
         let raw = TopologyFixtures.raw(

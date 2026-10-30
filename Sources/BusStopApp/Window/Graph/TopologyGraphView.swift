@@ -18,6 +18,8 @@ struct TopologyGraphView: View {
     var isWindowVisible: Bool
     /// A node to scroll into view; cleared once handled.
     @Binding var scrollRequest: TopologyScrollRequest?
+    /// Selects a clicked node or link; the window also opens the inspector.
+    var onSelect: (StoreSelection) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
@@ -99,13 +101,13 @@ struct TopologyGraphView: View {
 
     private func select(_ node: GraphNode) {
         guard let tag = node.tag, let selection = SelectionTag.selection(for: tag) else { return }
-        store.selection = selection
+        onSelect(selection)
     }
 
     /// Selects the link that leads to the node tagged `childTag`.
     private func selectLink(_ childTag: String) {
         guard let selection = SelectionTag.selection(for: SelectionTag.link(childTag)) else { return }
-        store.selection = selection
+        onSelect(selection)
     }
 
     /// The layout input: the given ports plus ghosts for departing devices,

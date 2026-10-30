@@ -192,9 +192,9 @@ struct LinkInspector: View {
                 default:
                     LinkInspectorNote(text: "This cable is plugged into \(parentName), not into the Mac, so the "
                         + "Mac cannot read its e-marker chip. Its speed above is what the link negotiated.")
-                    if let part = ends.builtInPart {
-                        LinkInspectorNote(text: "Inside the dock, the port it uses belongs to \(part.name), "
-                            + "which is built into \(parentName).")
+                    if let part = ends.builtInPart, case .device(let host) = ends.parent {
+                        LinkInspectorNote(text: "Inside the \(WindowText.builtInHost(host)), the port it uses "
+                            + "belongs to \(part.name), which is built into \(parentName).")
                     }
                 }
             }

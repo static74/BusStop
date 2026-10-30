@@ -28,7 +28,9 @@ import Foundation
 ///   `kUSBContainerID`, `ContainerID`), the HPM controller UUIDs of a raw
 ///   capture and the SMC channel UUIDs (`DxUI`). The stand-in keeps the
 ///   value's layout and replaces its hex digits with a running number, the
-///   same for the dashed and undashed forms of one UUID.
+///   same for the dashed and undashed forms of one UUID. Devices that share
+///   a `kUSBContainerID` still share its stand-in, so a redacted capture
+///   folds a dock's parts the same way; an all-zero one is kept as it is.
 extension Exporter {
     /// A copy of the snapshot with identifying values removed. `serials` are
     /// removed too, for serial numbers of devices no longer connected that a
@@ -561,6 +563,10 @@ private final class Redactor {
             guard let value = values[key] else { continue }
             if Exporter.isSensitiveKey(key) {
                 result[key] = .string(Exporter.redactedText)
+            } else if key.lowercased() == "kusbcontainerid", case .string(let text) = value,
+                      PowerParser.normalizedUUID(text)?.allSatisfy({ $0 == "0" }) == true {
+                // An all-zero container ID identifies nothing, and a stand-in would look like a real one.
+                result[key] = value
             } else if Exporter.isUnitIdentifierKey(key) {
                 result[key] = identifier(value, isUID: key.lowercased() == "uid")
             } else if key.lowercased() == "edid", case .data(let data) = value {

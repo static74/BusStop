@@ -170,7 +170,8 @@ struct TopologyWindowView: View {
                 searchText: searchText,
                 camera: $camera,
                 isWindowVisible: isWindowVisible,
-                scrollRequest: $scrollRequest
+                scrollRequest: $scrollRequest,
+                onSelect: showInInspector
             )
         case .graph:
             EmptyView()
@@ -180,7 +181,8 @@ struct TopologyWindowView: View {
                 ports: ports,
                 includeOther: includeOther,
                 searchText: searchText,
-                scrollRequest: $scrollRequest
+                scrollRequest: $scrollRequest,
+                onSelect: showInInspector
             )
         }
     }
@@ -208,7 +210,8 @@ struct TopologyWindowView: View {
 
     // MARK: Navigation
 
-    /// Selects without leaving the page, and shows the inspector (Events).
+    /// Selects without leaving the page, and shows the inspector (a click on
+    /// the map, a List row, the Mac Outline, an event).
     private func showInInspector(_ selection: StoreSelection) {
         store.selection = selection
         withAnimation(.snappy) { showInspector = true }

@@ -216,6 +216,8 @@ struct DockPartsTests {
         #expect(try Self.childNames(raw) == ["Monitor Hub"])
     }
 
+    /// Behind an external hub nothing is the dock's; the captive hub there
+    /// is a chip of the external hub instead (`HubChips`).
     @Test func captiveHubBelowAnExternalHubStays() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -226,7 +228,8 @@ struct DockPartsTests {
         #expect(try Self.partNames(raw) == ["USB3 HUB"])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(dock.children.map(\.name) == ["Desk Hub"])
-        #expect(dock.descendantCount == 3)
+        #expect(dock.children.first?.internalParts?.map(\.name) == ["Inner Hub"])
+        #expect(dock.descendantCount == 2)
     }
 
     /// The identity on a standard port does not make its hub built-in.
@@ -268,6 +271,103 @@ struct DockPartsTests {
         #expect(dock.internalParts?.map(\.name) == ["Anker Docking Station", "USB3 HUB"])
         #expect(dock.children.map(\.name) == ["Studio Display"])
         #expect(dock.children.first?.kind == .display)
+    }
+
+    // MARK: - Rule F (container IDs)
+
+    static let product = "6A1F0E43-9B2C-4D8A-8E2F-1C3B5D7E9F00"
+    static let other = "0B4F1A3C-77D2-4E19-9F0A-2C6E8B1D5A47"
+
+    /// A Thunderbolt display with a live USB tunnel.
+    static func display() -> RawThunderboltSwitch { dockSwitch(model: "Studio Monitor") }
+
+    /// `device` reporting `container` as its `kUSBContainerID`.
+    static func contained(_ device: RawUSBDevice, _ container: String) -> RawUSBDevice {
+        var device = device
+        device.node.properties["kUSBContainerID"] = .string(container)
+        return device
+    }
+
+    /// A monitor's hub chips and Ethernet sharing the root hub's container
+    /// ID, a webcam of another product and a keyboard with none on its ports.
+    static func containerRaw(dock: RawThunderboltSwitch) -> RawSnapshot {
+        raw(usb: [
+            contained(rootHub(), product),
+            contained(device(30, parent: 10, name: "Monitor Hub", hub: true), product),
+            contained(device(31, parent: 30, name: "Port Hub", hub: true, portType: 1), product),
+            contained(device(32, parent: 30, name: "Ethernet", portType: 1,
+                             interfaces: [RawUSBInterface(interfaceClass: 2)]), product),
+            contained(device(40, parent: 31, name: "Webcam"), other),
+            device(41, parent: 31, name: "Keyboard"),
+        ], dock: dock)
+    }
+
+    /// Docks and displays alike: a device sharing the root hub's container ID
+    /// is part of the same product, wherever it sits below the root hub.
+    @Test(arguments: [true, false])
+    func devicesSharingTheRootHubsContainerFold(_ isDisplay: Bool) throws {
+        let raw = Self.containerRaw(dock: isDisplay ? Self.display() : Self.dockSwitch())
+        let dock = try Self.dock(TopologyBuilder.build(raw))
+        let kind: DeviceKind = isDisplay ? .display : .dock
+        #expect(dock.kind == kind)
+        #expect(dock.internalParts?.map(\.name) == ["Ethernet", "Monitor Hub", "Port Hub", "USB3 HUB"])
+        #expect(dock.children.map(\.name) == ["Keyboard", "Webcam"])
+        let portHub = dock.internalParts?.first { $0.name == "Port Hub" }
+        #expect(dock.children.allSatisfy { $0.internalParentID == portHub?.id })
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// Rules work top-down: a device behind a hub of another product stays,
+    /// whatever its container ID.
+    @Test func sharedContainerBehindAnExternalHubStays() throws {
+        let raw = Self.raw(usb: [
+            Self.contained(Self.rootHub(), Self.product),
+            Self.contained(Self.device(30, parent: 10, name: "Desk Hub", hub: true), Self.other),
+            Self.contained(Self.device(31, parent: 30, name: "Behind Desk Hub"), Self.product),
+        ], dock: Self.display())
+        #expect(try Self.partNames(raw) == ["USB3 HUB"])
+        let display = try Self.dock(TopologyBuilder.build(raw))
+        #expect(display.children.map(\.name) == ["Desk Hub"])
+        #expect(display.descendantCount == 2)
+    }
+
+    @Test func missingOrZeroContainerMatchesNothing() throws {
+        let zero = "00000000-0000-0000-0000-000000000000"
+        for (rootContainer, hubContainer) in [(zero, zero), (nil, Self.product)] as [(String?, String)] {
+            let root = rootContainer.map { Self.contained(Self.rootHub(), $0) } ?? Self.rootHub()
+            let hub = Self.contained(Self.device(30, parent: 10, name: "Monitor Hub", hub: true), hubContainer)
+            let raw = Self.raw(usb: [root, hub], dock: Self.display())
+            #expect(try Self.partNames(raw) == ["USB3 HUB"])
+            #expect(try Self.childNames(raw) == ["Monitor Hub"])
+        }
+    }
+
+    /// The same UUID in another case or without dashes still matches.
+    @Test func containerIDsMatchWhateverTheirForm() throws {
+        let undashed = Self.product.lowercased().filter { $0 != "-" }
+        let raw = Self.raw(usb: [
+            Self.contained(Self.rootHub(), Self.product),
+            Self.contained(Self.device(30, parent: 10, name: "Monitor Hub", hub: true), undashed),
+        ], dock: Self.display())
+        #expect(try Self.partNames(raw) == ["Monitor Hub", "USB3 HUB"])
+    }
+
+    /// Redacted exports replace container IDs with stand-ins that keep which
+    /// devices share one, so a redacted capture folds the same parts.
+    @Test func redactedCaptureFoldsTheSameParts() throws {
+        let raw = Self.containerRaw(dock: Self.display())
+        let redacted = Exporter.redacted(raw)
+        let containers = Dictionary(uniqueKeysWithValues: redacted.usbDevices.map {
+            ($0.id, $0.node.properties.string("kUSBContainerID"))
+        })
+        #expect(containers[10] != Self.product)
+        #expect(containers[10] == containers[30])
+        #expect(containers[10] != containers[40])
+        #expect(!redacted.usbDevices.contains { device in
+            [Self.product, Self.other].contains { device.node.properties.string("kUSBContainerID") == $0 }
+        })
+        #expect(try Self.partNames(redacted) == Self.partNames(raw))
+        #expect(try Self.childNames(redacted) == Self.childNames(raw))
     }
 
     // MARK: - Diagnostics and events

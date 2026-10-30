@@ -2,10 +2,11 @@ import Foundation
 import Testing
 @testable import BusStopCore
 
-/// Safety properties of folding a dock's built-in parts, checked on every
-/// demo scenario, the real Anker capture and the robustness inputs: nothing
-/// is lost or drawn twice, every part hangs off the dock or another part,
-/// and `DeviceNode.unfolded()` gives back the tree as it was.
+/// Safety properties of folding the built-in parts of docks and hubs
+/// (`DockParts`, `HubChips`), checked on every demo scenario, the real Anker,
+/// Dell and Mac mini captures and the robustness inputs: nothing is lost or
+/// drawn twice, every part hangs off its holder or another part, and
+/// `DeviceNode.unfolded()` gives back the tree as it was.
 @Suite("Topology: built-in dock part invariants")
 struct DockPartsInvariantTests {
     /// A device's identity that survives `makeDeviceIDsUnique`: device IDs
@@ -84,7 +85,20 @@ struct DockPartsInvariantTests {
     @Test func ankerCapture() throws {
         let raw = try AnkerPrimeDockTests.raw()
         Self.check(raw)
-        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 7)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 9)
+    }
+
+    @Test func dellMonitorCapture() throws {
+        let raw = try DellU4025QWTests.raw()
+        Self.check(raw)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 3)
+    }
+
+    @Test func macMiniCapture() throws {
+        let url = try #require(Bundle.module.url(forResource: "MacMiniM4UgreenDock", withExtension: "json"))
+        let raw = try Exporter.decodeRaw(Data(contentsOf: url))
+        Self.check(raw)
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 1)
     }
 
     @Test func robustnessInputs() {
