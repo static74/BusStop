@@ -2,6 +2,26 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-30: Rule E is gone; functions on a dock's hubs stay on the map
+
+**Question.** On the owner's MacBook Pro (macOS 27.0.1) a Keychron Q3 Pro keyboard (3434:0630) and a Benchmark 1.0 audio device (04D8:FEEA), plugged into the Anker Prime TB5 dock, were listed among the dock's built-in parts and left the map, the list and the CLI tree. Rule E (2026-10-14) folded every device that is not a hub on a hub folded by C. What should tell a dock's own functions from a device someone plugged into the dock?
+
+**Decision.** Rule E is removed. A device on a dock's or display's hub that is not a hub or billboard folds only by rule B (the dock's own IDs) or rule F (the root hub's container ID). The Anker Prime's Ethernet (0BDA:8156) and card reader (05E3:0764) now show as devices under the dock. A test invariant checks every fixture, demo and random input: a part that is not a hub is a billboard, carries its holder's own IDs or reports a container ID.
+
+**Why.** From the owner's live capture, the two plugged-in devices sit on the dock's captive VIA hub (0x00242000 / 0x00142000), the hub that holds the Ethernet and card reader:
+
+- The keyboard is on a standard port with no container ID, exactly as the Ethernet and card reader are.
+- The audio device is on a port the dock flags captive and reports the VIA group's container ID; macOS seems to hand a device on a captive port its hub's ID. It looks more built in than the Ethernet.
+- The hub-port probe found no other property on the dock's ports.
+
+No signal separates the dock's functions from a device plugged into a port wired to the same hub, so a rule that folds them by position must hide some device a person plugged in. Showing the dock's Ethernet as a card costs one extra card; hiding a keyboard loses a device.
+
+**Rejected alternatives.**
+
+- *Limit rules C and E through a catalogue of dock models* (PR #52 as first written, on the catalogue of `f9a689f`). Exact for listed docks, but #51 removed the catalogue so that no rule names a product's IDs; every unlisted dock would still have needed E dropped.
+- *Rule E for captive ports only.* The keyboard would show, but the audio device sits on a captive port and would stay hidden, and the Ethernet and card reader (standard ports) would show anyway.
+- *Rule E for devices sharing a container ID with their hub.* The audio device inherits the VIA group's ID.
+
 ## 2026-10-29: Thunderbolt displays fold their built-in parts, and captive ports fold hub chips
 
 **Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, what evidence can say so, and how does the answer reach hardware nobody has captured?
@@ -46,7 +66,7 @@ The Studio desk demo's Studio Display XDR has a tunnelled root hub too, so its h
 - *A catalogue of monitor models and the USB IDs built into them* (rule G, which shipped briefly on this branch): exact for the U4025QW, but the only product-specific table in the topology code, and every other monitor with the same layout stays broken until someone captures it and adds a row.
 - *Fold by layout* (a display, one hub alone on the root hub, every device on it captive): the Anker capture has the same Realtek layout a cable away from the dock.
 - *Tie the Realtek group to the monitor by container ID alone*: the chips and the Thunderbolt hub report different IDs on both real products.
-- *Fold captive functions too*, as rule E does inside a dock: a wrong flag would then hide a device someone plugged in.
+- *Fold captive functions too*, as rule E did inside a dock until 2026-10-30: a wrong flag would then hide a device someone plugged in.
 - *Classify the monitor as a dock.* It is a display, it carries the panel's video link, and the dock rules alone fold only the root hub.
 - *Keep `kUSBContainerID` out of captures,* as before: redaction already keeps its matches without the value, and without it a capture cannot show why parts fold.
 

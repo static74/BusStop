@@ -25,7 +25,10 @@ import Foundation
 ///   hub's own ports, whose flags are not reliable.
 /// - D. Identity holder: a hub with a B device on a captive port. When more
 ///   than one hub in the dock qualifies, B and D are both off.
-/// - E. A device that is not a hub, on a hub folded by C.
+/// - (E, which folded every other device on a C hub, is gone: a keyboard on
+///   a dock port wired to that hub reports the same flags as the dock's own
+///   Ethernet, so functions on a dock's hubs stay on the map. See
+///   docs/decisions.md, 2026-10-30.)
 /// - F. Container: a device on a hub folded by any rule, when every
 ///   `kUSBContainerID` it reports (both halves of a merged hub) is one the
 ///   root hub reports. USB gives every function of one physical product the
@@ -41,7 +44,6 @@ enum DockParts {
         case identity
         case captive
         case identityHolder
-        case captiveFunction
         case container
     }
 
@@ -195,7 +197,6 @@ enum DockParts {
            isHub(child) || isBillboard(child, evidence), isCaptive(child, evidence) {
             return .captive
         }
-        if parentRule == .captive, !isHub(child) { return .captiveFunction }
         let own = containers(of: child, evidence)
         if !own.isEmpty, own.allSatisfy(rootContainers.contains) { return .container }
         return nil

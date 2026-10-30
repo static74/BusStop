@@ -13,6 +13,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 ### Fixed
 
 - Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
+- A device plugged into a Thunderbolt dock's own ports no longer disappears into the dock's built-in parts. On an Anker Prime dock a keyboard and an audio interface were hidden that way. The dock's own Ethernet and card reader now show as devices under the dock too, because nothing in the hardware tells them apart from something plugged in.
 
 ## [1.2.1] - 2026-10-27
 

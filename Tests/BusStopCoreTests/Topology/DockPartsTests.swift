@@ -150,12 +150,13 @@ struct DockPartsTests {
         #expect(try Self.partNames(raw) == ["USB3 HUB"])
     }
 
-    // MARK: - Rules C, D and E
+    // MARK: - Rules C and D
 
     /// The Anker shape: a hub holding the dock's identity on a captive port
     /// (D), a captive hub below it (C) with the dock's Ethernet and card
-    /// reader on it (E), and an external hub on that captive hub that stays
-    /// with its subtree.
+    /// reader on it, and an external hub on that captive hub that stays with
+    /// its subtree. The Ethernet and card reader stay too: a keyboard on a
+    /// dock port wired to that hub would report the same flags.
     @Test func identityHolderAndCaptiveHubFold() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -171,10 +172,13 @@ struct DockPartsTests {
         ])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(Set(dock.internalParts?.map(\.name) ?? []) == [
-            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub", "Ethernet", "Card Reader",
+            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub",
         ])
-        #expect(dock.children.map(\.name) == ["Desk Hub", "Port Hub"])
-        #expect(dock.children.first?.children.map(\.name) == ["Keyboard"])
+        #expect(dock.children.map(\.name) == ["Card Reader", "Desk Hub", "Ethernet", "Port Hub"])
+        let captiveHub = dock.internalParts?.first { $0.name == "Captive Hub" }
+        #expect(dock.children.filter { ["Card Reader", "Ethernet"].contains($0.name) }
+            .allSatisfy { $0.internalParentID == captiveHub?.id })
+        #expect(dock.children.first { $0.name == "Desk Hub" }?.children.map(\.name) == ["Keyboard"])
         #expect(dock.children.last?.children.map(\.name) == ["Phone"])
     }
 
