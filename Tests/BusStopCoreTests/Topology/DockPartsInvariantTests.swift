@@ -5,8 +5,9 @@ import Testing
 /// Safety properties of folding the built-in parts of docks and hubs
 /// (`DockParts`, `HubChips`), checked on every demo scenario, the real Anker,
 /// Dell and Mac mini captures and the robustness inputs: nothing is lost or
-/// drawn twice, every part hangs off its holder or another part, and
-/// `DeviceNode.unfolded()` gives back the tree as it was.
+/// drawn twice, every part hangs off its holder or another part, no part is
+/// a device someone plugged in, and `DeviceNode.unfolded()` gives back the
+/// tree as it was.
 @Suite("Topology: built-in dock part invariants")
 struct DockPartsInvariantTests {
     /// A device's identity that survives `makeDeviceIDsUnique`: device IDs
@@ -61,6 +62,30 @@ struct DockPartsInvariantTests {
             #expect(original?.downstreamMilliwatts == dock.downstreamMilliwatts, sourceLocation: sourceLocation)
         }
 
+        // Nothing a person plugged in is folded: a part that is not a hub is a
+        // billboard (rule C), carries its holder's own IDs (rule B) or reports
+        // a container ID (rule F). A function with none of these, like a
+        // keyboard on a dock port wired to a captive hub, stays on the map.
+        let records = Dictionary(raw.usbDevices.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let switches = Dictionary(raw.thunderboltSwitches.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for holder in docks {
+            let own = holder.registryID.flatMap { switches[$0] }.map {
+                ($0.node.properties.int("Device Vendor ID"), $0.node.properties.int("Device Model ID"))
+            }
+            for part in holder.internalParts ?? [] where part.deviceClass != DeviceClassifier.USBClass.hub {
+                let record = part.registryID.flatMap { records[$0] }
+                let billboard = part.deviceClass == DeviceClassifier.USBClass.billboard
+                    || record.map { !$0.interfaces.isEmpty && $0.interfaces.allSatisfy {
+                        $0.interfaceClass == DeviceClassifier.USBClass.billboard
+                    } } == true
+                let identity = own.map { $0.0 != nil && $0.0 == part.vendorID && $0.1 == part.productID } == true
+                let container = record?.node.properties.string("kUSBContainerID")
+                    .flatMap { PowerParser.normalizedUUID($0) }.map { $0.contains { $0 != "0" } } == true
+                #expect(billboard || identity || container, "\(part.name) is folded without evidence",
+                        sourceLocation: sourceLocation)
+            }
+        }
+
         // Unfolding gives back the tree: exactly when no device ID repeats,
         // by registry ID otherwise.
         let sameIDs = (folded.allDevices.map(\.device.id) + docks.flatMap { $0.internalParts ?? [] }.map(\.id))
@@ -85,7 +110,8 @@ struct DockPartsInvariantTests {
     @Test func ankerCapture() throws {
         let raw = try AnkerPrimeDockTests.raw()
         Self.check(raw)
-        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 9)
+        // Five dock parts and the two Realtek hub chips.
+        #expect(TopologyBuilder.build(raw).internalPartIDs.count == 7)
     }
 
     @Test func dellMonitorCapture() throws {

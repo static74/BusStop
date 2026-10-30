@@ -11,12 +11,14 @@ import Testing
 /// below them do pair up (Realtek 0483/5483 on port 1, VIA 0822/2822 on
 /// port 4), which is what ties the roots together.
 ///
-/// Seven of the dock's own USB parts fold into the dock card (SPEC §5.4
+/// Five of the dock's own USB parts fold into the dock card (SPEC §5.4
 /// "Built-in dock parts"): the tunnelled root hub, the two USB functions
 /// with the dock's own vendor and product IDs, the VIA hub that holds one
-/// of them on a captive port, the captive VIA hub below it and the Ethernet
-/// and card reader on that hub. The Realtek hub on the dock (the Dell
-/// monitor's) holds its two other chips (`HubChips`).
+/// of them on a captive port and the captive VIA hub below it. The Ethernet
+/// and card reader on that hub stay on the map under the dock: they report
+/// what a keyboard plugged into a dock port wired to the same hub reports.
+/// The Realtek hub on the dock (the Dell monitor's) holds its two other
+/// chips (`HubChips`).
 @Suite("Topology: Anker Prime TB5 dock capture")
 struct AnkerPrimeDockTests {
     static let dockSwitchID: UInt64 = 4_295_375_469
@@ -53,10 +55,10 @@ struct AnkerPrimeDockTests {
     static let viaRootHub = "usb:00240000:2109:0822"       // D: holds the 480 Mb/s identity on captive port 5
     static let primeFunction = "usb:00145000:291a:83b5"    // B: dock identity, 480 Mb/s
     static let captiveHub = "usb:00242000:2109:0822"       // C: captive below the D hub, both halves
-    static let ethernet = "usb:00242400:0bda:8156"         // E: function on the captive hub
-    static let cardReader = "usb:00242300:05e3:0764"       // E: function on the captive hub
-    static let expectedParts: Set<String> = [rootHub, tb5Function, viaRootHub, primeFunction, captiveHub, ethernet,
-                                             cardReader]
+    static let expectedParts: Set<String> = [rootHub, tb5Function, viaRootHub, primeFunction, captiveHub]
+    // On the captive hub, drawn under the dock: a function there can be a device someone plugged in.
+    static let ethernet = "usb:00242400:0bda:8156"
+    static let cardReader = "usb:00242300:05e3:0764"
     // Hub chips: the two Realtek hubs on captive ports of the monitor's hub.
     static let realtekHub = "usb:00210000:0bda:0483"
     static let realtekChips: Set<String> = ["usb:00212000:0bda:0483", "usb:00213000:0bda:0483"]
@@ -75,14 +77,16 @@ struct AnkerPrimeDockTests {
         #expect(parts.map(\.name) == parts.map(\.name).sorted { $0.lowercased() < $1.lowercased() })
 
         // What stays on the map: the two displays, the Realtek hub, the Cable
-        // Matters billboard (a USB-C to DisplayPort cable) and the VIA hub
-        // with the iPad and the keyboard behind it.
+        // Matters billboard (a USB-C to DisplayPort cable), the Ethernet and
+        // card reader on the captive hub, and the VIA hub with the iPad and the
+        // keyboard behind it.
         #expect(dock.children.filter { $0.kind == .display }.map(\.name) == ["Dell U4924DW", "Gigabyte M32U"])
         #expect(Set(dock.children.filter { $0.bus == .usb }.map(\.id)) == [
-            "usb:00210000:0bda:0483", "usb:00130000:0bda:5452", "usb:00241000:2109:0822",
+            "usb:00210000:0bda:0483", "usb:00130000:0bda:5452", "usb:00241000:2109:0822", Self.ethernet,
+            Self.cardReader,
         ])
         #expect(dock.children.map(\.name) == ["4-Port USB 3.0 Hub", "billboard", "Dell U4924DW", "Gigabyte M32U",
-                                              "USB3.1 Hub"])
+                                              "USB 10_100 LAN", "USB Storage", "USB3.1 Hub"])
     }
 
     @Test func partsRecordWhatTheyHangOff() throws {
@@ -94,8 +98,6 @@ struct AnkerPrimeDockTests {
             Self.viaRootHub: Self.rootHub,
             Self.primeFunction: Self.viaRootHub,
             Self.captiveHub: Self.viaRootHub,
-            Self.ethernet: Self.captiveHub,
-            Self.cardReader: Self.captiveHub,
         ])
     }
 
@@ -105,6 +107,8 @@ struct AnkerPrimeDockTests {
         #expect(parents["usb:00210000:0bda:0483"] == Self.rootHub)
         #expect(parents["usb:00130000:0bda:5452"] == Self.rootHub)
         #expect(parents["usb:00241000:2109:0822"] == Self.viaRootHub)
+        #expect(parents[Self.ethernet] == Self.captiveHub)
+        #expect(parents[Self.cardReader] == Self.captiveHub)
         #expect(dock.children.filter { $0.kind == .display }.allSatisfy { $0.internalParentID == nil })
     }
 
@@ -129,19 +133,94 @@ struct AnkerPrimeDockTests {
         #expect(via.flattened().contains { $0.device.name == "Keychron Q3 Pro" })
     }
 
+    // MARK: - Devices on the dock's own ports
+
+    /// Container IDs as the owner's later capture grouped them: one for the
+    /// Intel and Fresco root hubs, one for the VIA hubs and the 480 Mb/s
+    /// function.
+    static let rootContainer = "3F0C2A9E-5B71-4D2E-9A64-0E8B1C7D2F10"
+    static let viaContainer = "8D4B6E12-2C9F-4A73-B05E-7F1A3D9C6E21"
+    static let benchmark = "usb:00142100:04d8:feea"
+    static let keychron = "usb:00142200:3434:0630"
+
+    /// The owner's setup a few weeks after the capture: the Benchmark DAC and
+    /// the Keychron keyboard plugged straight into the dock, on two ports that
+    /// the captive VIA hub serves (ports 1 and 2 of its USB 2 half). As a live
+    /// capture showed, the DAC's port reports captive and the DAC carries the
+    /// VIA group's container ID (macOS seems to give a device on a captive
+    /// port its hub's), while the keyboard's port is standard and it reports
+    /// none, like the Ethernet and card reader. Made from the capture by
+    /// moving the two devices and adding the container IDs.
+    static func portDevicesRaw() throws -> RawSnapshot {
+        var raw = try raw()
+        let containers: [UInt64: String] = [
+            4_295_375_556: rootContainer, 4_295_375_554: rootContainer,
+            4_295_375_600: viaContainer, 4_295_375_733: viaContainer,
+            4_295_375_801: viaContainer, 4_295_376_094: viaContainer,
+            4_295_376_433: viaContainer, 4_295_376_488: viaContainer,
+        ]
+        // Registry ID → location on the captive hub's USB 2 half, and `USBPortType`.
+        let moves: [UInt64: (location: Int64, portType: Int64)] = [
+            4_295_376_488: (0x0014_2100, 1), // Benchmark 1.0
+            4_295_376_436: (0x0014_2200, 0), // Keychron Q3 Pro
+        ]
+        for index in raw.usbDevices.indices {
+            let id = raw.usbDevices[index].id
+            if let container = containers[id] {
+                raw.usbDevices[index].node.properties["kUSBContainerID"] = .string(container)
+            }
+            guard let move = moves[id] else { continue }
+            raw.usbDevices[index].parentDeviceID = 4_295_376_094
+            raw.usbDevices[index].node.location = String(format: "%08llx", move.location)
+            raw.usbDevices[index].node.properties["locationID"] = .int(move.location)
+            raw.usbDevices[index].node.properties["USBPortType"] = .int(move.portType)
+        }
+        return raw
+    }
+
+    /// The keyboard and the DAC stay on the map, hanging off the dock with
+    /// the captive hub as their built-in parent, beside the dock's Ethernet
+    /// and card reader; the dock's hub chips and own functions stay folded.
+    /// On `main` before rule E was removed, both were built-in parts.
+    @Test func devicesOnTheDocksOwnPortsStayOnTheMap() throws {
+        let raw = try Self.portDevicesRaw()
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(try Self.partIDs(snapshot) == Self.expectedParts)
+        let dock = try Self.dock(in: snapshot)
+        let onCaptiveHub = dock.children.filter { $0.internalParentID == Self.captiveHub }
+        #expect(Set(onCaptiveHub.map(\.id)) == [Self.benchmark, Self.keychron, Self.ethernet, Self.cardReader])
+        #expect(onCaptiveHub.allSatisfy { $0.children.isEmpty })
+        // They moved from behind the external VIA hub, so the count is the same.
+        #expect(dock.descendantCount == 19)
+        let via = try #require(dock.children.first { $0.id == "usb:00241000:2109:0822" })
+        #expect(!via.flattened().contains { [Self.benchmark, Self.keychron].contains($0.device.id) })
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// `busstop` draws the two devices straight below the dock.
+    @Test func textTreeShowsTheDevicesOnTheDocksOwnPorts() throws {
+        let text = Exporter.textTree(TopologyBuilder.build(try Self.portDevicesRaw()))
+        let dockLine = "│  └─ Prime Docking Station (14-in-1, 8K, Thunderbolt 5) · 80 Gb/s · 22 W\n"
+        #expect(text.contains(dockLine), "\(text)")
+        #expect(text.contains("│     ├─ Benchmark 1.0 · 12 Mb/s\n"), "\(text)")
+        #expect(text.contains("│     ├─ Keychron Q3 Pro · 12 Mb/s · 2.5 W\n"), "\(text)")
+        #expect(text.contains("│     ├─ USB 10_100 LAN · 5 Gb/s · 1.3 W\n"), "\(text)")
+        #expect(text.contains("│     ├─ USB Storage · 5 Gb/s · 4.5 W\n"), "\(text)")
+    }
+
     // MARK: - Counts and power
 
-    /// Counts are drawn devices only: 26 below the dock before, 17 after.
+    /// Counts are drawn devices only: 26 below the dock before, 19 after.
     @Test func countsLeaveOutBuiltInParts() throws {
         let folded = try Self.snapshot()
         let unfolded = try Self.snapshot(foldsDockParts: false)
         #expect(try Self.dock(in: unfolded).descendantCount == 26)
-        #expect(try Self.dock(in: folded).descendantCount == 17)
+        #expect(try Self.dock(in: folded).descendantCount == 19)
         let key = PortKey(type: 2, number: 1)
         #expect(unfolded.port(key)?.deviceCount == 27)
-        #expect(folded.port(key)?.deviceCount == 18)
+        #expect(folded.port(key)?.deviceCount == 20)
         #expect(unfolded.deviceCount == 27)
-        #expect(folded.deviceCount == 18)
+        #expect(folded.deviceCount == 20)
     }
 
     /// Folding moves devices, not power: every figure stays as it was.
@@ -167,11 +246,10 @@ struct AnkerPrimeDockTests {
         #expect(function.name == "Anker Thunderbolt 5 Docking Station")
         #expect(function.vendorName == "Anker")
         #expect(function.link?.rateLabel == "12 Mb/s")
-        let ethernet = try #require(byID[Self.ethernet])
-        #expect(ethernet.name == "USB 10_100 LAN")
-        #expect(ethernet.vendorName == "Realtek")
-        #expect(ethernet.link?.rateLabel == "5 Gb/s")
-        #expect(ethernet.power?.allocatedMilliwatts ?? 0 > 0)
+        let captive = try #require(byID[Self.captiveHub])
+        #expect(captive.name == "USB3.1 Hub")
+        #expect(captive.vendorName == "VIA Labs, Inc.")
+        #expect(captive.link?.rateLabel == "10 Gb/s")
     }
 
     // MARK: - Fail closed
@@ -271,6 +349,8 @@ struct AnkerPrimeDockTests {
         │     ├─ billboard · 12 Mb/s · 2.5 W
         │     ├─ Dell U4924DW · 21.6 Gb/s
         │     ├─ Gigabyte M32U · 32.4 Gb/s
+        │     ├─ USB 10_100 LAN · 5 Gb/s · 1.3 W
+        │     ├─ USB Storage · 5 Gb/s · 4.5 W
         │     └─ USB3.1 Hub · 10 Gb/s · 7 W
         │        ├─ iPad · 10 Gb/s · 4.5 W
         │        ├─ USB Billboard Device · 480 Mb/s
@@ -287,10 +367,10 @@ struct AnkerPrimeDockTests {
     @Test func markdownListsTheBuiltInParts() throws {
         let markdown = Exporter.markdown(try Self.snapshot())
         // The dock's line counts drawn devices only; the parts are named below it.
-        #expect(markdown.contains("22 W allocated · 17 devices · `0x8087:0x5786`"))
+        #expect(markdown.contains("22 W allocated · 19 devices · `0x8087:0x5786`"))
         #expect(!markdown.contains("built-in part"))
         #expect(markdown.contains("Built in: Anker Prime Docking Station, Anker Thunderbolt 5 Docking Station, "
-            + "USB 10\\_100 LAN, USB Storage, USB3 HUB, USB3.1 Hub, USB3.1 Hub"))
+            + "USB3 HUB, USB3.1 Hub, USB3.1 Hub"))
     }
 
     @Test func jsonRoundTripKeepsTheParts() throws {
@@ -302,7 +382,7 @@ struct AnkerPrimeDockTests {
         let redacted = try Exporter.makeDecoder().decode(HostSnapshot.self, from: Exporter.json(snapshot))
         let dock = try Self.dock(in: redacted)
         let parts = try #require(dock.internalParts)
-        #expect(parts.count == 7)
+        #expect(parts.count == 5)
         let ids = Set(parts.map(\.id))
         #expect((parts + dock.children).compactMap(\.internalParentID).allSatisfy(ids.contains))
     }
@@ -339,7 +419,7 @@ struct AnkerPrimeDockTests {
         #expect(String(decoding: full, as: UTF8.self).contains("\"internalParts\""))
         let stripped = try Exporter.makeDecoder().decode(HostSnapshot.self, from: Self.withoutPartFields(full))
         #expect(stripped.internalPartIDs.isEmpty)
-        #expect(stripped.deviceCount == 18)
+        #expect(stripped.deviceCount == 20)
         #expect(try Self.dock(in: stripped).internalParts == nil)
     }
 
@@ -366,7 +446,7 @@ struct AnkerPrimeDockTests {
         let disconnected = events.filter { $0.kind == .deviceDisconnected }
         #expect(disconnected.count == 1)
         // Two display rows are left to the display events.
-        #expect(disconnected.first?.detail.hasSuffix("and 15 more devices") == true)
+        #expect(disconnected.first?.detail.hasSuffix("and 17 more devices") == true)
     }
 
     // MARK: - Hub pairs (folding off)
