@@ -178,23 +178,83 @@ enum TopologyFixtures {
 
     // MARK: - Layouts
 
-    /// A USB hub built from `chips` USB 2 hub chips (registry IDs 10, 11, …)
-    /// on USB-C port 1: each chip after the first on port 1 of the one before,
-    /// whose `USBPortType` is `portType` (1 = captive), and a keyboard (ID 99)
-    /// on standard port 2 of the last. At most four chips.
-    static func hubChain(chips: Int, portType: Int = 1) -> RawSnapshot {
+    /// `chips` USB 2 hub chips with registry IDs 10, 11, …: the first at
+    /// `location` below `parent` on a standard port, each after it on port 1
+    /// of the one before, whose `USBPortType` is `portType` (1 = captive),
+    /// and a keyboard (ID 99) on standard port 2 of the last.
+    static func chipChain(chips: Int, portType: Int = 1, parent: UInt64? = nil, location: UInt32,
+                          path: String? = nil, ancestry: [RawAncestor] = []) -> [RawUSBDevice] {
         var usb: [RawUSBDevice] = []
-        var location: UInt32 = 0x0110_0000
+        var location = location
         for level in 0..<chips {
-            if level > 0 { location |= 1 << (16 - 4 * level) }
-            usb.append(self.usb(id: UInt64(10 + level), parent: level == 0 ? nil : UInt64(9 + level), name: "Hub",
-                                location: location, deviceClass: 9, path: level == 0 ? "x/Port-USB-C@1" : nil,
+            if level > 0 { location = below(location, port: 1) }
+            usb.append(self.usb(id: UInt64(10 + level), parent: level == 0 ? parent : UInt64(9 + level), name: "Hub",
+                                location: location, deviceClass: 9, path: level == 0 ? path : nil,
+                                ancestry: ancestry,
                                 extra: ["USBPortType": .int(level == 0 ? 0 : Int64(portType))]))
         }
-        usb.append(self.usb(id: 99, parent: UInt64(9 + chips), name: "Keyboard",
-                            location: location | 2 << (16 - 4 * chips),
-                            interfaces: [RawUSBInterface(interfaceClass: 3)], extra: ["USBPortType": 0]))
-        return raw(ports: [port(id: 1, number: 1, connected: true, active: ["CC", "USB2"])], usb: usb)
+        usb.append(self.usb(id: 99, parent: UInt64(9 + chips), name: "Keyboard", location: below(location, port: 2),
+                            ancestry: ancestry, interfaces: [RawUSBInterface(interfaceClass: 3)],
+                            extra: ["USBPortType": 0]))
+        return usb
+    }
+
+    /// The location ID of `port` on the hub at `location`: the first free tier.
+    static func below(_ location: UInt32, port: UInt32) -> UInt32 {
+        let shift = stride(from: 20, through: 0, by: -4).first { (location >> UInt32($0)) & 0xF == 0 } ?? 0
+        return location | port << UInt32(shift)
+    }
+
+    /// A `chipChain` straight on USB-C port 1.
+    static func hubChain(chips: Int, portType: Int = 1) -> RawSnapshot {
+        raw(ports: [port(id: 1, number: 1, connected: true, active: ["CC", "USB2"])],
+            usb: chipChain(chips: chips, portType: portType, location: 0x0110_0000, path: "x/Port-USB-C@1"))
+    }
+
+    /// The Mac's Thunderbolt switch, with a lane on USB-C port 1.
+    static func hostSwitch() -> RawThunderboltSwitch {
+        tbSwitch(id: 1000, depth: 0, uid: 0x05AC_0000_0000_1000,
+                 ports: [lane(id: 1001, portNumber: 1, socket: "1", speed: 0x2, width: 0x2)],
+                 ancestry: hostAncestry(acio: 0))
+    }
+
+    /// A Thunderbolt device (switch 1100) on USB-C port 1 with these adapters.
+    static func chainSwitch(model: String, adapters: [RawNode]) -> RawThunderboltSwitch {
+        tbSwitch(id: 1100, parent: 1000, depth: 1, uid: 0x1100, model: model, upstreamPort: 1,
+                 ports: [lane(id: 1101, portNumber: 1, speed: 0x2, width: 0x2)] + adapters,
+                 ancestry: [RawAncestor(id: 1001, className: "IOThunderboltPort", name: "IOThunderboltPort")]
+                     + hostAncestry(acio: 0))
+    }
+
+    static let thunderboltPort = [port(id: 1, number: 1, connected: true, active: ["CC", "CIO"]),
+                                  transport(id: 11, parent: 1, kind: "CIO", portNumber: 1)]
+
+    /// A Thunderbolt 3 dock with its own PCIe USB controller, and a
+    /// `chipChain` on that controller. No USB tunnel, so no dock rule applies.
+    static func pcieDock(chips: Int) -> RawSnapshot {
+        let dock = chainSwitch(model: "Pro Dock", adapters: [
+            adapter(id: 1102, portNumber: 8, description: "PCIe Adapter", hops: true),
+        ])
+        return raw(ports: thunderboltPort,
+                   usb: chipChain(chips: chips, location: 0x0310_0000, ancestry: tunnelAncestry(pcie: 0)),
+                   thunderbolt: [hostSwitch(), dock])
+    }
+
+    /// A Thunderbolt display with live USB and DisplayPort tunnels whose root
+    /// hub (ID 9) is tunnelled to the Mac's own controller (rule A), and a
+    /// `chipChain` on the root hub's port 1.
+    static func tunnelledDisplay(chips: Int) -> RawSnapshot {
+        let display = chainSwitch(model: "Desk Display", adapters: [
+            adapter(id: 1102, portNumber: 10, description: "DP or HDMI Adapter", hops: true),
+            adapter(id: 1103, portNumber: 12, description: "USB Adapter", hops: true),
+        ])
+        let root = usb(id: 9, name: "USB3 HUB", vendor: 0x8087, product: 0x0B40, location: 0x0020_0000,
+                       speed: 10_000_000_000, deviceClass: 9, bcdUSB: 0x0320, path: "a/Port-USB-C@1",
+                       ancestry: nativeAncestry(drd: 0), extra: ["UsbTunnel": true])
+        return raw(ports: thunderboltPort,
+                   usb: [root] + chipChain(chips: chips, parent: 9, location: 0x0021_0000,
+                                           ancestry: nativeAncestry(drd: 0)),
+                   thunderbolt: [hostSwitch(), display])
     }
 
     // MARK: - Helpers

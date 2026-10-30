@@ -88,6 +88,33 @@ struct HubChipsTests {
         DockPartsInvariantTests.check(raw)
     }
 
+    /// A Thunderbolt 3 dock brings its own USB controller, so no dock rule
+    /// applies; the chips of the hub on it still fold.
+    @Test func foldsBelowADockWithItsOwnController() throws {
+        let raw = F.pcieDock(chips: 2)
+        let dock = try Self.top(raw)
+        #expect(dock.bus == .thunderbolt)
+        #expect(dock.internalParts == nil)
+        let hub = try #require(dock.children.first)
+        #expect(Self.partIDs(hub) == ["11"])
+        #expect(hub.children.map(\.name) == ["Keyboard"])
+        DockPartsInvariantTests.check(raw)
+    }
+
+    /// Below a display, the root hub folds into the display (rule A) and the
+    /// hub on it keeps its own chips.
+    @Test func foldsBelowATunnelledDisplay() throws {
+        let raw = F.tunnelledDisplay(chips: 3)
+        let display = try Self.top(raw)
+        #expect(display.kind == .display)
+        #expect(display.internalParts?.compactMap(\.registryID) == [9])
+        let hub = try #require(display.children.first)
+        #expect(hub.registryID == 10)
+        #expect(Self.partIDs(hub) == ["11", "12"])
+        #expect(hub.children.map(\.name) == ["Keyboard"])
+        DockPartsInvariantTests.check(raw)
+    }
+
     @Test func foldingOffKeepsEveryChip() throws {
         let snapshot = TopologyBuilder.build(F.hubChain(chips: 3), options: BuildOptions(), foldsDockParts: false)
         #expect(snapshot.internalPartIDs.isEmpty)
