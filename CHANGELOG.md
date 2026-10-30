@@ -6,14 +6,12 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
-- A Thunderbolt display with a USB hub folds its built-in USB hub into its card, as a dock does. Built-in parts are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
+- A Thunderbolt display with a USB hub, such as a Dell U4025QW, folds its built-in USB hub into its card, as a dock does. Built-in parts are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
 - Bus Stop reads each USB device's container ID, which every part of one physical product shares, and folds the hub chips and functions of a dock or display that share its root hub's ID, even where the hub reports no captive ports. Raw captures and JSON exports include the ID; with redaction on (the default) it is replaced by a stand-in that still shows which devices share one.
-- A catalogue of docks and monitors whose hub chips nothing else ties to them. The Dell U4025QW is the first entry: its Realtek hubs and Ethernet fold into the monitor's card, which then shows only what is plugged into it. CONTRIBUTING.md explains how to add a model.
-- A dock's own USB functions on its internal hubs, such as an Ethernet adapter or card reader, fold into its card only when the catalogue lists the dock. Other Thunderbolt 5 docks show them as cards of their own, because nothing else tells them from devices plugged into the dock.
+- A USB hub built from several hub chips shows as one hub card, with the extra chips listed in the inspector under "Built into this hub". Bus Stop recognises a chip by the captive port macOS reports it on, so this works for any hub, monitor or dock, not a list of models. A Dell U4025QW now shows one hub with its Ethernet, webcam and HID devices.
 
 ### Fixed
 
-- Devices plugged into the Anker Prime Thunderbolt 5 dock's own USB ports, such as a keyboard or a USB DAC, no longer disappear from the map, the list and `busstop` as parts of the dock. The dock is now in the catalogue, which names its own hubs, Ethernet and card reader.
 - Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
 
 ## [1.2.1] - 2026-10-27

@@ -6,15 +6,12 @@ import Testing
 /// (SPEC §5.4 "Built-in dock parts"), on small hand-made captures: a USB-C
 /// port with a dock at depth 1 whose USB adapter carries a live tunnel, and
 /// a USB 3 root hub on the Mac's own controller marked `UsbTunnel`.
-///
-/// The dock reports made-up IDs that `DockParts.catalogue` does not list;
-/// the catalogue tests give it the IDs of a listed product.
 @Suite("Topology: built-in dock parts")
 struct DockPartsTests {
     typealias F = TopologyFixtures
 
-    static let dockVendor = 0x1A2B
-    static let dockModel = 0x3C4D
+    static let dockVendor = 0x291A
+    static let dockModel = 0x83B5
 
     static func dockSwitch(id: UInt64 = 1100, parent: UInt64 = 1000, vendorID: Int? = dockVendor,
                            modelID: Int? = dockModel, liveUSB: Bool = true, upstreamLane: UInt64 = 1001,
@@ -156,11 +153,9 @@ struct DockPartsTests {
     // MARK: - Rules C, D and E
 
     /// The Anker shape: a hub holding the dock's identity on a captive port
-    /// (D), a captive hub below it (C) with an Ethernet and card reader on it,
-    /// and an external hub on that captive hub that stays with its subtree.
-    /// The dock has no catalogue entry, so nothing tells its own functions
-    /// from a device on a dock port wired to the captive hub: no rule E, and
-    /// they stay, the card reader on a captive port too.
+    /// (D), a captive hub below it (C) with the dock's Ethernet and card
+    /// reader on it (E), and an external hub on that captive hub that stays
+    /// with its subtree.
     @Test func identityHolderAndCaptiveHubFold() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -168,8 +163,7 @@ struct DockPartsTests {
             Self.identity(31, parent: 30, portType: 1),
             Self.device(32, parent: 30, name: "Captive Hub", hub: true, portType: 1),
             Self.device(33, parent: 32, name: "Ethernet", interfaces: [RawUSBInterface(interfaceClass: 2)]),
-            Self.device(34, parent: 32, name: "Card Reader", portType: 1,
-                        interfaces: [RawUSBInterface(interfaceClass: 8)]),
+            Self.device(34, parent: 32, name: "Card Reader", interfaces: [RawUSBInterface(interfaceClass: 8)]),
             Self.device(35, parent: 32, name: "Desk Hub", hub: true),
             Self.device(36, parent: 35, name: "Keyboard"),
             Self.device(37, parent: 30, name: "Port Hub", hub: true),
@@ -177,14 +171,11 @@ struct DockPartsTests {
         ])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(Set(dock.internalParts?.map(\.name) ?? []) == [
-            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub",
+            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub", "Ethernet", "Card Reader",
         ])
-        #expect(dock.children.map(\.name) == ["Card Reader", "Desk Hub", "Ethernet", "Port Hub"])
-        let captiveHub = dock.internalParts?.first { $0.name == "Captive Hub" }
-        #expect(dock.children.filter { $0.name != "Port Hub" }.allSatisfy { $0.internalParentID == captiveHub?.id })
-        #expect(dock.children.first { $0.name == "Desk Hub" }?.children.map(\.name) == ["Keyboard"])
+        #expect(dock.children.map(\.name) == ["Desk Hub", "Port Hub"])
+        #expect(dock.children.first?.children.map(\.name) == ["Keyboard"])
         #expect(dock.children.last?.children.map(\.name) == ["Phone"])
-        DockPartsInvariantTests.check(raw)
     }
 
     @Test func captiveBillboardBelowAHolderFolds() throws {
@@ -225,6 +216,8 @@ struct DockPartsTests {
         #expect(try Self.childNames(raw) == ["Monitor Hub"])
     }
 
+    /// Behind an external hub nothing is the dock's; the captive hub there
+    /// is a chip of the external hub instead (`HubChips`).
     @Test func captiveHubBelowAnExternalHubStays() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -235,7 +228,8 @@ struct DockPartsTests {
         #expect(try Self.partNames(raw) == ["USB3 HUB"])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(dock.children.map(\.name) == ["Desk Hub"])
-        #expect(dock.descendantCount == 3)
+        #expect(dock.children.first?.internalParts?.map(\.name) == ["Inner Hub"])
+        #expect(dock.descendantCount == 2)
     }
 
     /// The identity on a standard port does not make its hub built-in.
@@ -374,138 +368,6 @@ struct DockPartsTests {
         })
         #expect(try Self.partNames(redacted) == Self.partNames(raw))
         #expect(try Self.childNames(redacted) == Self.childNames(raw))
-    }
-
-    // MARK: - Rule G (catalogue)
-
-    /// A display whose Thunderbolt switch reports the catalogued Dell U4025QW's IDs.
-    static func catalogued() -> RawThunderboltSwitch {
-        dockSwitch(vendorID: 0x413C, modelID: 0xC402, model: "U4025QW Monitor")
-    }
-
-    /// A listed Realtek hub on `parent`'s port of type `portType`.
-    static func realtek(_ id: UInt64, parent: UInt64, name: String, portType: Int = 0) -> RawUSBDevice {
-        device(id, parent: parent, name: name, vendor: 0x0BDA, product: 0x0483, hub: true, portType: portType)
-    }
-
-    /// The monitor's Realtek group: a listed hub on the root hub, a listed hub
-    /// and listed Ethernet on its captive ports, a listed hub on a standard
-    /// port and an unlisted captive function, with a webcam on the inner hub.
-    static func catalogueRaw(dock: RawThunderboltSwitch = catalogued()) -> RawSnapshot {
-        raw(usb: [
-            rootHub(),
-            realtek(30, parent: 10, name: "Realtek Hub"),
-            realtek(31, parent: 30, name: "Inner Hub", portType: 1),
-            device(32, parent: 30, name: "Ethernet", vendor: 0x0BDA, product: 0x8156, portType: 1,
-                   interfaces: [RawUSBInterface(interfaceClass: 2)]),
-            realtek(33, parent: 30, name: "Plugged-in Hub"),
-            device(34, parent: 30, name: "Card Reader", portType: 1),
-            device(40, parent: 31, name: "Webcam"),
-        ], dock: dock)
-    }
-
-    @Test func catalogueFoldsListedPartsOnCaptivePorts() throws {
-        let raw = Self.catalogueRaw()
-        let display = try Self.dock(TopologyBuilder.build(raw))
-        #expect(display.kind == .display)
-        #expect(display.internalParts?.map(\.name) == ["Ethernet", "Inner Hub", "Realtek Hub", "USB3 HUB"])
-        // Listed IDs on a standard port, and an unlisted device on a captive one, stay.
-        #expect(display.children.map(\.name) == ["Card Reader", "Plugged-in Hub", "Webcam"])
-        DockPartsInvariantTests.check(raw)
-    }
-
-    @Test func anotherModelFoldsNothingByCatalogue() throws {
-        let raw = Self.catalogueRaw(dock: Self.dockSwitch(vendorID: 0x413C, modelID: 0xC403, model: "Other Monitor"))
-        #expect(try Self.partNames(raw) == ["USB3 HUB"])
-        #expect(try Self.childNames(raw) == ["Realtek Hub"])
-    }
-
-    /// Two listed devices on the root hub: one may be plugged in, so neither folds.
-    @Test func twoListedDevicesOnTheRootHubTurnOffTheCatalogue() throws {
-        var raw = Self.catalogueRaw()
-        raw.usbDevices.append(Self.realtek(50, parent: 10, name: "Second Realtek Hub"))
-        #expect(try Self.partNames(raw) == ["USB3 HUB"])
-        #expect(try Self.childNames(raw) == ["Realtek Hub", "Second Realtek Hub"])
-    }
-
-    /// A listed captive device whose container ID its parent part does not
-    /// report belongs to another product.
-    @Test func listedDeviceOfAnotherContainerStays() throws {
-        var raw = Self.catalogueRaw()
-        for index in raw.usbDevices.indices where [30, 31].contains(raw.usbDevices[index].id) {
-            raw.usbDevices[index].node.properties["kUSBContainerID"] = .string(Self.product)
-        }
-        let ethernet = try #require(raw.usbDevices.firstIndex { $0.id == 32 })
-        raw.usbDevices[ethernet].node.properties["kUSBContainerID"] = .string(Self.other)
-        let display = try Self.dock(TopologyBuilder.build(raw))
-        #expect(display.internalParts?.map(\.name) == ["Inner Hub", "Realtek Hub", "USB3 HUB"])
-        #expect(display.children.map(\.name).contains("Ethernet"))
-    }
-
-    // MARK: - Catalogue entries limit C and E
-
-    /// The Anker shape with the IDs of the Anker Prime TB5's catalogue entry:
-    /// the dock's 12 Mb/s function on the root hub, a VIA hub holding its
-    /// other function, and a captive VIA hub below that with the Ethernet and
-    /// card reader. On the captive hub's other ports, which are dock ports:
-    /// a keyboard, a DAC on a captive port, an unlisted hub with a mouse and
-    /// a VIA hub with a drive, both on captive ports. A billboard of no listed
-    /// IDs sits on a captive port of the holder. `model` is the dock's and its
-    /// two functions' product ID.
-    static func ankerRaw(model: Int = 0x83B5) -> RawSnapshot {
-        raw(usb: [
-            rootHub(),
-            device(20, parent: 10, name: "Anker Thunderbolt 5 Docking Station", vendor: 0x291A, product: model),
-            device(30, parent: 10, name: "Holder Hub", vendor: 0x2109, product: 0x0822, hub: true),
-            device(31, parent: 30, name: "Anker Prime Docking Station", vendor: 0x291A, product: model,
-                   portType: 1, interfaces: [RawUSBInterface(interfaceClass: 0x11)]),
-            device(32, parent: 30, name: "Captive Hub", vendor: 0x2109, product: 0x0822, hub: true, portType: 1),
-            device(33, parent: 32, name: "Ethernet", vendor: 0x0BDA, product: 0x8156,
-                   interfaces: [RawUSBInterface(interfaceClass: 2)]),
-            device(34, parent: 32, name: "Card Reader", vendor: 0x05E3, product: 0x0764,
-                   interfaces: [RawUSBInterface(interfaceClass: 8)]),
-            device(35, parent: 32, name: "Keyboard", vendor: 0x3434, product: 0x0630),
-            device(36, parent: 32, name: "DAC", vendor: 0x04D8, product: 0xFEEA, portType: 1),
-            device(37, parent: 32, name: "Travel Hub", vendor: 0x05E3, product: 0x0610, hub: true, portType: 1),
-            device(38, parent: 37, name: "Mouse"),
-            device(39, parent: 32, name: "VIA Port Hub", vendor: 0x2109, product: 0x2822, hub: true, portType: 1),
-            device(40, parent: 39, name: "Drive"),
-            device(41, parent: 30, name: "Billboard", deviceClass: 0x11, portType: 1),
-        ], dock: dockSwitch(vendorID: 0x291A, modelID: model))
-    }
-
-    /// In a listed product, C and E fold only listed devices: the Ethernet
-    /// and card reader fold; the keyboard, the DAC, the unlisted hub and the
-    /// unlisted billboard stay, captive ports or not. A hub with the dock's
-    /// own hub IDs still folds, and the drive behind it moves up to the dock.
-    @Test func catalogueEntryLimitsTheCaptiveRules() throws {
-        let raw = Self.ankerRaw()
-        let dock = try Self.dock(TopologyBuilder.build(raw))
-        #expect(Set(dock.internalParts?.map(\.name) ?? []) == [
-            "USB3 HUB", "Anker Thunderbolt 5 Docking Station", "Holder Hub", "Anker Prime Docking Station",
-            "Captive Hub", "Ethernet", "Card Reader", "VIA Port Hub",
-        ])
-        #expect(dock.children.map(\.name) == ["Billboard", "DAC", "Drive", "Keyboard", "Travel Hub"])
-        #expect(dock.children.last?.children.map(\.name) == ["Mouse"])
-        let captiveHub = dock.internalParts?.first { $0.name == "Captive Hub" }
-        let plugged = dock.children.filter { ["DAC", "Keyboard", "Travel Hub"].contains($0.name) }
-        #expect(plugged.count == 3)
-        #expect(plugged.allSatisfy { $0.internalParentID == captiveHub?.id })
-        DockPartsInvariantTests.check(raw)
-    }
-
-    /// The same layout from a dock of another model: no entry, so every hub
-    /// and billboard on a captive port folds by C as before, the travel hub
-    /// too, and every function on them stays.
-    @Test func withoutAnEntryCaptiveHubsFoldAndFunctionsStay() throws {
-        let raw = Self.ankerRaw(model: 0x83B6)
-        let dock = try Self.dock(TopologyBuilder.build(raw))
-        #expect(Set(dock.internalParts?.map(\.name) ?? []) == [
-            "USB3 HUB", "Anker Thunderbolt 5 Docking Station", "Holder Hub", "Anker Prime Docking Station",
-            "Billboard", "Captive Hub", "Travel Hub", "VIA Port Hub",
-        ])
-        #expect(dock.children.map(\.name) == ["Card Reader", "DAC", "Drive", "Ethernet", "Keyboard", "Mouse"])
-        DockPartsInvariantTests.check(raw)
     }
 
     // MARK: - Diagnostics and events

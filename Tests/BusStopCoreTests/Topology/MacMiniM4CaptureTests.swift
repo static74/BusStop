@@ -9,6 +9,8 @@ import Testing
 ///
 /// The dock's Genesys hub runs at 10 Gb/s, and so does the port: its USB 3
 /// transport says `DataRate` "10 Gbps" next to `SuperSpeedSignaling` "Gen 1".
+/// The dock's VIA hub is two chips; the one on a captive port folds into
+/// the other (`HubChips`).
 @Suite("Topology: Mac mini M4 capture")
 struct MacMiniM4CaptureTests {
     static func snapshot() throws -> HostSnapshot {
@@ -27,7 +29,7 @@ struct MacMiniM4CaptureTests {
         #expect(snapshot.ports.map(\.label.title) == ["Front · USB-C 1", "Front · USB-C 2", "Rear · USB-C 1",
                                                      "Rear · USB-C 2", "Rear · USB-C 3", "Rear · HDMI"])
         #expect(snapshot.ports.filter(\.isConnected).map(\.key.number) == [1, 2])
-        #expect(snapshot.deviceCount == 9)
+        #expect(snapshot.deviceCount == 8)
     }
 
     @Test func monitorOnAUSBCCable() throws {
@@ -66,8 +68,7 @@ struct MacMiniM4CaptureTests {
         │     └─ USB3.0 Hub · 5 Gb/s · 5.8 W
         │        ├─ Generic Billboard Device · 12 Mb/s
         │        ├─ USB 10_100_1G_2_5G LAN · 5 Gb/s · 1.3 W
-        │        ├─ USB Storage · 5 Gb/s · 4.5 W
-        │        └─ USB3.0 Hub · 5 Gb/s
+        │        └─ USB Storage · 5 Gb/s · 4.5 W
         ├─ Rear · USB-C 3   (empty)
         """
         #expect(text.contains(expected), "\(text)")

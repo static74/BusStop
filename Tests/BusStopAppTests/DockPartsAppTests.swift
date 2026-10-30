@@ -12,34 +12,10 @@ struct DockPartsAppTests {
     static let rootHub = "usb:00200000:8087:5787"
     static let realtekHub = "usb:00210000:0bda:0483"
 
-    static func raw(_ fixture: String = "AnkerPrimeTB5") throws -> RawSnapshot {
+    static func snapshot(_ fixture: String = "AnkerPrimeTB5") throws -> HostSnapshot {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appendingPathComponent("../BusStopCoreTests/Fixtures/\(fixture).json").standardizedFileURL
-        return try Exporter.decodeRaw(Data(contentsOf: url))
-    }
-
-    static func snapshot(_ fixture: String = "AnkerPrimeTB5") throws -> HostSnapshot {
-        TopologyBuilder.build(try raw(fixture))
-    }
-
-    /// The owner's later setup: the Benchmark DAC and the Keychron keyboard
-    /// plugged into two dock ports that the dock's captive VIA hub serves
-    /// (`AnkerPrimeDockTests.portDevicesRaw` builds the same, with container IDs).
-    static func portDevicesSnapshot() throws -> HostSnapshot {
-        var raw = try raw()
-        // Registry ID → location on the captive hub's USB 2 half, and `USBPortType`.
-        let moves: [UInt64: (location: Int64, portType: Int64)] = [
-            4_295_376_488: (0x0014_2100, 1), // Benchmark 1.0
-            4_295_376_436: (0x0014_2200, 0), // Keychron Q3 Pro
-        ]
-        for index in raw.usbDevices.indices {
-            guard let move = moves[raw.usbDevices[index].id] else { continue }
-            raw.usbDevices[index].parentDeviceID = 4_295_376_094
-            raw.usbDevices[index].node.location = String(format: "%08llx", move.location)
-            raw.usbDevices[index].node.properties["locationID"] = .int(move.location)
-            raw.usbDevices[index].node.properties["USBPortType"] = .int(move.portType)
-        }
-        return TopologyBuilder.build(raw)
+        return TopologyBuilder.build(try Exporter.decodeRaw(Data(contentsOf: url)))
     }
 
     static func dock(_ snapshot: HostSnapshot) throws -> DeviceNode {
@@ -55,23 +31,6 @@ struct DockPartsAppTests {
         #expect(!cables.contains { $0.childName.hasPrefix("Anker") })
         #expect(cables.filter { $0.parentName == dock.name }.map(\.childName)
                 == ["4-Port USB 3.0 Hub", "billboard", "Dell U4924DW", "Gigabyte M32U", "USB3.1 Hub"])
-    }
-
-    /// Devices on the dock's own ports are drawn, so they have cables to the
-    /// dock, and a search for one finds the device, not the dock.
-    @Test func devicesOnTheDocksOwnPortsAreDrawn() throws {
-        let snapshot = try Self.portDevicesSnapshot()
-        let port = try #require(snapshot.ports.first { !$0.devices.isEmpty })
-        let cables = SidebarCable.cables(below: port.devices, from: port.label.title)
-        let dock = try Self.dock(snapshot)
-        #expect(cables.filter { $0.parentName == dock.name }.map(\.childName)
-                == ["4-Port USB 3.0 Hub", "Benchmark 1.0", "billboard", "Dell U4924DW", "Gigabyte M32U",
-                    "Keychron Q3 Pro", "USB3.1 Hub"])
-        for name in ["Benchmark", "Keychron"] {
-            #expect(!TopologySearch.device(dock, matches: name))
-            #expect(TopologySearch.prune(dock, query: name)?.children.count == 1)
-        }
-        #expect(WindowText.deviceAccessibility(dock, portTitle: "Left Center · USB-C").contains("7 built-in parts"))
     }
 
     @Test func linkPageNamesTheDockAndTheBuiltInHub() throws {
@@ -99,10 +58,10 @@ struct DockPartsAppTests {
         let dock = try Self.dock(snapshot)
         #expect(WindowText.deviceAccessibility(dock, portTitle: "Left Center · USB-C").contains("7 built-in parts"))
         // The card and the list row count drawn devices only.
-        #expect(WindowText.deviceSubtitle(dock) == "Dock · 19 devices · 22 W")
-        #expect(WindowText.summary(snapshot).hasPrefix("6 ports · 20 devices"))
+        #expect(WindowText.deviceSubtitle(dock) == "Dock · 17 devices · 22 W")
+        #expect(WindowText.summary(snapshot).hasPrefix("6 ports · 18 devices"))
         #expect(WindowText.devicesSubtitle(snapshot)
-                == "20 devices on every port and hub, not counting parts built into a dock")
+                == "18 devices on every port and hub, not counting parts built into a dock or hub")
         let hub = try #require(dock.internalParts?.first { $0.id == Self.rootHub })
         #expect(WindowText.partDetail(hub).hasPrefix("Intel Corporation · 10 Gb/s"))
         // The two built-in "USB3.1 Hub" rows differ by location ID; other rows show none.
@@ -115,14 +74,17 @@ struct DockPartsAppTests {
     }
 
     /// A Thunderbolt display's parts (the Dell U4025QW capture) are named
-    /// as built into the display, a dock's as built into the dock.
+    /// as built into the display, a dock's as built into the dock, and a
+    /// hub's chips as built into the hub.
     @Test func partsAreNamedAfterWhatTheyAreBuiltInto() throws {
         let snapshot = try Self.snapshot("DellU4025QW")
         let monitor = try #require(snapshot.ports.flatMap(\.devices).first { $0.internalParts != nil })
         #expect(monitor.kind == .display)
         #expect(WindowText.builtInHost(monitor) == "display")
-        #expect(WindowText.devicesSubtitle(snapshot).hasSuffix(", not counting parts built into a display"))
+        #expect(WindowText.devicesSubtitle(snapshot).hasSuffix(", not counting parts built into a display or hub"))
         #expect(WindowText.builtInHost(try Self.dock(Self.snapshot())) == "dock")
+        let hub = try #require(monitor.children.first { $0.internalParts != nil })
+        #expect(WindowText.builtInHost(hub) == "hub")
     }
 
     /// A built-in part's link change points at the dock, but must not

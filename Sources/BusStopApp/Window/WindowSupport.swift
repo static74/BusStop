@@ -33,20 +33,23 @@ enum WindowText {
     }
 
     /// The All Devices subtitle: "12 devices on every port and hub", saying
-    /// so when a dock's or display's built-in parts are left out.
+    /// so when the built-in parts of a dock, display or hub are left out.
     static func devicesSubtitle(_ snapshot: HostSnapshot) -> String {
         let text = count(snapshot.deviceCount, "device", "devices") + " on every port and hub"
         guard !snapshot.internalPartIDs.isEmpty else { return text }
         let hosts = Set(snapshot.allDevices.map(\.device).filter { $0.internalParts?.isEmpty == false }
-            .map(builtInHost))
-        let host = hosts.count == 1 ? hosts.first ?? "dock" : "dock or display"
+            .map(builtInHost)).sorted()
+        let host = hosts.count < 2 ? hosts.first ?? "dock"
+            : hosts.dropLast().joined(separator: ", ") + " or " + hosts[hosts.count - 1]
         return text + ", not counting parts built into a \(host)"
     }
 
     /// What a device's built-in parts (`DeviceNode.internalParts`) are
-    /// inside: "display" for a Thunderbolt display, otherwise "dock".
+    /// inside: "display" for a Thunderbolt display, "hub" for a USB hub
+    /// built from several chips (`HubChips`), otherwise "dock".
     static func builtInHost(_ device: DeviceNode) -> String {
-        device.kind == .display ? "display" : "dock"
+        if device.kind == .display { return "display" }
+        return device.bus == .usb ? "hub" : "dock"
     }
 
     /// Rate for VoiceOver: "10 gigabits per second", or the generation when the rate is unknown.
