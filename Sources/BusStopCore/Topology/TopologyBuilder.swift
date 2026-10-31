@@ -223,8 +223,11 @@ public enum TopologyBuilder {
             let portDevices = devices[record.key] ?? []
             var link: LinkInfo?
             for transport in active { link = LinkDecoding.faster(link, transport.link) }
+            // A port that lists its active transports outranks its host lanes,
+            // which can keep a link after the device is unplugged.
             let isConnected = record.connectionActive || !active.isEmpty || !portDevices.isEmpty
-                || thunderboltLinks[record.key] != nil || !(tunneledKinds[record.key] ?? []).isEmpty
+                || (thunderboltLinks[record.key] != nil && record.listedActiveTransports == nil)
+                || !(tunneledKinds[record.key] ?? []).isEmpty
             let supported = record.supportedTransports ?? []
             let siblings = ports.records.filter { $0.kind == record.kind }.map(\.number).sorted()
             let labelled = PortLabeler.label(kind: record.kind, number: record.number, key: record.key,
