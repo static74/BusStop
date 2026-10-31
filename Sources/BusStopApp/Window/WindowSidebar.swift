@@ -142,7 +142,7 @@ struct WindowSidebar: View {
     }
 }
 
-/// A port in the sidebar: status ring and its name.
+/// A port in the sidebar: status dot and its name.
 struct SidebarPortRow: View {
     var port: PhysicalPort
 
@@ -152,7 +152,7 @@ struct SidebarPortRow: View {
                 .lineLimit(1)
                 .foregroundStyle(port.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)
         } icon: {
-            StatusRing(isActive: port.isConnected, size: 11)
+            StatusDot(isActive: port.isConnected, size: 11)
         }
         .help(port.isConnected ? "\(port.label.title): connected" : "\(port.label.title): empty")
         .accessibilityLabel(WindowText.portAccessibility(port))

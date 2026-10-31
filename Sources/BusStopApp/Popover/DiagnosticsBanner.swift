@@ -48,9 +48,9 @@ struct DiagnosticsBanner: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Show in the topology window")
+                    .help("Show on the map")
                     .accessibilityLabel("\(first.severity == .critical ? "Critical" : "Warning"): \(first.title)")
-                    .accessibilityHint("Opens the topology window")
+                    .accessibilityHint("Opens the map")
 
                     Button {
                         withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.9)) {
@@ -142,6 +142,6 @@ private struct DiagnosticRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens the topology window")
+        .accessibilityHint("Opens the map")
     }
 }

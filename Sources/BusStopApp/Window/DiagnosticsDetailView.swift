@@ -174,9 +174,8 @@ struct DiagnosticTitle: View {
 
     private var chip: some View {
         let color = Lagoon.severityColor(diagnostic.severity)
-        return Text(Lagoon.severityName(diagnostic.severity).uppercased())
-            .lagoonFont(size: 9, weight: .heavy, design: .rounded)
-            .tracking(0.8)
+        return Text(Lagoon.severityName(diagnostic.severity))
+            .lagoonFont(.caption, weight: .semibold, design: .rounded)
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

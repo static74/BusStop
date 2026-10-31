@@ -16,7 +16,7 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 - **Power.** Watts in and out per port, a charger card with the active USB-PD contract ("20 V × 4.7 A") and every profile the charger offers, battery state, a sparkline of the last few minutes in the popover, and charts of system and per-port power over the last 10 minutes, hour, day or week on the Power page.
 - **Real port names.** "Left Front · USB-C" instead of "Port 2", from a per-model catalogue. You can rename any port.
 - **Instant change detection.** Plug and unplug events show up at once, with an event timeline kept between launches and optional notifications for connections, disconnections and link downgrades.
-- **Topology window.** A graph of host, ports and devices with links drawn by speed, sortable port and device tables, power charts, the event log, diagnostics and an inspector with the raw IORegistry keys.
+- **Map window.** A graph of host, ports and devices with links drawn by speed, sortable port and device tables, power charts, the event log, diagnostics and an inspector with the raw IORegistry keys.
 - **Mac Outline.** An outline of the Mac with each port where it sits, coloured by what is plugged in and how fast it runs.
 - **Diagnostics in plain English.** A USB 3 device stuck at USB 2 speed, a Thunderbolt link slowed by its cable, a charger too weak for the Mac, a battery not charging, a bus-powered hub over its power budget, a very deep chain, liquid detected in a port.
 - **Flaky connections.** A device that keeps disconnecting, a link that keeps changing speed, or a drive slower than it has been on the same port, with the likely culprit: the cable, the port, a hub or the device. The Events page filters to problems.
@@ -33,9 +33,9 @@ Bus Stop is a free, open-source menu bar app for macOS. It was designed for macO
 
 *The popover, here with the Studio desk demo setup: the charger and its USB-PD contract, a diagnostic, and one card per port with the devices behind it, their link speeds and power.*
 
-![The Bus Stop topology window, showing the Mac, its ports and the devices behind them as a graph](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-topology.png)
+![The Bus Stop map window, showing the Mac, its ports and the devices behind them as a graph](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-topology.png)
 
-*The topology window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
+*The map window: the Mac, its ports and every device behind them as a graph, with each link drawn by speed. The sidebar leads to the port and device tables, power, events and diagnostics.*
 
 A CI workflow captures these images from the real app, running in demo mode on macOS 27. A maintainer runs it by hand, so the images can trail the newest commits. The [`screenshots` branch](https://github.com/static74/BusStop/tree/screenshots) has the other demo setups and every settings pane.
 

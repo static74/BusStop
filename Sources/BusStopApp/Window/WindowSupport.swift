@@ -67,7 +67,12 @@ enum WindowText {
     }
 
     /// Second line for device rows and graph nodes: "Hub · 3 devices · 7.5 W", "Storage · 4.5 W".
+    /// A self-powered hub shows only its count ("Hub · 2 devices"): with
+    /// "own power" too the line truncated on a graph node.
     static func deviceSubtitle(_ device: DeviceNode) -> String {
+        if device.power?.isSelfPowered == true, device.descendantCount > 0 {
+            return "\(device.kind.displayName) · \(count(device.descendantCount, "device", "devices"))"
+        }
         if let rollUp = rollUp(device) { return "\(device.kind.displayName) · \(rollUp)" }
         var parts = [device.kind.displayName]
         if let milliwatts = device.power?.allocatedMilliwatts, milliwatts > 0 {

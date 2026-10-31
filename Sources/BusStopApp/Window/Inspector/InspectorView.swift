@@ -304,7 +304,7 @@ struct PortInspectorChips: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            StatusRing(isActive: port.isConnected, size: 11)
+            StatusDot(isActive: port.isConnected, size: 11)
             Text(port.isConnected ? "Connected" : "Empty")
                 .lagoonFont(.caption, weight: .semibold, design: .rounded)
                 .foregroundStyle(port.isConnected ? Lagoon.accent : Lagoon.textTertiary)
@@ -478,7 +478,7 @@ struct DeviceInspector: View {
     }
 
     private var topologySection: some View {
-        InspectorSection(title: "Topology") {
+        InspectorSection(title: "Connections") {
             if let port {
                 InspectorLinkRow(systemName: port.kind.symbolName, title: port.label.title, detail: "Port") {
                     store.selection = .port(port.key)

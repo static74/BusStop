@@ -326,7 +326,7 @@ struct GraphMap: View {
             reveal(request)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Topology map")
+        .accessibilityLabel("Port map")
     }
 
     private static func clamp(_ scale: CGFloat) -> CGFloat {

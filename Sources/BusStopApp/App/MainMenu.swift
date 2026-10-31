@@ -58,7 +58,7 @@ enum MainMenu {
     private static func viewMenu(delegate: AppDelegate) -> NSMenu {
         let menu = NSMenu(title: "View")
         menu.addItem(item("Refresh", #selector(AppDelegate.refreshPorts(_:)), key: "r", target: delegate))
-        menu.addItem(item("Show Topology", #selector(AppDelegate.openTopology(_:)), key: "1", target: delegate))
+        menu.addItem(item("Show Map", #selector(AppDelegate.openTopology(_:)), key: "1", target: delegate))
         return menu
     }
 

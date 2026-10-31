@@ -257,24 +257,20 @@ extension View {
     }
 }
 
-/// Ring that glows turquoise when something is connected (the glow is Dark only).
-struct StatusRing: View {
+/// A port's status light: a turquoise dot that glows when something is
+/// connected (the glow is Dark only), a smaller muted dot when empty. Both
+/// are solid, so neither reads as a radio button.
+struct StatusDot: View {
     var isActive: Bool
     var size: CGFloat = 12
 
     var body: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(isActive ? Lagoon.accent : Lagoon.accentMuted, lineWidth: size * 0.18)
-            if isActive {
-                Circle()
-                    .fill(Lagoon.accent)
-                    .padding(size * 0.3)
-            }
-        }
-        .frame(width: size, height: size)
-        .lagoonGlow(isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
-        .accessibilityHidden(true)
+        Circle()
+            .fill(isActive ? Lagoon.accent : Lagoon.accentMuted)
+            .frame(width: size * (isActive ? 0.6 : 0.4), height: size * (isActive ? 0.6 : 0.4))
+            .frame(width: size, height: size)
+            .lagoonGlow(isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
+            .accessibilityHidden(true)
     }
 }
 
@@ -395,10 +391,9 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title.uppercased())
-                .tracking(0.8)
-                .lagoonFont(.caption2, weight: .bold, design: .rounded)
-                .foregroundStyle(Lagoon.textTertiary)
+            Text(title)
+                .lagoonFont(.caption, weight: .semibold)
+                .foregroundStyle(Lagoon.textSecondary)
             Spacer()
             if let trailing {
                 Text(trailing)
@@ -435,12 +430,11 @@ struct EmptyStateView: View {
     }
 }
 
-/// Small "DEMO" capsule shown while demo mode is on.
+/// Small "Demo" capsule shown while demo mode is on.
 struct DemoBadge: View {
     var body: some View {
-        Text("DEMO")
-            .tracking(1)
-            .lagoonFont(size: 9, weight: .heavy, design: .rounded)
+        Text("Demo")
+            .lagoonFont(.caption, weight: .semibold, design: .rounded)
             .foregroundStyle(Lagoon.onAccent)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

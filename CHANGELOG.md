@@ -4,6 +4,17 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- The topology window is now the map window everywhere: Open Map, Show Map and Show on Map. The popover's header no longer repeats the Open Map button its footer already has.
+- The Power page opens with where the power goes: a bar splitting the charger's input between the Mac and its battery, then what the ports give accessories, marked as measured or as a USB budget. It replaces four tiles, two of which could show the same USB budget, one of them as power "delivered".
+- The battery card no longer repeats its percentage beside the state, and no longer shows a raw not-charging code; the Diagnostics finding explains it.
+- Section labels, the Demo badge and severity labels use sentence case instead of spaced capitals.
+- A port's status shows as a solid dot, brighter when something is connected, instead of a ring that looked like a radio button. Popover cards drop it, since the port icon already shows the state.
+- In the card layout, empty ports share one card with a line each, so ports in use stand out.
+- Device subtitles show at most two facts, so they no longer truncate in the popover or on map nodes.
+- Settings › Appearance: the tint slider is under Buttons, the opacity slider shows its value in its label, and the theme caption no longer uses an internal name.
+
 ## [1.1.2] - 2026-10-24
 
 ### Changed

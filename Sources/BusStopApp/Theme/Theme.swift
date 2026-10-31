@@ -34,7 +34,7 @@ enum Lagoon {
 
     // MARK: Text and effects on other colours
 
-    /// Text and icons on an accent fill (the DEMO badge, the active PDO, the Open Topology button).
+    /// Text and icons on an accent fill (the Demo badge, the active PDO, the Open Map button).
     static let onAccent = themed(0x000000, 0xFFFFFF)
     /// What a hovered or selected link's core is mixed toward to stand out:
     /// white makes it brighter in Dark, black makes it darker in Light.

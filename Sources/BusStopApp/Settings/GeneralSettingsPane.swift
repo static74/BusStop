@@ -23,7 +23,7 @@ struct GeneralSettingsPane: View {
 
             Section("Menu bar and Dock") {
                 Toggle("Show the menu bar item", isOn: $settings.showMenuBarItem)
-                SettingsCaption("When the item is hidden, opening Bus Stop shows the topology window.")
+                SettingsCaption("When the item is hidden, opening Bus Stop shows the map window.")
                 Toggle("Show the Dock icon while a window is open", isOn: $settings.showDockIconWithWindow)
             }
 

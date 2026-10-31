@@ -1,7 +1,7 @@
 import BusStopCore
 import SwiftUI
 
-/// The Power page: totals, the charger and its profiles, the battery, and
+/// The Power page: where the power goes, the charger and its profiles, the battery, and
 /// power over time for the system and for each port, over the last 10
 /// minutes (live) or the last hour, day or week (saved history).
 struct PowerDetailView: View {
@@ -17,7 +17,7 @@ struct PowerDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header(subtitle(power))
 
-                PowerTotalsRow(power: power)
+                PowerFlowCard(power: power, ports: snapshot.ports)
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 340), spacing: 16, alignment: .top)],
@@ -102,77 +102,93 @@ struct PowerDetailView: View {
     }
 }
 
-// MARK: - Totals
+// MARK: - Flow
 
-/// Four headline figures: system input, system load, port output, USB allocated.
-struct PowerTotalsRow: View {
+/// Where the power goes: what comes in, how it splits between the Mac and
+/// its battery (in the System power chart's colours), and what the ports
+/// hand to accessories, measured or only budgeted.
+struct PowerFlowCard: View {
     var power: PowerSummary
-
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
-            PowerStatTile(
-                title: "System input",
-                value: power.systemInputMilliwatts.map { Format.power(milliwatts: $0) } ?? "—",
-                caption: "From the charger",
-                systemName: "arrow.down.to.line",
-                color: Lagoon.powerIn
-            )
-            PowerStatTile(
-                title: "System load",
-                value: power.systemLoadMilliwatts.map { Format.power(milliwatts: $0) } ?? "—",
-                caption: "Used by the Mac",
-                systemName: "cpu",
-                color: Lagoon.accent
-            )
-            PowerStatTile(
-                title: "Port output",
-                value: Format.power(milliwatts: power.portOutputMilliwatts),
-                caption: "Delivered to accessories",
-                systemName: "arrow.up.right",
-                color: Lagoon.accent
-            )
-            PowerStatTile(
-                title: "USB allocated",
-                value: Format.power(milliwatts: power.usbAllocatedMilliwatts),
-                caption: "Budget granted to USB devices",
-                systemName: "cable.connector",
-                color: Lagoon.accent
-            )
-        }
-    }
-}
-
-/// One headline number on a card.
-struct PowerStatTile: View {
-    var title: String
-    var value: String
-    var caption: String
-    var systemName: String
-    var color: Color
+    var ports: [PhysicalPort]
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label {
-                Text(title)
-            } icon: {
-                Image(systemName: systemName).foregroundStyle(color)
+        let input = power.systemInputMilliwatts ?? 0
+        let load = power.systemLoadMilliwatts
+        let charging = max(0, power.battery?.powerMilliwatts ?? 0)
+        VStack(alignment: .leading, spacing: 10) {
+            // With a charger the page subtitle already gives the input.
+            if input <= 0 {
+                Text(headline(load: load))
+                    .lagoonFont(.title3, weight: .semibold)
+                    .foregroundStyle(Lagoon.textPrimary)
             }
-            .lagoonFont(.caption, weight: .semibold)
-            .foregroundStyle(Lagoon.textSecondary)
-            Text(value)
-                .lagoonFont(size: 26, weight: .semibold, design: .rounded, monospacedDigits: true)
-                .foregroundStyle(Lagoon.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(caption)
-                .lagoonFont(.caption)
-                .foregroundStyle(WindowContrast.tertiary(contrast))
-                .lineLimit(1)
+            if input > 0, let load {
+                // ponytail: losses and readings taken a moment apart can leave
+                // a gap; it stays an unlabelled track rather than a guess.
+                let total = CGFloat(max(input, load + charging))
+                GeometryReader { proxy in
+                    HStack(spacing: 2) {
+                        segment(PowerChartPalette.systemLoad, CGFloat(load) / total * proxy.size.width)
+                        if charging > 0 {
+                            segment(PowerChartPalette.battery, CGFloat(charging) / total * proxy.size.width)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(Capsule().fill(Lagoon.surfaceRaised))
+                    .clipShape(Capsule())
+                }
+                .frame(height: 10)
+                HStack(spacing: 16) {
+                    key(PowerChartPalette.systemLoad, "\(Format.power(milliwatts: load)) used by the Mac")
+                    if charging > 0 {
+                        key(PowerChartPalette.battery, "\(Format.power(milliwatts: charging)) into the battery")
+                    }
+                }
+            }
+            if let accessories = accessoriesText {
+                Text(accessories)
+                    .lagoonFont(.callout)
+                    .foregroundStyle(WindowContrast.tertiary(contrast))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lagoonCard(padding: 14)
+        .lagoonCard(padding: 16)
         .accessibilityElement(children: .combine)
+    }
+
+    /// "9.4 W from the battery", or the load alone on a Mac without one.
+    private func headline(load: Int?) -> String {
+        guard let load else { return "No power readings yet" }
+        let source = power.hasBattery ? "from the battery" : "used by the Mac"
+        return "\(Format.power(milliwatts: load)) \(source)"
+    }
+
+    /// Port output to accessories, named for what it is: measured at the
+    /// port, or only the USB budget the Mac granted.
+    private var accessoriesText: String? {
+        let outputs = ports.compactMap { $0.power?.direction == .output ? $0.power : nil }
+        let measured = outputs.filter(\.isMeasured).reduce(0) { $0 + ($1.milliwatts ?? 0) }
+        let budgeted = outputs.filter { !$0.isMeasured }.reduce(0) { $0 + ($1.milliwatts ?? 0) }
+        var parts: [String] = []
+        if measured > 0 { parts.append("\(Format.power(milliwatts: measured)) measured") }
+        if budgeted > 0 { parts.append("up to \(Format.power(milliwatts: budgeted)) budgeted") }
+        guard !parts.isEmpty else { return nil }
+        return "Accessories: " + parts.joined(separator: ", plus ") + "."
+    }
+
+    private func segment(_ color: Color, _ width: CGFloat) -> some View {
+        Rectangle().fill(color).frame(width: max(0, width))
+    }
+
+    private func key(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(text)
+                .lagoonFont(.callout, monospacedDigits: true)
+                .foregroundStyle(Lagoon.textSecondary)
+        }
     }
 }
 
@@ -242,10 +258,9 @@ struct PowerChargerCard: View {
         var parts: [String] = []
         if let manufacturer = charger.manufacturer, !manufacturer.isEmpty { parts.append(manufacturer) }
         if let watts = charger.ratedWatts { parts.append("\(watts) W rated") }
-        if let millivolts = charger.millivolts, let milliamps = charger.milliamps {
+        // The contract only when the profile table below cannot mark it.
+        if charger.profiles.isEmpty, let millivolts = charger.millivolts, let milliamps = charger.milliamps {
             parts.append(Format.contract(millivolts: millivolts, milliamps: milliamps))
-        } else if let active = charger.activeProfile {
-            parts.append(active.label)
         }
         if let family = charger.familyDescription { parts.append(family) }
         return parts.isEmpty ? "Power adapter" : parts.joined(separator: " · ")
@@ -264,7 +279,7 @@ struct PowerBatteryCard: View {
                     Text(battery.percent.map { "\($0)%" } ?? "—")
                         .lagoonFont(size: 30, weight: .semibold, design: .rounded, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textPrimary)
-                    Text(battery.statusText)
+                    Text(battery.stateText)
                         .lagoonFont(.callout)
                         .foregroundStyle(Lagoon.textSecondary)
                     Spacer(minLength: 0)
@@ -276,9 +291,6 @@ struct PowerBatteryCard: View {
                         label: milliwatts > 0 ? "Charging at" : "Draining at",
                         value: Format.power(milliwatts: abs(milliwatts))
                     )
-                }
-                if let reason = battery.notChargingReason, reason != 0, battery.externalConnected {
-                    InspectorRow(label: "Not charging reason", value: "Code \(reason)")
                 }
             } else {
                 Text("No battery reading yet.")

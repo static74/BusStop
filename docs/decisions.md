@@ -2,6 +2,31 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-31: The UI drops generic-dashboard habits and calls the window the map
+
+**Question.** An audit of the popover, the map window and Settings for patterns that read as templated rather than chosen for Bus Stop found eight. Which of them should change, and what replaces each one?
+
+**Decision.**
+
+- **One name.** The window is the map: Open Map, Show Map, Show on Map, the inspector's Connections section and the Port map VoiceOver label. Code names (`TopologyWindowView`, the `topology` automation value, defaults keys) stay, so saved settings and CI captures are untouched. The popover header drops its Open Map button, because the footer's prominent button does the same thing.
+- **Power page.** `PowerFlowCard` replaces the four tiles (System input, System load, Port output, USB allocated). With a charger it draws one bar: the Mac's load and the battery's charging power, in `PowerChartPalette.systemLoad` and `.battery`, scaled to the larger of the input and their sum, with any gap left as an unlabelled track. On battery it states the load drawn from the battery. Accessories get one line that sums each port's output by `PortPower.isMeasured`, so a budget is never called "delivered". The battery card shows `BatteryInfo.stateText` beside the percentage and no longer shows the raw `NotChargingReason`.
+- **Sentence case.** `SectionHeader` draws its title as written, at `.caption` semibold in secondary text; the Demo badge and the Diagnostics severity chip lose their capitals and tracking.
+- **Status dot.** `StatusDot` replaces `StatusRing`: a solid turquoise dot with the Dark glow when connected, a smaller solid `accentMuted` dot when empty. The popover card no longer draws it.
+- **Empty ports.** In the card layout, ports in use (or still showing a departing device) get cards and the rest share one `CompactPortList` card.
+- **Subtitles.** The popover's device caption keeps at most two facts; a self-powered hub shows its count and "Self-powered" without watts, and its map node shows "Hub · 2 devices".
+- **Appearance pane.** The tint slider sits under Buttons as Tint, the opacity slider's label carries its value, and the theme caption no longer names Lagoon, which users never see.
+
+**Why.** Each pattern had a cost beyond looks. Four names for one window made the user learn it four times. The tiles could show the same USB budget twice and leave out the battery, so the numbers did not add up for the reader. A ring with a centre dot reads as a radio button in a sidebar of selectable rows. Settings already used sentence case, so the capitals made the app disagree with itself. Five empty-port cards weighed as much as the ports in use.
+
+**Rejected alternatives.**
+
+- *Rename the code and defaults keys to "map".* It would reset saved window state and break the screenshot workflow for no user-visible gain.
+- *Keep the tiles and only fix the labels.* It keeps two numbers that are often equal and still hides where the input goes.
+- *Add Port output to the bar as a third segment.* Whether `SystemLoad` already includes port output is not known, so a sum could double-count.
+- *A hollow dot for empty ports.* A hollow circle beside a filled one is a radio group again.
+- *Make the compact layout the default to get one list.* The compact layout hides the battery and sparkline; cards stay the default and the compact layout stays one setting away.
+- *Drop the glow from the status dot.* It is one of the Dark glow sites the 2026-10-19 light-palette entry lists, and it still marks a live port.
+
 ## 2026-10-23: Releases ship a plain disk image
 
 **Question.** Releases attached `BusStop.zip`. Should they ship a disk image instead, and how should it look?
@@ -94,7 +119,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - **Light targets**, on `background`, `surface` and `surfaceRaised`: `textPrimary` 12:1, `textSecondary` 6:1, `textTertiary`, `accent` and status text 4.5:1, chip text on its own 10–14 % fill 4.5:1, links, power strokes, `accentGlow` and chart series 3:1. The deliberately dim tiers (`accentMuted`, USB 2 links, no power) must read at least as well as they do in Dark, surface for surface. Card hairlines are exempt in both themes.
 - **The link ramp darkens as speed rises** in Light (OKLCH lightness 0.65 down to 0.27), the mirror of Dark's brightening.
 - **The power ramp's hues flip** in Light: dark gold for under 5 W, then amber, rust and deep red for 45 W and more. In Dark, gold is the brightest step; on white it is the faintest, so keeping Dark's hue order would make more power read as less ink. The legends' spoken text follows the theme.
-- **No glows or blur in Light.** `lagoonGlow` replaces `.shadow` at the five glow sites (status ring, About icon, selected map card, both legends' swatches), and the map draws its link glows and highlight halo in Dark only. On white, blur reads as a smudge. Hover darkens a link's core in Light (`linkHighlightMix` is black) instead of brightening it; power pulses still mix toward white (`pulseMix`). The map's dot grid is stronger and its host tint weaker in Light.
+- **No glows or blur in Light.** `lagoonGlow` replaces `.shadow` at the five glow sites (status dot, formerly a ring, About icon, selected map card, both legends' swatches), and the map draws its link glows and highlight halo in Dark only. On white, blur reads as a smudge. Hover darkens a link's core in Light (`linkHighlightMix` is black) instead of brightening it; power pulses still mix toward white (`pulseMix`). The map's dot grid is stronger and its host tint weaker in Light.
 - **One `accent`, no `accentBrand`.** `accent` turns darker in Light (#096D68) and keeps the turquoise hue, so no call site changes.
 - **Text colour thresholds are shared.** `linkTextColor` and `powerTextColor` keep their rules (USB 2 and under 5 W use `textSecondary`), because the light ramps were chosen so the same thresholds hold; a test checks it.
 - **Faded text is drawn at full ink in Light** (`Lagoon.textFade`): the TransportChip rate, PowerBadge budgets and the inspector's raw-key names. Faded dark text on white falls below 4.5:1. Budgets stay apart from measurements through their help text and the menu bar's "≤".
