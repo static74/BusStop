@@ -126,9 +126,15 @@ struct PopoverView: View {
                 CompactPortList(ports: ports, store: store)
                     .id(closeCount)
             } else {
-                ForEach(ports) { port in
+                // Ports in use get a card each; empty ones share one card, a
+                // line each, so they keep their menus without the weight of
+                // a full card. A port still showing a departing device stays
+                // a card until the ghost goes, so it does not jump mid-fade.
+                let inUse = ports.filter { $0.isConnected || !store.devicesWithGhosts(on: $0.key).isEmpty }
+                ForEach(inUse) { port in
                     PortCardView(port: port, store: store)
                 }
+                CompactPortList(ports: ports.filter { port in !inUse.contains { $0.id == port.id } }, store: store)
             }
         }
     }

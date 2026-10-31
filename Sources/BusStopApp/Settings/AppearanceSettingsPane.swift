@@ -2,7 +2,7 @@ import BusStopCore
 import BusStopUI
 import SwiftUI
 
-/// Appearance: theme, data colours, background opacity, glass tint, text size and link animation.
+/// Appearance: theme, data colours, background opacity, button tint, text size and link animation.
 struct AppearanceSettingsPane: View {
     var store: PortStore
 
@@ -12,14 +12,14 @@ struct AppearanceSettingsPane: View {
     var body: some View {
         @Bindable var settings = store.settings
         Form {
-            Section("Theme") {
+            Section {
                 Picker("Theme", selection: $settings.theme) {
                     ForEach(ThemeSetting.allCases) { theme in
                         Text(theme.title).tag(theme)
                     }
                 }
                 .pickerStyle(.segmented)
-                SettingsCaption("Dark is the Lagoon look. Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
+                SettingsCaption("Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
             }
 
             Section("Data colours") {
@@ -37,21 +37,20 @@ struct AppearanceSettingsPane: View {
             Section("Background") {
                 AppearancePreviewSwatch(opacity: settings.backgroundOpacity, tint: settings.glassTint)
                 Slider(value: $settings.backgroundOpacity, in: 0.6...1, step: 0.01) {
-                    Text("Opacity")
+                    Text("Opacity \(percent(settings.backgroundOpacity))")
                 } minimumValueLabel: {
                     Text(verbatim: "60%").monospacedDigit()
                 } maximumValueLabel: {
                     Text(verbatim: "100%").monospacedDigit()
                 }
-                LabeledContent("Current", value: percent(settings.backgroundOpacity))
                 SettingsCaption(reduceTransparency
                     ? "Reduce Transparency is on in System Settings, so backgrounds are always solid."
                     : "Lower values let a hint of the desktop show through. 100% is fully solid and easiest to read.")
             }
 
-            Section("Glass controls") {
+            Section("Buttons") {
                 Slider(value: $settings.glassTint, in: 0...0.5, step: 0.01) {
-                    Text("Turquoise tint")
+                    Text("Tint")
                 } minimumValueLabel: {
                     Text(verbatim: "0%").monospacedDigit()
                 } maximumValueLabel: {
@@ -61,8 +60,6 @@ struct AppearanceSettingsPane: View {
                     GlassEffectContainer(spacing: 8) {
                         HStack(spacing: 8) {
                             GlassIconButton(systemName: "arrow.clockwise", help: "Refresh", tint: settings.glassTint) {}
-                            GlassIconButton(systemName: "point.3.connected.trianglepath.dotted", help: "Open Topology",
-                                            tint: settings.glassTint) {}
                             GlassIconButton(systemName: "gearshape", help: "Settings", tint: settings.glassTint) {}
                         }
                     }
@@ -76,11 +73,11 @@ struct AppearanceSettingsPane: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                SettingsCaption("Applies to the popover, the topology window and this window as soon as you pick a size.")
+                SettingsCaption("Applies to the popover, the map window and this window as soon as you pick a size.")
             }
 
             Section("Motion") {
-                Toggle("Animate links in the topology graph", isOn: $settings.animateLinks)
+                Toggle("Animate links on the map", isOn: $settings.animateLinks)
                 SettingsCaption(reduceMotion
                     ? "Reduce Motion is on in System Settings, so links stay still."
                     : "Small pulses travel along active links, faster for faster connections.")
@@ -126,7 +123,6 @@ struct AppearancePreviewSwatch: View {
             wallpaper
             LagoonBackground(opacity: opacity)
             HStack(spacing: 10) {
-                StatusRing(isActive: true, size: 11)
                 PortIcon(kind: .usbC, isActive: true, size: 24)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Left Front · USB-C")
@@ -143,8 +139,9 @@ struct AppearancePreviewSwatch: View {
             .padding(.horizontal, 18)
         }
         .frame(height: 96)
+        // No outline of its own: the form group already frames it, and a
+        // third border around the card inside read as boxes in boxes.
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Lagoon.stroke, lineWidth: 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Preview at \(Int((opacity * 100).rounded())) percent opacity")
     }

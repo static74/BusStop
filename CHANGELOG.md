@@ -6,6 +6,14 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
+- The topology window is now the map window everywhere: Open Map, Show Map and Show on Map. The popover's header no longer repeats the Open Map button its footer already has.
+- The Power page opens with where the power goes: a bar splitting the charger's input between the Mac and its battery, then what the ports give accessories, marked as measured or as a USB budget. It replaces four tiles, two of which could show the same USB budget, one of them as power "delivered".
+- The battery card no longer repeats its percentage beside the state, and no longer shows a raw not-charging code; the Diagnostics finding explains it.
+- Section labels, the Demo badge and severity labels use sentence case instead of spaced capitals.
+- A port's status shows as a solid dot, brighter when something is connected, instead of a ring that looked like a radio button. Popover cards drop it, since the port icon already shows the state.
+- In the card layout, empty ports share one card with a line each, so ports in use stand out.
+- Device subtitles show at most two facts, so they no longer truncate in the popover or on map nodes.
+- Settings › Appearance: the tint slider is under Buttons, the opacity slider shows its value in its label, and the theme caption no longer calls Dark "the Lagoon look", a name the data colour presets now use.
 - A Thunderbolt display with a USB hub, such as a Dell U4025QW, folds its built-in USB hub into its card, as a dock does. Built-in parts are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
 - Bus Stop reads each USB device's container ID, which every part of one physical product shares, and folds the hub chips and functions of a dock or display that share its root hub's ID, even where the hub reports no captive ports. Raw captures and JSON exports include the ID; with redaction on (the default) it is replaced by a stand-in that still shows which devices share one.
 - A USB hub built from several hub chips shows as one hub card, with the extra chips listed in the inspector under "Built into this hub". Bus Stop recognises a chip by the captive port macOS reports it on, so this works for any hub, monitor or dock, not a list of models. A Dell U4025QW now shows one hub with its Ethernet, webcam and HID devices.

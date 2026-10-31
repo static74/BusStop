@@ -86,10 +86,9 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title.uppercased())
-                .tracking(0.8)
-                .lagoonFont(.caption2, weight: .bold, design: .rounded)
-                .foregroundStyle(Lagoon.textTertiary)
+            Text(title)
+                .lagoonFont(.caption, weight: .semibold)
+                .foregroundStyle(Lagoon.textSecondary)
             Spacer()
             if let trailing {
                 Text(trailing)

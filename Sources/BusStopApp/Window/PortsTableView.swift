@@ -56,7 +56,7 @@ struct PortsTableView: View {
         Table(rows, selection: selection, sortOrder: $sortOrder) {
             TableColumn("Port", value: \PortTableRow.title) { row in
                 HStack(spacing: 8) {
-                    StatusRing(isActive: row.isConnected, size: 9)
+                    StatusDot(isActive: row.isConnected, size: 9)
                     PortIcon(kind: row.kind, isActive: row.isConnected, size: 20)
                     Text(row.title)
                         .foregroundStyle(row.isConnected ? Lagoon.textPrimary : Lagoon.textSecondary)

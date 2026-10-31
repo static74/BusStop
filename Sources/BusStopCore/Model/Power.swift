@@ -100,11 +100,16 @@ public struct BatteryInfo: Sendable, Hashable, Codable {
 
     /// "Charging · 82%", "Charged", "On battery · 64%", "Not charging · 80%".
     public var statusText: String {
-        let pct = percent.map { " · \($0)%" } ?? ""
-        if isFullyCharged && externalConnected { return "Charged" + pct }
-        if isCharging { return "Charging" + pct }
-        if externalConnected { return "Not charging" + pct }
-        return "On battery" + pct
+        stateText + (percent.map { " · \($0)%" } ?? "")
+    }
+
+    /// The state alone, for places that show the percentage on its own:
+    /// "Charged", "Charging", "Not charging", "On battery".
+    public var stateText: String {
+        if isFullyCharged && externalConnected { return "Charged" }
+        if isCharging { return "Charging" }
+        if externalConnected { return "Not charging" }
+        return "On battery"
     }
 }
 

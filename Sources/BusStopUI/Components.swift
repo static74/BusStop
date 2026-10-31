@@ -260,8 +260,10 @@ struct GraphTooltipModifier: ViewModifier {
     }
 }
 
-/// Ring that glows turquoise when something is connected (the glow is Dark only).
-public struct StatusRing: View {
+/// A port's status light: a turquoise dot that glows when something is
+/// connected (the glow is Dark only), a smaller muted dot when empty. Both
+/// are solid, so neither reads as a radio button.
+public struct StatusDot: View {
     public var isActive: Bool
     public var size: CGFloat = 12
 
@@ -271,18 +273,12 @@ public struct StatusRing: View {
     }
 
     public var body: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(isActive ? Lagoon.accent : Lagoon.accentMuted, lineWidth: size * 0.18)
-            if isActive {
-                Circle()
-                    .fill(Lagoon.accent)
-                    .padding(size * 0.3)
-            }
-        }
-        .frame(width: size, height: size)
-        .lagoonGlow(isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
-        .accessibilityHidden(true)
+        Circle()
+            .fill(isActive ? Lagoon.accent : Lagoon.accentMuted)
+            .frame(width: size * (isActive ? 0.6 : 0.4), height: size * (isActive ? 0.6 : 0.4))
+            .frame(width: size, height: size)
+            .lagoonGlow(isActive ? Lagoon.accent.opacity(0.6) : .clear, radius: isActive ? 4 : 0)
+            .accessibilityHidden(true)
     }
 }
 

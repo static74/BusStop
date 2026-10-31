@@ -90,23 +90,28 @@ public struct DeviceRowView: View {
         }
     }
 
-    /// Vendor, roll-up ("3 devices · 7.5 W"), "Self-powered" or "Disconnected".
+    /// At most two of: roll-up ("3 devices · 7.5 W", or the count and
+    /// "Self-powered" for a hub with its own supply), vendor; or "Disconnected". Two keep the line
+    /// from truncating in the popover's nested rows; the inspector has the rest.
     private var caption: String? {
         if isDeparting { return "Disconnected" }
         var parts: [String] = []
-        if let vendor = device.vendorName, !vendor.isEmpty, vendor != device.name {
-            parts.append(vendor)
-        }
-        if let rollUp = PopoverText.rollUp(for: device) {
+        if device.power?.isSelfPowered == true {
+            // Its own supply powers what is behind it, so the watts add nothing.
+            if !device.children.isEmpty {
+                parts.append(PopoverText.count(device.descendantCount, "device", "devices"))
+            }
+            parts.append("Self-powered")
+        } else if let rollUp = PopoverText.rollUp(for: device) {
             parts.append(rollUp)
         }
-        if device.power?.isSelfPowered == true {
-            parts.append("Self-powered")
+        if let vendor = device.vendorName, !vendor.isEmpty, vendor != device.name {
+            parts.append(vendor)
         }
         if parts.isEmpty, device.isTunneled {
             parts.append("Through Thunderbolt")
         }
-        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+        return parts.isEmpty ? nil : parts.prefix(2).joined(separator: " \u{00B7} ")
     }
 
     @ViewBuilder

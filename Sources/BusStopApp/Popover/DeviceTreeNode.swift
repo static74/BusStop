@@ -54,10 +54,10 @@ struct DeviceTreeNode: View {
 }
 
 extension View {
-    /// "Show in Topology", "Copy Name", "Copy Details".
+    /// "Show on Map", "Copy Name", "Copy Details".
     func deviceContextMenu(device: DeviceNode, port: PhysicalPort?) -> some View {
         contextMenu {
-            Button("Show in Topology") {
+            Button("Show on Map") {
                 WindowManager.shared.showTopology(selecting: .device(device.id))
             }
             Divider()

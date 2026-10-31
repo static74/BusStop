@@ -281,7 +281,7 @@ struct TopologyWindowView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelStyle(.titleAndIcon)
-                .help("Show the topology as a graph or as a list")
+                .help("Show the map as a graph or as a list")
             }
         }
 

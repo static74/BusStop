@@ -12,9 +12,9 @@ Bus Stop is a free, open-source menu bar app for macOS. It shows the physical po
 
 *The popover: the charger and its USB-PD contract, a diagnostic, and one card per port with the devices behind it, their link speeds and power.*
 
-![The Bus Stop topology window, showing the Mac, its ports and the devices behind them as a graph](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-topology.png)
+![The Bus Stop map window, showing the Mac, its ports and the devices behind them as a graph](https://raw.githubusercontent.com/static74/BusStop/screenshots/studioDesk-topology.png)
 
-*The topology window: the Mac, its ports and every device behind them, with each link drawn by speed. The sidebar leads to the port and device tables, power charts, the event log and diagnostics.*
+*The map window: the Mac, its ports and every device behind them, with each link drawn by speed. The sidebar leads to the port and device tables, power charts, the event log and diagnostics.*
 
 Both screenshots show the Studio desk demo setup. Demo mode (Settings › Advanced) shows the same setups on your own Mac, with nothing plugged in. [More screenshots](https://github.com/static74/BusStop/tree/screenshots) cover the other demo setups and every settings pane.
 
@@ -29,7 +29,7 @@ Both screenshots show the Studio desk demo setup. Demo mode (Settings › Advanc
 - **Flaky connections.** A device that keeps disconnecting, a link that keeps changing speed or a drive slower than it was on the same port, with the likely culprit: the cable, the port, a hub or the device.
 - **Port health.** Each port's plug events, connections, overcurrents and connection errors over the last 7 days next to the hardware's all-time counts, with a note when one port has far more problems than its siblings.
 - **Instant change detection.** Plug and unplug events show up at once, in an event log kept between launches, with optional notifications.
-- **A topology window** with the graph, a Mac Outline that places each port where it sits on the case, sortable port and device tables, power charts, the event log, diagnostics and an inspector down to the raw IORegistry keys.
+- **A map window** with the graph, a Mac Outline that places each port where it sits on the case, sortable port and device tables, power charts, the event log, diagnostics and an inspector down to the raw IORegistry keys.
 - **Desktop widgets** in Large and Extra Large: Ports, Power and Health. Bus Stop must be running to keep them current.
 - **Export** a JSON snapshot, a Markdown report or a raw capture for bug reports, with serial numbers redacted by default.
 - **A command-line tool**, `busstop`, with text, JSON, Markdown and raw output, a watch mode and the demo setups.
