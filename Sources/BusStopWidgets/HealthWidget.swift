@@ -21,6 +21,7 @@ private struct HealthWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        HealthWidgetView(entry: entry, family: family)
+        LagoonTheme.use(presetNamed: entry.payload?.colorPreset)
+        return HealthWidgetView(entry: entry, family: family)
     }
 }

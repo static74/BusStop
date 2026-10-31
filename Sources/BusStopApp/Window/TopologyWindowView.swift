@@ -79,7 +79,7 @@ struct TopologyWindowView: View {
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(settings.textSize)
-        .dataPalette(settings.dataColor)
+        .dataPalette()
         .frame(minWidth: 860, minHeight: 540)
         .background {
             HostingWindowObserver(
@@ -281,7 +281,7 @@ struct TopologyWindowView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelStyle(.titleAndIcon)
-                .help("Show the topology as a graph or as a list")
+                .help("Show the map as a graph or as a list")
             }
         }
 

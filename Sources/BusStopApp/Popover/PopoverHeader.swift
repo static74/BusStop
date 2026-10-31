@@ -2,10 +2,10 @@ import BusStopCore
 import BusStopUI
 import SwiftUI
 
-/// Top of the popover: machine name, a one-line summary (with the DEMO badge
-/// in demo mode) and the glass control cluster (Refresh, Open Topology,
-/// Settings). The only glass in the popover besides the footer button
-/// (docs/SPEC.md §4.1).
+/// Top of the popover: machine name, a one-line summary (with the Demo badge
+/// in demo mode) and the glass control cluster (Refresh, Settings). The
+/// map opens from the footer button, so it has no second button here. The
+/// only glass in the popover besides that button (docs/SPEC.md §4.1).
 ///
 /// The name has the full width next to the controls and wraps to a second
 /// line, so long marketing names such as "MacBook Pro (14-inch, 2026, M5 Pro)"
@@ -44,9 +44,6 @@ struct PopoverHeader: View {
                 HStack(spacing: 8) {
                     GlassIconButton(systemName: "arrow.clockwise", help: "Refresh") {
                         store.refresh()
-                    }
-                    GlassIconButton(systemName: "point.3.connected.trianglepath.dotted", help: "Open Topology") {
-                        WindowManager.shared.showTopology()
                     }
                     GlassIconButton(systemName: "gearshape", help: "Settings") {
                         WindowManager.shared.showSettings()

@@ -207,6 +207,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
         window.setContentSize(fitting)
     }
 
+    /// Gives every open Bus Stop window the active preset's background.
+    func applyBackground() {
+        for window in ourWindows { window.backgroundColor = Lagoon.nsBackground }
+    }
+
     /// Settings shared by every Bus Stop window.
     private func configureCommon(_ window: NSWindow) {
         window.isReleasedWhenClosed = false

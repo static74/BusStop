@@ -250,7 +250,7 @@ struct OutlinePortRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            StatusRing(isActive: port.isConnected, size: 10)
+            StatusDot(isActive: port.isConnected, size: 10)
             PortIcon(kind: port.kind, isActive: port.isConnected, size: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(port.label.title)

@@ -18,13 +18,15 @@ struct WidgetWriteGate {
         var snapshot: HostSnapshot
         var events: ArraySlice<ConnectionEvent>
         var portHealth: [PortKey: PortHealth]
+        var colorPreset: String?
     }
 
     /// True when a write is due; it then counts as written at `now`.
     mutating func shouldWrite(_ snapshot: HostSnapshot, events: [ConnectionEvent],
-                              portHealth: [PortKey: PortHealth], now: Date) -> Bool {
+                              portHealth: [PortKey: PortHealth], colorPreset: String? = nil, now: Date) -> Bool {
         let content = Content(snapshot: Self.withoutPowerReadings(snapshot),
-                              events: events.prefix(WidgetPayload.eventLimit), portHealth: portHealth)
+                              events: events.prefix(WidgetPayload.eventLimit), portHealth: portHealth,
+                              colorPreset: colorPreset)
         let power = Self.wholeWatts(PowerSample(snapshot))
         let sinceWrite = now.timeIntervalSince(lastWrite)
         guard content != lastContent

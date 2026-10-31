@@ -24,6 +24,52 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *Keep power colouring the links while Power is on.* Colour would mean two things, which is the second-topology problem again.
 - *Arrows in the bubble for the direction of power.* Left out at the owner's request; the tooltip says it instead.
 
+## 2026-10-31: The colour preset colours the whole interface
+
+**Question.** Settings › Appearance › Data colours changed only the map's links, chips and the Mac Outline; cards, borders, text, buttons and glows stayed turquoise, so an Ember map sat inside a Lagoon window. How should the rest of the interface follow the preset?
+
+**Decision.**
+
+- **Every token per preset.** `DataPalette.tokens` gives each preset its own surfaces, strokes, accent family, text, status colours and onAccent, built once. Lagoon's are today's values. The others keep Lagoon's OKLCH lightness and chroma at the preset's hue (none for Graphite), Light text darkened only where it would miss its target; accentDeep is the preset's accent scaled as Lagoon's deep is to its accent; onAccent is black or white, whichever reads better on both accents. The Dark background stays black.
+- **One active preset.** `LagoonTheme.shared` (`@Observable`) holds it. `Lagoon.accent` and the other colour tokens became computed properties that read it, so the ~380 call sites did not change and a view redraws in place, keeping its state, when the preset changes. `DataColorSetting.follow` sets it at launch and whenever the setting or the system accent changes; window backgrounds are re-applied then, since AppKit keeps the colour it was given. The map's `dataPalette` environment value now comes from the same store, so the links and the rest change together.
+- **Status colours move away from the preset.** powerIn, warning and critical keep their hue unless it lies within 30° of the preset's, and then move to 30° away (Ember's critical toward pink-red, Orchid's toward orange-red, Citrine's warning toward orange, Tangerine's toward yellow, Fern's powerIn toward mint). Tests require 27° between each status colour and the accent and between status colours, which Lagoon's own closest pair (27.6°) meets unchanged.
+- **Widgets follow.** The payload carries the preset (`colorPreset`), a change rewrites it at once, and each widget sets the preset before drawing. A payload without it draws Lagoon.
+- **Kept fixed.** Power mode's heat ramp (ROADMAP item 6) and the power chart series, which were validated together for colour-vision deficiency; the System input series stays teal.
+- **Settings.** The section is now Colour, without a header of its own (the picker's label says it), and its caption says what it colours.
+
+**Why.** The user expects choosing a colour to recolour the app, not one map. Computed tokens over one observable store change no call sites and lose no view state.
+
+**Rejected alternatives.**
+
+- *Read a global inside each colour's provider and rebuild the windows with `.id(palette)`.* The rebuild resets the map's zoom and the Settings scroll position mid-choice, AppKit colours would not refresh, and the provider runs on any thread.
+- *Pass the palette through the environment to every view.* It touches every call site for the same result.
+- *Keep status colours fixed.* Ember's accent then sits a few degrees from critical, and Fern's from charging.
+- *Recolour the power charts too.* The series would collide with the preset (System input with Sky's battery blue, System load with Fern) and lose their validated separation.
+
+## 2026-10-31: The UI drops generic-dashboard habits and calls the window the map
+
+**Question.** An audit of the popover, the map window and Settings for patterns that read as templated rather than chosen for Bus Stop found eight. Which of them should change, and what replaces each one?
+
+**Decision.**
+
+- **One name.** The window is the map: Open Map, Show Map, Show on Map, the inspector's Connections section and the Port map VoiceOver label. Code names (`TopologyWindowView`, the `topology` automation value, defaults keys) stay, so saved settings and CI captures are untouched. The popover header drops its Open Map button, because the footer's prominent button does the same thing.
+- **Power page.** `PowerFlowCard` replaces the four tiles (System input, System load, Port output, USB allocated). With a charger it draws one bar: the Mac's load and the battery's charging power, in `PowerChartPalette.systemLoad` and `.battery`, scaled to the larger of the input and their sum, with any gap left as an unlabelled track. On battery it states the load drawn from the battery. Accessories get one line that sums each port's output by `PortPower.isMeasured`, so a budget is never called "delivered". The battery card shows `BatteryInfo.stateText` beside the percentage and no longer shows the raw `NotChargingReason`.
+- **Sentence case.** `SectionHeader` draws its title as written, at `.caption` semibold in secondary text; the Demo badge and the Diagnostics severity chip lose their capitals and tracking.
+- **Status dot.** `StatusDot` replaces `StatusRing`: a solid turquoise dot with the Dark glow when connected, a smaller solid `accentMuted` dot when empty. The popover card no longer draws it.
+- **Empty ports.** In the card layout, ports in use (or still showing a departing device) get cards and the rest share one `CompactPortList` card.
+- **Subtitles.** The popover's device caption keeps at most two facts; a self-powered hub shows its count and "Self-powered" without watts, and its map node shows "Hub · 2 devices".
+- **Appearance pane.** The tint slider sits under Buttons as Tint, the opacity slider's label carries its value, and the theme caption no longer calls Dark "the Lagoon look": Lagoon now names a data colour preset, so the caption mixed up the theme with the link colours.
+
+**Why.** Each pattern had a cost beyond looks. Four names for one window made the user learn it four times. The tiles could show the same USB budget twice and leave out the battery, so the numbers did not add up for the reader. A ring with a centre dot reads as a radio button in a sidebar of selectable rows. Settings already used sentence case, so the capitals made the app disagree with itself. Five empty-port cards weighed as much as the ports in use.
+
+**Rejected alternatives.**
+
+- *Rename the code and defaults keys to "map".* It would reset saved window state and break the screenshot workflow for no user-visible gain.
+- *Keep the tiles and only fix the labels.* It keeps two numbers that are often equal and still hides where the input goes.
+- *Add Port output to the bar as a third segment.* Whether `SystemLoad` already includes port output is not known, so a sum could double-count.
+- *A hollow dot for empty ports.* A hollow circle beside a filled one is a radio group again.
+- *Make the compact layout the default to get one list.* The compact layout hides the battery and sparkline; cards stay the default and the compact layout stays one setting away.
+- *Drop the glow from the status dot.* It is one of the Dark glow sites the 2026-10-19 light-palette entry lists, and it still marks a live port.
 ## 2026-10-29: A dock folds no device by its port alone
 
 **Question.** Rule E of the 2026-10-14 decision ("A dock's built-in USB parts leave the device tree") folds every device that is not a hub on a hub that rule C folded. On the owner's MacBook Pro, a Keychron Q3 Pro (3434:0630, on a standard port) and a Benchmark 1.0 audio device (04D8:FEEA, on a port the dock flags captive) are plugged into the Anker Prime dock and show as parts built into it, so they vanish from the map. Should a function fold because of the hub it sits on?
@@ -262,7 +308,7 @@ What SwiftPM does not do is generate App Intents metadata, so a configurable wid
 - **Light targets**, on `background`, `surface` and `surfaceRaised`: `textPrimary` 12:1, `textSecondary` 6:1, `textTertiary`, `accent` and status text 4.5:1, chip text on its own 10–14 % fill 4.5:1, links, power strokes, `accentGlow` and chart series 3:1. The deliberately dim tiers (`accentMuted`, USB 2 links, no power) must read at least as well as they do in Dark, surface for surface. Card hairlines are exempt in both themes.
 - **The link ramp darkens as speed rises** in Light (OKLCH lightness 0.65 down to 0.27), the mirror of Dark's brightening.
 - **The power ramp's hues flip** in Light: dark gold for under 5 W, then amber, rust and deep red for 45 W and more. In Dark, gold is the brightest step; on white it is the faintest, so keeping Dark's hue order would make more power read as less ink. The legends' spoken text follows the theme.
-- **No glows or blur in Light.** `lagoonGlow` replaces `.shadow` at the five glow sites (status ring, About icon, selected map card, both legends' swatches), and the map draws its link glows and highlight halo in Dark only. On white, blur reads as a smudge. Hover darkens a link's core in Light (`linkHighlightMix` is black) instead of brightening it; power pulses still mix toward white (`pulseMix`). The map's dot grid is stronger and its host tint weaker in Light.
+- **No glows or blur in Light.** `lagoonGlow` replaces `.shadow` at the five glow sites (status dot, formerly a ring, About icon, selected map card, both legends' swatches), and the map draws its link glows and highlight halo in Dark only. On white, blur reads as a smudge. Hover darkens a link's core in Light (`linkHighlightMix` is black) instead of brightening it; power pulses still mix toward white (`pulseMix`). The map's dot grid is stronger and its host tint weaker in Light.
 - **One `accent`, no `accentBrand`.** `accent` turns darker in Light (#096D68) and keeps the turquoise hue, so no call site changes.
 - **Text colour thresholds are shared.** `linkTextColor` and `powerTextColor` keep their rules (USB 2 and under 5 W use `textSecondary`), because the light ramps were chosen so the same thresholds hold; a test checks it.
 - **Faded text is drawn at full ink in Light** (`Lagoon.textFade`): the TransportChip rate, PowerBadge budgets and the inspector's raw-key names. Faded dark text on white falls below 4.5:1. Budgets stay apart from measurements through their help text and the menu bar's "≤".

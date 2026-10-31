@@ -2,6 +2,7 @@ import AppKit
 import BusStopCore
 import BusStopUI
 import SwiftUI
+import Synchronization
 import Testing
 @testable import BusStopApp
 
@@ -319,6 +320,88 @@ struct ThemeContrastTests {
             let red = text.range(of: "deep red")?.lowerBound
             #expect(gold != nil && red != nil && gold! < red!, "\(text)")
         }
+    }
+
+    // MARK: Presets
+
+    /// OKLCH hue of `color` in `scheme`, in degrees.
+    static func hue(_ color: Color, _ scheme: ColorScheme) -> Double {
+        let c = rgb(color, scheme)
+        return DataPalette.oklch(red: c.r, green: c.g, blue: c.b).2
+    }
+
+    static func hueGap(_ a: Double, _ b: Double) -> Double {
+        let gap = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return min(gap, 360 - gap)
+    }
+
+    /// Lagoon's tokens are the ones the frozen Dark values above check.
+    @Test func lagoonPresetIsTheDefault() {
+        #expect(LagoonTheme.shared.palette == .lagoon)
+        #expect(Lagoon.accent == DataPalette.lagoon.tokens.accent)
+    }
+
+    /// Every preset's interface colours meet Lagoon's Light targets on its own surfaces.
+    @Test(arguments: DataPalette.allCases)
+    func presetTokensMeetContrastTargets(_ palette: DataPalette) {
+        let t = palette.tokens
+        let surfaces = [t.background, t.surface, t.surfaceRaised].map { Self.rgb($0, .light) }
+        func worst(_ color: Color) -> Double {
+            surfaces.map { Self.rgb(color, .light).over($0).contrast(with: $0) }.min() ?? 0
+        }
+        let raised = Self.rgb(t.surfaceRaised, .light)
+        func onOwnFill(_ color: Color, at opacity: Double) -> Double {
+            let fill = Self.rgb(color, .light).over(raised, opacity: opacity)
+            return Self.rgb(color, .light).contrast(with: fill)
+        }
+        let targets: [(String, Color, Double)] = [
+            ("textPrimary", t.textPrimary, 12), ("textSecondary", t.textSecondary, 6),
+            ("textTertiary", t.textTertiary, 4.5), ("accent", t.accent, 4.5), ("powerIn", t.powerIn, 4.5),
+            ("warning", t.warning, 4.5), ("critical", t.critical, 4.5),
+        ]
+        for (name, color, target) in targets {
+            #expect(worst(color) >= target, "\(palette) \(name)")
+        }
+        for (name, color) in [("accent", t.accent), ("powerIn", t.powerIn), ("warning", t.warning),
+                              ("critical", t.critical)] {
+            #expect(onOwnFill(color, at: 0.12) >= 4.5, "\(palette) \(name) on own fill")
+        }
+        #expect(worst(t.accentGlow) >= 3, "\(palette) accentGlow")
+        for scheme in [ColorScheme.dark, .light] {
+            let text = Self.rgb(t.onAccent, scheme)
+            #expect(text.contrast(with: Self.rgb(t.accent, scheme)) >= 4.5, "\(palette) onAccent on accent \(scheme)")
+            #expect(text.contrast(with: Self.rgb(t.accentDeep, scheme)) >= 4.5, "\(palette) onAccent on deep \(scheme)")
+        }
+        #expect(Self.rgb(t.background, .dark).luminance == 0, "\(palette) Dark background is black")
+    }
+
+    /// Status colours stay at least 27° of hue from the preset's accent and
+    /// from each other, so a warning never reads as decoration (2026-10-31).
+    @Test(arguments: DataPalette.allCases)
+    func statusColoursStayApartFromThePreset(_ palette: DataPalette) {
+        let t = palette.tokens
+        for scheme in [ColorScheme.dark, .light] {
+            let status = [("powerIn", t.powerIn), ("warning", t.warning), ("critical", t.critical)]
+                .map { ($0.0, Self.hue($0.1, scheme)) }
+            if let presetHue = palette.hue {
+                for (name, hue) in status {
+                    #expect(Self.hueGap(hue, presetHue) >= 27, "\(palette) \(name) \(scheme)")
+                }
+            }
+            for (a, b) in [(0, 1), (0, 2), (1, 2)] {
+                #expect(Self.hueGap(status[a].1, status[b].1) >= 27, "\(palette) \(status[a].0)/\(status[b].0) \(scheme)")
+            }
+        }
+    }
+
+    /// A view that draws with a token is told to redraw when the preset changes.
+    @Test func tokenReadsAreObserved() {
+        let changed = Mutex(false)
+        withObservationTracking { _ = Lagoon.surface } onChange: { changed.withLock { $0 = true } }
+        LagoonTheme.shared.palette = .ember
+        defer { LagoonTheme.shared.palette = .lagoon }
+        #expect(changed.withLock { $0 })
+        #expect(Lagoon.accent == DataPalette.ember.tokens.accent)
     }
 
     /// The centre pixel of `image`, in sRGB.

@@ -154,7 +154,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func makeContextMenu() -> NSMenu {
         let menu = NSMenu(title: "Bus Stop")
 
-        menu.addItem(item("Open Topology", #selector(openTopology(_:))))
+        menu.addItem(item("Open Map", #selector(openTopology(_:))))
         menu.addItem(item("Refresh", #selector(refresh(_:))))
 
         let exportItem = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")

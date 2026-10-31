@@ -3,8 +3,8 @@ import BusStopUI
 import SwiftUI
 
 /// One physical port (docs/SPEC.md §3.2, item 4): connector icon, title,
-/// status ring, transport and power chips, then the nested device tree.
-/// Empty ports are dimmed with "Nothing connected".
+/// transport and power chips, then the nested device tree.
+/// The popover draws empty ports as `CompactPortRow` lines instead.
 ///
 /// "Rename Port…" edits the title in place: Return saves, Escape cancels,
 /// and an empty name restores the default label. A pin follows the title of
@@ -79,7 +79,6 @@ struct PortCardView: View {
                 }
             }
             Spacer(minLength: 6)
-            StatusRing(isActive: port.isConnected)
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: isRenaming ? .contain : .ignore)
@@ -251,7 +250,7 @@ extension View {
             }
             Divider()
             Button(pinTitle, action: togglePin)
-            Button("Show in Topology", action: showInTopology)
+            Button("Show on Map", action: showInTopology)
         }
         .accessibilityActions {
             Button("Rename Port", action: rename)
@@ -259,7 +258,7 @@ extension View {
                 Button("Restore Default Name") { store.renamePort(port.key, to: nil) }
             }
             Button(pinTitle, action: togglePin)
-            Button("Show in Topology", action: showInTopology)
+            Button("Show on Map", action: showInTopology)
         }
     }
 }

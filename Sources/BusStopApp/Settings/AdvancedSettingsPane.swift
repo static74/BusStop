@@ -50,7 +50,7 @@ struct AdvancedSettingsPane: View {
                     }
                 }
                 .disabled(!settings.demoMode)
-                SettingsCaption("Useful for screenshots and for trying Bus Stop without accessories. A DEMO badge shows while it is on.")
+                SettingsCaption("Useful for screenshots and for trying Bus Stop without accessories. A Demo badge shows while it is on.")
             }
 
             Section("Reset") {
@@ -88,7 +88,7 @@ struct AdvancedSettingsPane: View {
             Button("Reset All Settings", role: .destructive, action: resetAll)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every preference returns to its default, including port names and the topology window’s view and zoom.")
+            Text("Every preference returns to its default, including port names and the map’s view and zoom.")
         }
     }
 

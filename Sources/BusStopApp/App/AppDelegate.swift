@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let settings = AppSettings.shared
+        DataColorSetting.follow(settings)
         let store = PortStore(settings: settings, historyFile: HistoryFile(directory: HistoryFile.standardDirectory),
                               widgetFile: .appGroup())
         self.store = store

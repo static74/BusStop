@@ -78,7 +78,7 @@ private struct DisplayRow: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
-            Button("Show in Topology") {
+            Button("Show on Map") {
                 WindowManager.shared.showTopology(selecting: .display(display.id))
             }
             Button("Copy Name") {

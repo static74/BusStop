@@ -52,7 +52,7 @@ struct SettingsPaneRoot: View {
             .tint(Lagoon.accent)
             .lagoonFont(.body)
             .lagoonTextScale(store.settings.textSize)
-            .dataPalette(store.settings.dataColor)
+            .dataPalette()
     }
 
     @ViewBuilder
