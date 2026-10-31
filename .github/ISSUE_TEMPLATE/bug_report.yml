@@ -1,0 +1,73 @@
+name: Bug report
+description: Something Bus Stop shows is wrong or missing. A raw capture lets us reproduce it without your hardware.
+labels: [bug]
+body:
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model and macOS version
+      description: Apple menu › About This Mac.
+      placeholder: MacBook Pro (16-inch, 2026, M5 Max), macOS 27.0.1
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Bus Stop version
+      description: Bus Stop › About Bus Stop, or `busstop --version`.
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: What is plugged in
+      description: What is plugged into which port, and through what (a dock, a hub, a monitor's USB ports).
+      placeholder: |
+        Left Rear USB-C: Anker Prime dock
+          Dell U4924DW monitor on the dock, keyboard on the monitor's USB-C port
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What Bus Stop shows, and what you expected
+      description: A screenshot of the map helps.
+    validations:
+      required: true
+  - type: textarea
+    id: capture
+    attributes:
+      label: Raw capture
+      description: |
+        Run this with the setup above connected, then drag `capture.json` here:
+
+        ```sh
+        "/Applications/Bus Stop.app/Contents/Helpers/busstop" --raw > capture.json
+        ```
+
+        You can also use **Export › Raw Capture for Bug Reports** in the app. Serial numbers and other per-unit identifiers are redacted by default, and the capture never includes the computer name. Look through the file before attaching it anyway.
+    validations:
+      required: true
+  - type: textarea
+    id: containers
+    attributes:
+      label: Container ID labels (optional)
+      description: |
+        Shows which USB devices macOS groups into one product, without the IDs themselves. Run this in Terminal and paste the output:
+
+        ```sh
+        ioreg -p IOUSB -l -w0 | awk '
+          function flush() {
+            if (loc != "") {
+              label = "-"
+              if (cid != "") { if (!(cid in seen)) seen[cid] = "C" (++n); label = seen[cid] }
+              printf "%08x  %-3s  %s\n", loc, label, name
+            }
+            name = ""; loc = ""; cid = ""
+          }
+          /\+-o / { flush(); name = $0; sub(/.*\+-o /, "", name); sub(/@.*/, "", name) }
+          /"locationID" = / { loc = $NF }
+          /"kUSBContainerID" = / { cid = $NF }
+          END { flush() }'
+        ```
+      render: text
