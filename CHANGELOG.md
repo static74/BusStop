@@ -21,6 +21,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Fixed
 
+- A USB-C port no longer shows as connected after a Thunderbolt device is unplugged. The Mac's Thunderbolt controller can keep the old link's speed and bandwidth for that port; Bus Stop now believes the port itself when it reports nothing attached.
 - A device plugged into a dock no longer disappears from the map. Bus Stop used to fold every device on certain internal dock hubs into the dock, which hid a keyboard and an audio device plugged into an Anker Prime dock. The dock's own Ethernet and card reader now show as devices under the dock.
 - Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
 
