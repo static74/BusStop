@@ -21,6 +21,7 @@ private struct PowerWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        PowerWidgetView(entry: entry, family: family)
+        LagoonTheme.use(presetNamed: entry.payload?.colorPreset)
+        return PowerWidgetView(entry: entry, family: family)
     }
 }

@@ -2,7 +2,7 @@ import BusStopCore
 import BusStopUI
 import SwiftUI
 
-/// Appearance: theme, data colours, background opacity, button tint, text size and link animation.
+/// Appearance: theme, colour, background opacity, button tint, text size and link animation.
 struct AppearanceSettingsPane: View {
     var store: PortStore
 
@@ -22,16 +22,16 @@ struct AppearanceSettingsPane: View {
                 SettingsCaption("Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
             }
 
-            Section("Data colours") {
-                Picker("Colours", selection: $settings.dataColor) {
+            Section {
+                Picker("Colour", selection: $settings.dataColor) {
                     ForEach(DataColorSetting.allCases) { setting in
                         Text(setting.title).tag(setting)
                     }
                 }
                 DataPaletteSwatch()
                 SettingsCaption(settings.dataColor == .system
-                    ? "Follows the accent colour in System Settings › Appearance. Links by speed, speed chips and the Mac Outline use it; Power mode keeps its own colours."
-                    : "Colours links by speed, speed chips and the Mac Outline. Power mode keeps its own colours.")
+                    ? "Follows the accent colour in System Settings › Appearance. The whole interface and the widgets use it; Power mode and the power charts keep their own colours."
+                    : "Colours the whole interface and the widgets. Power mode and the power charts keep their own colours.")
             }
 
             Section("Background") {
@@ -108,7 +108,7 @@ struct DataPaletteSwatch: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(palette.title) data colours, from USB 2 to 80 gigabits per second")
+        .accessibilityLabel("\(palette.title) link colours, from USB 2 to 80 gigabits per second")
     }
 }
 

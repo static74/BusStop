@@ -79,7 +79,7 @@ struct TopologyWindowView: View {
         .tint(Lagoon.accent)
         .lagoonFont(.body)
         .lagoonTextScale(settings.textSize)
-        .dataPalette(settings.dataColor)
+        .dataPalette()
         .frame(minWidth: 860, minHeight: 540)
         .background {
             HostingWindowObserver(

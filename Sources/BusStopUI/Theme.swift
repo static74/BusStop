@@ -3,39 +3,39 @@ import BusStopCore
 import SwiftUI
 
 /// The "Lagoon" design tokens: turquoise on black in Dark, on near-white in
-/// Light. Every colour follows the appearance it is drawn in. See docs/SPEC.md §4.
+/// Light, or the chosen colour preset's hue in its place. Every colour follows
+/// the appearance it is drawn in. See docs/SPEC.md §4.
 public enum Lagoon {
-    // MARK: Surfaces
+    // MARK: Surfaces, accent, text and status
 
-    public static let background = Color(nsColor: nsBackground)
-    public static let surface = themed(0x070D0E, 0xFFFFFF)
-    public static let surfaceRaised = themed(0x0D1719, 0xE9F2F1)
-    public static let stroke = themed(0x3EE6D4, 0x096D68, opacity: 0.16, lightOpacity: 0.18)
-    public static let strokeStrong = themed(0x3EE6D4, 0x096D68, opacity: 0.34, lightOpacity: 0.40)
+    // These follow `LagoonTheme.shared.palette`; the values for each preset
+    // are in ThemeTokens.swift, and Lagoon's are the defaults below.
 
-    // MARK: Accent
+    private static var tokens: LagoonTokens { LagoonTheme.shared.palette.tokens }
 
-    public static let accent = themed(0x3EE6D4, 0x096D68)
-    public static let accentDeep = themed(0x0FA3A0, 0x08635E)
-    public static let accentGlow = themed(0x8AFFF3, 0x0A8F86)
-    public static let accentMuted = themed(0x1C5F5A, 0x5E9E97)
+    public static var background: Color { tokens.background }
+    public static var surface: Color { tokens.surface }
+    public static var surfaceRaised: Color { tokens.surfaceRaised }
+    public static var stroke: Color { tokens.stroke }
+    public static var strokeStrong: Color { tokens.strokeStrong }
 
-    // MARK: Text
+    public static var accent: Color { tokens.accent }
+    public static var accentDeep: Color { tokens.accentDeep }
+    public static var accentGlow: Color { tokens.accentGlow }
+    public static var accentMuted: Color { tokens.accentMuted }
 
-    public static let textPrimary = themed(0xEAFBF8, 0x0B1F1D)
-    public static let textSecondary = themed(0x9BBAB5, 0x3D5A56)
-    public static let textTertiary = themed(0x5E7B77, 0x4D6763)
+    public static var textPrimary: Color { tokens.textPrimary }
+    public static var textSecondary: Color { tokens.textSecondary }
+    public static var textTertiary: Color { tokens.textTertiary }
 
-    // MARK: Status
-
-    public static let powerIn = themed(0x7BF5B0, 0x166E3D)
-    public static let warning = themed(0xFFC266, 0x8F5300)
-    public static let critical = themed(0xFF6B7A, 0xB22436)
+    public static var powerIn: Color { tokens.powerIn }
+    public static var warning: Color { tokens.warning }
+    public static var critical: Color { tokens.critical }
 
     // MARK: Text and effects on other colours
 
     /// Text and icons on an accent fill (the Demo badge, the active PDO, the Open Map button).
-    public static let onAccent = themed(0x000000, 0xFFFFFF)
+    public static var onAccent: Color { tokens.onAccent }
     /// What a hovered or selected link's core is mixed toward to stand out:
     /// white makes it brighter in Dark, black makes it darker in Light.
     public static let linkHighlightMix = themed(0xFFFFFF, 0x000000)
@@ -55,7 +55,7 @@ public enum Lagoon {
 
     // MARK: AppKit equivalents
 
-    public static let nsBackground = themedNS(0x000000, 0xF6FAF9)
+    public static var nsBackground: NSColor { tokens.nsBackground }
 
     // MARK: Theme helpers
 
