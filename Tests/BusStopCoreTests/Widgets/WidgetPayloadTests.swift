@@ -41,7 +41,17 @@ struct WidgetPayloadTests {
                              portHealth: Dictionary(uniqueKeysWithValues: snapshot.ports.map { ($0.key, health) }),
                              portDays: Dictionary(uniqueKeysWithValues: snapshot.ports.map {
                                  ($0.key, Array(repeating: health, count: 7))
-                             }))
+                             }), colorPreset: "ember")
+    }
+
+    /// A payload from an app that wrote no preset still decodes, as Lagoon's.
+    @Test func decodesWithoutAColorPreset() throws {
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(Self.fullPayload(.studioDesk)))
+            as? [String: Any])
+        #expect(json["colorPreset"] as? String == "ember")
+        json["colorPreset"] = nil
+        let decoded = try JSONDecoder().decode(WidgetPayload.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded.colorPreset == nil)
     }
 
     @Test(arguments: DemoScenario.allCases)

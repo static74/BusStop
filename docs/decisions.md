@@ -2,6 +2,28 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-31: The colour preset colours the whole interface
+
+**Question.** Settings › Appearance › Data colours changed only the map's links, chips and the Mac Outline; cards, borders, text, buttons and glows stayed turquoise, so an Ember map sat inside a Lagoon window. How should the rest of the interface follow the preset?
+
+**Decision.**
+
+- **Every token per preset.** `DataPalette.tokens` gives each preset its own surfaces, strokes, accent family, text, status colours and onAccent, built once. Lagoon's are today's values. The others keep Lagoon's OKLCH lightness and chroma at the preset's hue (none for Graphite), Light text darkened only where it would miss its target; accentDeep is the preset's accent scaled as Lagoon's deep is to its accent; onAccent is black or white, whichever reads better on both accents. The Dark background stays black.
+- **One active preset.** `LagoonTheme.shared` (`@Observable`) holds it. `Lagoon.accent` and the other colour tokens became computed properties that read it, so the ~380 call sites did not change and a view redraws in place, keeping its state, when the preset changes. `DataColorSetting.follow` sets it at launch and whenever the setting or the system accent changes; window backgrounds are re-applied then, since AppKit keeps the colour it was given. The map's `dataPalette` environment value now comes from the same store, so the links and the rest change together.
+- **Status colours move away from the preset.** powerIn, warning and critical keep their hue unless it lies within 30° of the preset's, and then move to 30° away (Ember's critical toward pink-red, Orchid's toward orange-red, Citrine's warning toward orange, Tangerine's toward yellow, Fern's powerIn toward mint). Tests require 27° between each status colour and the accent and between status colours, which Lagoon's own closest pair (27.6°) meets unchanged.
+- **Widgets follow.** The payload carries the preset (`colorPreset`), a change rewrites it at once, and each widget sets the preset before drawing. A payload without it draws Lagoon.
+- **Kept fixed.** Power mode's heat ramp (ROADMAP item 6) and the power chart series, which were validated together for colour-vision deficiency; the System input series stays teal.
+- **Settings.** The section is now Colour, without a header of its own (the picker's label says it), and its caption says what it colours.
+
+**Why.** The user expects choosing a colour to recolour the app, not one map. Computed tokens over one observable store change no call sites and lose no view state.
+
+**Rejected alternatives.**
+
+- *Read a global inside each colour's provider and rebuild the windows with `.id(palette)`.* The rebuild resets the map's zoom and the Settings scroll position mid-choice, AppKit colours would not refresh, and the provider runs on any thread.
+- *Pass the palette through the environment to every view.* It touches every call site for the same result.
+- *Keep status colours fixed.* Ember's accent then sits a few degrees from critical, and Fern's from charging.
+- *Recolour the power charts too.* The series would collide with the preset (System input with Sky's battery blue, System load with Fern) and lose their validated separation.
+
 ## 2026-10-31: The UI drops generic-dashboard habits and calls the window the map
 
 **Question.** An audit of the popover, the map window and Settings for patterns that read as templated rather than chosen for Bus Stop found eight. Which of them should change, and what replaces each one?

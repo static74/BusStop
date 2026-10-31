@@ -21,6 +21,7 @@ private struct PortsWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        PortsWidgetView(entry: entry, family: family)
+        LagoonTheme.use(presetNamed: entry.payload?.colorPreset)
+        return PortsWidgetView(entry: entry, family: family)
     }
 }

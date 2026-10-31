@@ -2,8 +2,8 @@ import AppKit
 import BusStopUI
 import SwiftUI
 
-/// Data mode's colours as chosen in Settings › Appearance: a preset, or the
-/// preset nearest the system accent colour.
+/// The interface's colours as chosen in Settings › Appearance › Colour: a
+/// preset, or the preset nearest the system accent colour.
 enum DataColorSetting: Hashable, Identifiable {
     case system
     case preset(DataPalette)
@@ -61,10 +61,27 @@ final class SystemAccentPalette {
     }
 }
 
+extension DataColorSetting {
+    /// Keeps `LagoonTheme.shared` on the preset `settings` asks for: now, and
+    /// again whenever the setting or the system accent changes. Call once at launch.
+    static func follow(_ settings: AppSettings) {
+        let palette = withObservationTracking {
+            settings.dataColor.resolved(system: SystemAccentPalette.shared.palette)
+        } onChange: {
+            Task { @MainActor in follow(settings) }
+        }
+        guard LagoonTheme.shared.palette != palette else { return }
+        LagoonTheme.shared.palette = palette
+        // AppKit keeps the window background it was given.
+        WindowManager.shared.applyBackground()
+    }
+}
+
 extension View {
-    /// Sets data mode's colours for everything below (use at view roots).
-    /// Reading the system accent here redraws the views when it changes.
-    func dataPalette(_ setting: DataColorSetting) -> some View {
-        environment(\.dataPalette, setting.resolved(system: SystemAccentPalette.shared.palette))
+    /// Sets the active preset's map colours for everything below (use at view
+    /// roots). It reads `LagoonTheme`, so the map's colours and the rest of
+    /// the interface always change together.
+    func dataPalette() -> some View {
+        environment(\.dataPalette, LagoonTheme.shared.palette)
     }
 }

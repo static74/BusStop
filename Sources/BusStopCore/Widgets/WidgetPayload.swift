@@ -35,10 +35,13 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
     /// The same 7 days one by one, oldest first, as `HistoryArchive.dailyPortHealth` gives
     /// them, for the Health widget's strip. Nil when the user keeps no history.
     public var portDays: [PortKey: [PortHealth]]?
+    /// The colour preset the app draws with (`DataPalette.rawValue`), so the
+    /// widgets match it. Nil from an app that predates presets in widgets.
+    public var colorPreset: String?
 
     public init(snapshot: HostSnapshot, recentPower: [PowerSample] = [], dayPower: [PowerSample] = [],
                 events: [ConnectionEvent] = [], portHealth: [PortKey: PortHealth] = [:],
-                portDays: [PortKey: [PortHealth]]? = nil, serials: Set<String> = []) {
+                portDays: [PortKey: [PortHealth]]? = nil, colorPreset: String? = nil, serials: Set<String> = []) {
         schemaVersion = Self.currentSchemaVersion
         capturedAt = snapshot.capturedAt
         isDemo = snapshot.isDemo
@@ -49,6 +52,7 @@ public struct WidgetPayload: Sendable, Hashable, Codable {
         self.events = events.prefix(Self.eventLimit).map { Exporter.redacted($0, textSerials: textSerials) }
         self.portHealth = portHealth
         self.portDays = portDays
+        self.colorPreset = colorPreset
     }
 
     /// The snapshot without the raw IORegistry properties the inspector shows.

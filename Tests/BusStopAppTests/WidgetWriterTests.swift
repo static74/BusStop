@@ -21,9 +21,17 @@ struct WidgetWriterTests {
     @MainActor private final class Gate {
         var gate = WidgetWriteGate()
         func writes(_ snapshot: HostSnapshot, events: [ConnectionEvent] = [], portHealth: [PortKey: PortHealth] = [:],
-                    now: Date) -> Bool {
-            gate.shouldWrite(snapshot, events: events, portHealth: portHealth, now: now)
+                    colorPreset: String? = nil, now: Date) -> Bool {
+            gate.shouldWrite(snapshot, events: events, portHealth: portHealth, colorPreset: colorPreset, now: now)
         }
+    }
+
+    @Test func writesAtOnceWhenThePresetChanges() {
+        let gate = Gate()
+        let base = snapshot(inputMilliwatts: 62_000)
+        #expect(gate.writes(base, colorPreset: "lagoon", now: start))
+        #expect(!gate.writes(base, colorPreset: "lagoon", now: start + 1))
+        #expect(gate.writes(base, colorPreset: "ember", now: start + 2))
     }
 
     @Test func writesChangesAtOnceAndPowerAtMostOnceAMinute() {

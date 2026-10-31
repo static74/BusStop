@@ -33,7 +33,7 @@ Both screenshots show the Studio desk demo setup. Demo mode (Settings › Advanc
 - **Desktop widgets** in Large and Extra Large: Ports, Power and Health. Bus Stop must be running to keep them current.
 - **Export** a JSON snapshot, a Markdown report or a raw capture for bug reports, with serial numbers redacted by default.
 - **A command-line tool**, `busstop`, with text, JSON, Markdown and raw output, a watch mode and the demo setups.
-- **Settings** for Dark, Light or Match System, nine data-colour presets or Match System, text size, background opacity, popover layout, menu bar content, notifications and launch at login.
+- **Settings** for Dark, Light or Match System, nine colour presets or Match System for the whole interface, text size, background opacity, popover layout, menu bar content, notifications and launch at login.
 
 ## Requirements
 

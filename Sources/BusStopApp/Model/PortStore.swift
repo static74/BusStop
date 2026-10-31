@@ -1,6 +1,7 @@
 import AppKit
 import BusStopCore
 import BusStopKit
+import BusStopUI
 import Foundation
 import Observation
 import os
@@ -434,8 +435,10 @@ final class PortStore {
     /// history off the payload leaves out the events and everything else taken
     /// from the history, since it stays on disk.
     private func publishToWidgets() {
+        let colorPreset = LagoonTheme.shared.palette.rawValue
         guard let widgetFile,
-              widgetGate.shouldWrite(snapshot, events: events, portHealth: portHealth, now: Date()) else { return }
+              widgetGate.shouldWrite(snapshot, events: events, portHealth: portHealth, colorPreset: colorPreset,
+                                     now: Date()) else { return }
         let keep = settings.keepHistory
         let payload = WidgetPayload(
             snapshot: snapshot,
@@ -446,6 +449,7 @@ final class PortStore {
             events: keep ? events : [],
             portHealth: keep ? portHealth : [:],
             portDays: keep ? archive.dailyPortHealth(model: snapshot.machine.model, now: snapshot.capturedAt) : nil,
+            colorPreset: colorPreset,
             serials: knownSerials
         )
         do {
