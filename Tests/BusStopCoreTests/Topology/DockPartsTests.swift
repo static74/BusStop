@@ -150,12 +150,12 @@ struct DockPartsTests {
         #expect(try Self.partNames(raw) == ["USB3 HUB"])
     }
 
-    // MARK: - Rules C, D and E
+    // MARK: - Rules C and D
 
     /// The Anker shape: a hub holding the dock's identity on a captive port
-    /// (D), a captive hub below it (C) with the dock's Ethernet and card
-    /// reader on it (E), and an external hub on that captive hub that stays
-    /// with its subtree.
+    /// (D) and a captive hub below it (C). The dock's Ethernet and card
+    /// reader on that hub are functions people use and stay on the map, as
+    /// does an external hub on it with its subtree.
     @Test func identityHolderAndCaptiveHubFold() throws {
         let raw = Self.raw(usb: [
             Self.rootHub(),
@@ -171,10 +171,10 @@ struct DockPartsTests {
         ])
         let dock = try Self.dock(TopologyBuilder.build(raw))
         #expect(Set(dock.internalParts?.map(\.name) ?? []) == [
-            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub", "Ethernet", "Card Reader",
+            "USB3 HUB", "Holder Hub", "Anker Docking Station", "Captive Hub",
         ])
-        #expect(dock.children.map(\.name) == ["Desk Hub", "Port Hub"])
-        #expect(dock.children.first?.children.map(\.name) == ["Keyboard"])
+        #expect(dock.children.map(\.name) == ["Card Reader", "Desk Hub", "Ethernet", "Port Hub"])
+        #expect(dock.children.first { $0.name == "Desk Hub" }?.children.map(\.name) == ["Keyboard"])
         #expect(dock.children.last?.children.map(\.name) == ["Phone"])
     }
 

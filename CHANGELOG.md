@@ -12,6 +12,7 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Fixed
 
+- A device plugged into a dock no longer disappears from the map. Bus Stop used to fold every device on certain internal dock hubs into the dock, which hid a keyboard and an audio device plugged into an Anker Prime dock. The dock's own Ethernet and card reader now show as devices under the dock.
 - Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
 
 ## [1.2.1] - 2026-10-27

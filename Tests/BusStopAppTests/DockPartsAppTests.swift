@@ -30,7 +30,8 @@ struct DockPartsAppTests {
         #expect(!cables.contains { $0.childName == "USB3 HUB" })
         #expect(!cables.contains { $0.childName.hasPrefix("Anker") })
         #expect(cables.filter { $0.parentName == dock.name }.map(\.childName)
-                == ["4-Port USB 3.0 Hub", "billboard", "Dell U4924DW", "Gigabyte M32U", "USB3.1 Hub"])
+                == ["4-Port USB 3.0 Hub", "billboard", "Dell U4924DW", "Gigabyte M32U", "USB 10_100 LAN",
+                    "USB Storage", "USB3.1 Hub"])
     }
 
     @Test func linkPageNamesTheDockAndTheBuiltInHub() throws {
@@ -50,18 +51,18 @@ struct DockPartsAppTests {
         #expect(TopologySearch.device(dock, matches: "USB3 HUB"))
         #expect(TopologySearch.device(dock, matches: "Intel"))
         #expect(!TopologySearch.device(dock, matches: "Keychron"))
-        #expect(TopologySearch.prune(dock, query: "USB Storage")?.id == dock.id)
+        #expect(TopologySearch.prune(dock, query: "Anker Prime")?.id == dock.id)
     }
 
     @Test func textMentionsBuiltInPartsOnlyWhereItShould() throws {
         let snapshot = try Self.snapshot()
         let dock = try Self.dock(snapshot)
-        #expect(WindowText.deviceAccessibility(dock, portTitle: "Left Center · USB-C").contains("7 built-in parts"))
+        #expect(WindowText.deviceAccessibility(dock, portTitle: "Left Center · USB-C").contains("5 built-in parts"))
         // The card and the list row count drawn devices only.
-        #expect(WindowText.deviceSubtitle(dock) == "Dock · 17 devices · 22 W")
-        #expect(WindowText.summary(snapshot).hasPrefix("6 ports · 18 devices"))
+        #expect(WindowText.deviceSubtitle(dock) == "Dock · 19 devices · 22 W")
+        #expect(WindowText.summary(snapshot).hasPrefix("6 ports · 20 devices"))
         #expect(WindowText.devicesSubtitle(snapshot)
-                == "18 devices on every port and hub, not counting parts built into a dock or hub")
+                == "20 devices on every port and hub, not counting parts built into a dock or hub")
         let hub = try #require(dock.internalParts?.first { $0.id == Self.rootHub })
         #expect(WindowText.partDetail(hub).hasPrefix("Intel Corporation · 10 Gb/s"))
         // The two built-in "USB3.1 Hub" rows differ by location ID; other rows show none.
