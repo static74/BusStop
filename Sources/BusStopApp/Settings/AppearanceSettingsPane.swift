@@ -30,8 +30,8 @@ struct AppearanceSettingsPane: View {
                 }
                 DataPaletteSwatch()
                 SettingsCaption(settings.dataColor == .system
-                    ? "Follows the accent colour in System Settings › Appearance. The whole interface and the widgets use it; Power mode and the power charts keep their own colours."
-                    : "Colours the whole interface and the widgets. Power mode and the power charts keep their own colours.")
+                    ? "Follows the accent colour in System Settings › Appearance. The whole interface and the widgets use it; power bubbles and the power charts keep their own colours."
+                    : "Colours the whole interface and the widgets. Power bubbles and the power charts keep their own colours.")
             }
 
             Section("Background") {

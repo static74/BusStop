@@ -6,7 +6,8 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 
 ### Changed
 
-- Settings › Appearance › Colour (formerly Data colours) now colours the whole interface and the desktop widgets, not just the map's links: cards, borders, text, buttons, glows and status dots take the preset's hue. Charging, warning and error colours move away from a preset whose hue is close to theirs, such as Ember's red or Fern's green. Power mode and the power charts keep their colours.
+- Power is a toggle on the map and the Mac Outline instead of a separate Data / Power view. Links keep their speed colours, pulses and chips, and turning Power on adds each link's watts in a bubble under its speed chip, and each port's watts beside it on the Mac Outline. A bubble's tooltip says when the power flows into the Mac. The toggle starts off.
+- Settings › Appearance › Colour (formerly Data colours) now colours the whole interface and the desktop widgets, not just the map's links: cards, borders, text, buttons, glows and status dots take the preset's hue. Charging, warning and error colours move away from a preset whose hue is close to theirs, such as Ember's red or Fern's green. Power bubbles and the power charts keep their colours.
 - The topology window is now the map window everywhere: Open Map, Show Map and Show on Map. The popover's header no longer repeats the Open Map button its footer already has.
 - The Power page opens with where the power goes: a bar splitting the charger's input between the Mac and its battery, then what the ports give accessories, marked as measured or as a USB budget. It replaces four tiles, two of which could show the same USB budget, one of them as power "delivered".
 - The battery card no longer repeats its percentage beside the state, and no longer shows a raw not-charging code; the Diagnostics finding explains it.

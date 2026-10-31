@@ -2,6 +2,31 @@
 
 Dated records of choices that shape the code, with the alternatives that were turned down. Newest first.
 
+## 2026-10-31: Power is a toggle that adds bubbles, not a second view of the map
+
+**Question.** The map and the Mac Outline had a Data / Power switch. Power recoloured every link on a heat ramp, swapped every speed chip for watts, ran the pulses the way the power flowed and swapped the legend, so the user saw either the data topology or the power topology, never both. How should power show alongside data?
+
+**Decision.** Data always shows: link colours, pulses and speed chips no longer change. A Power toggle (`GraphPowerToggle`, saved as `graphShowsPower`, off by default) adds a power bubble (`PowerChip`) under each link's speed chip on the map, and beside each powered port on the Mac Outline, towards the middle of the body. The speed chip stays on the link and the power bubble hangs 1 pt under it as an overlay, so turning Power on moves nothing already on the screen. The power bubble is smaller than the speed chip (9 pt text, scaled with the Text Size setting): power is the secondary fact, and the size difference, with the gap between pairs several times the gap inside one, makes each pair read as one. Chip tooltip regions are offset from the speed chip's centre, so both chips keep their own tooltip. The power key joins the speed key while there is room and drops out first. A bubble's tooltip says when power flows into the Mac, which the reversed pulses used to show. Reset All Settings also removes the old `graphLinkMode` key.
+
+**Why.** The owner wanted power folded into the data map so it reads as one map rather than a second one bolted on. One encoding per channel keeps them apart: colour and pulses mean speed, and a bubble spelling out watts means power. That also retires the roadmap item about warm data presets being mistaken for the power ramp, since power no longer colours the links.
+
+**Risks.**
+
+- A speed chip can be 84 pt wide at most (the column gap less 6 pt), too narrow for "80 Gb/s" and "47 W" side by side, so the bubbles stack. Sibling links' chip points sit about 40 pt apart at Medium text, and a stack is about 33 pt tall, so neighbouring stacks are about 7 pt apart at Medium and further apart at larger sizes, since rows grow with the text. Small text under a crowded hub is the tight end: with 15 devices on one hub the links fan out closer together, and stacks are 3.7 pt apart. `GraphPowerTests` checks every demo setup and a 15-device hub at every text size, and that pairs stay at least three times further apart than the gap inside one.
+- On a desktop's row of ports in the Mac Outline, a "≤4.5 W" bubble is about 43 pt wide and ports can sit 42 pt apart, so in a window narrow enough to bring them that close, neighbouring bubbles can touch. Most windows spread the ports further apart.
+- Charger-only ports get no bubble on the map: they have no link with a chip point. Their port card's power badge already shows the watts.
+
+**Rejected alternatives.**
+
+- *The bubble beside the speed chip.* It does not fit the column gap.
+- *A power bubble as large as the speed chip.* Under a hub, pairs were 2 to 4 pt apart, so the column read as an evenly spaced wall of chips that did not say which watts went with which speed, whether the chips touched or sat 2 pt apart.
+- *The power bubble tucked behind the speed chip's lower edge.* It saves height but clips the bubble's text.
+- *One two-line chip with speed over watts.* It groups best, but it changes the speed chip when Power turns on and drops the tier colours of both values.
+- *A shared plate behind each pair.* Plates behind neighbouring pairs touch at 40 pt apart.
+- *One chip reading "40 Gb/s · 15 W".* It is wider still, and it would change the speed chip itself when Power turns on.
+- *Keep power colouring the links while Power is on.* Colour would mean two things, which is the second-topology problem again.
+- *Arrows in the bubble for the direction of power.* Left out at the owner's request; the tooltip says it instead.
+
 ## 2026-10-31: The colour preset colours the whole interface
 
 **Question.** Settings › Appearance › Data colours changed only the map's links, chips and the Mac Outline; cards, borders, text, buttons and glows stayed turquoise, so an Ember map sat inside a Lagoon window. How should the rest of the interface follow the preset?

@@ -94,7 +94,6 @@ struct ThemeContrastTests {
         ("critical", Lagoon.critical, Color(hex: 0xFF6B7A)),
         ("onAccent", Lagoon.onAccent, Color(hex: 0x000000)),
         ("linkHighlightMix", Lagoon.linkHighlightMix, Color(hex: 0xFFFFFF)),
-        ("pulseMix", Lagoon.pulseMix, Color(hex: 0xFFFFFF)),
         ("shadow", Lagoon.shadow, Color(hex: 0x000000, opacity: 0.5)),
         ("well", Lagoon.well, Color(hex: 0xFFFFFF, opacity: 0.06)),
         ("menuBarBackdrop[0]", Lagoon.menuBarBackdrop[0], Color(hex: 0x1B2A3A)),
@@ -307,15 +306,11 @@ struct ThemeContrastTests {
         #expect(GraphSpeedLegend.accessibilityText(.dark)
             == "Link colours: dim for USB 2, brighter and thicker for faster links, glowing at 40 gigabits per second and above")
         #expect(GraphPowerLegend.accessibilityText(.dark)
-            == "Power colours: grey for no power, then deep red, orange, amber and gold as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements.")
-        #expect(SilhouetteStateLegend.spokenText(.power, .dark)
-            == "Port colours by power: dim for empty, then deep red, orange, amber and gold as watts rise")
-        #expect(SilhouetteStateLegend.spokenText(.data, .light) == SilhouetteStateLegend.spokenText(.data, .dark))
+            == "Power bubble colours: grey for no power, then deep red, orange, amber and gold as watts rise. Values marked with a less-than-or-equal sign are USB power budgets, not measurements.")
 
         let light = [
             GraphSpeedLegend.accessibilityText(.light),
             GraphPowerLegend.accessibilityText(.light),
-            SilhouetteStateLegend.spokenText(.power, .light),
         ]
         for text in light {
             #expect(!text.contains("glowing") && !text.contains("brighter"), "\(text)")

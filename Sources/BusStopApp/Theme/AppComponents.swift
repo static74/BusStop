@@ -48,8 +48,10 @@ struct GlassIconButton: View {
 
 // MARK: - Chips
 
-/// The power across a link in the map's Power mode, in the link's colour:
-/// "47 W" for a port's reading, "≤4.5 W" for a USB power budget.
+/// The power across a link, or in a port, in its power tier's colour: "47 W"
+/// for a port's reading, "≤4.5 W" for a USB power budget. Smaller than a
+/// speed chip, since it hangs under one as the secondary fact; that also
+/// leaves room between neighbouring pairs on the map.
 struct PowerChip: View {
     var power: GraphEdgePower
 
@@ -61,20 +63,21 @@ struct PowerChip: View {
         let isIncreased = contrast == .increased
         let help = Self.helpText(power)
         Text(power.label)
-            .lagoonFont(.caption, weight: .semibold, design: .rounded, monospacedDigits: true)
+            .lagoonFont(size: 9, weight: .semibold, design: .rounded, monospacedDigits: true)
             .lineLimit(1)
             .foregroundStyle(isIncreased ? Lagoon.textPrimary : Lagoon.powerTextColor(tier))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2.5)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
             .background(Capsule().fill(color.opacity(0.12)))
             .overlay(Capsule().strokeBorder(color.opacity(isIncreased ? 0.8 : 0.35), lineWidth: isIncreased ? 1 : 0.75))
             .chipHelp(help, id: "power")
             .accessibilityLabel(Text(help))
     }
 
-    /// "47 W measured", or "Up to 4.5 W budgeted for USB devices".
+    /// "47 W into the Mac, measured", or "Up to 4.5 W budgeted for USB devices".
     static func helpText(_ power: GraphEdgePower) -> String {
-        power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
+        guard power.isMeasured else { return "Up to \(power.label.dropFirst()) budgeted for USB devices" }
+        return power.label + (power.flowsToParent ? " into the Mac" : "") + ", measured"
     }
 }
 
