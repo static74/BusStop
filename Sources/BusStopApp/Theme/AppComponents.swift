@@ -48,8 +48,8 @@ struct GlassIconButton: View {
 
 // MARK: - Chips
 
-/// The power across a link in the map's Power mode, in the link's colour:
-/// "47 W" for a port's reading, "≤4.5 W" for a USB power budget.
+/// The power across a link, or in a port, in its power tier's colour: "47 W"
+/// for a port's reading, "≤4.5 W" for a USB power budget.
 struct PowerChip: View {
     var power: GraphEdgePower
 
@@ -72,9 +72,10 @@ struct PowerChip: View {
             .accessibilityLabel(Text(help))
     }
 
-    /// "47 W measured", or "Up to 4.5 W budgeted for USB devices".
+    /// "47 W into the Mac, measured", or "Up to 4.5 W budgeted for USB devices".
     static func helpText(_ power: GraphEdgePower) -> String {
-        power.isMeasured ? "\(power.label) measured" : "Up to \(power.label.dropFirst()) budgeted for USB devices"
+        guard power.isMeasured else { return "Up to \(power.label.dropFirst()) budgeted for USB devices" }
+        return power.label + (power.flowsToParent ? " into the Mac" : "") + ", measured"
     }
 }
 

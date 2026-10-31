@@ -54,22 +54,6 @@ nonisolated struct GraphEdgeStroke: Identifiable {
     }
 }
 
-/// What the map's links show: the negotiated data rate or the power across
-/// them.
-enum GraphLinkMode: String, CaseIterable, Identifiable {
-    case data
-    case power
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .data: return "Data"
-        case .power: return "Power"
-        }
-    }
-}
-
 /// The power across one edge of the map.
 nonisolated struct GraphEdgePower: Equatable, Sendable {
     var milliwatts: Int
@@ -84,16 +68,6 @@ nonisolated struct GraphEdgePower: Equatable, Sendable {
     /// "47 W" for a reading; "≤4.5 W" for a USB budget, which is a ceiling.
     var label: String {
         (isMeasured ? "" : "≤") + Format.power(milliwatts: milliwatts)
-    }
-}
-
-nonisolated extension GraphCurve {
-    /// The same curve, travelled the other way.
-    var reversed: GraphCurve {
-        var curve = self
-        (curve.start, curve.end) = (end, start)
-        (curve.control1, curve.control2) = (control2, control1)
-        return curve
     }
 }
 
@@ -119,18 +93,13 @@ enum GraphPaint {
     /// below it, away from the Mac.
     static func powers(for layout: GraphLayout) -> [String: GraphEdgePower] {
         let nodes = Dictionary(layout.nodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        func portReading(_ port: PhysicalPort) -> GraphEdgePower? {
-            guard let reading = WindowText.portPower(port) else { return nil }
-            return GraphEdgePower(milliwatts: reading.milliwatts, flowsToParent: reading.direction == .input,
-                                  isMeasured: reading.isMeasured)
-        }
         var powers: [String: GraphEdgePower] = [:]
         for edge in layout.edges where !edge.isDeparting {
             guard let child = nodes[edge.toID] else { continue }
             var power: GraphEdgePower?
             switch (nodes[edge.fromID]?.content, child.content) {
             case (_, .port(let port)), (.port(let port)?, .device):
-                power = portReading(port)
+                power = portPower(port)
             case (_, .device(let device, _)):
                 let milliwatts = device.rolledUpMilliwatts
                 if milliwatts > 0 { power = GraphEdgePower(milliwatts: milliwatts, flowsToParent: false, isMeasured: false) }
@@ -142,28 +111,18 @@ enum GraphPaint {
         return powers
     }
 
-    static func strokes(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
-                        powers: [String: GraphEdgePower] = [:], palette: DataPalette) -> [GraphEdgeStroke] {
+    /// A port's reading, towards the Mac when it charges from that port. The
+    /// Mac Outline shows it too.
+    static func portPower(_ port: PhysicalPort) -> GraphEdgePower? {
+        guard let reading = WindowText.portPower(port) else { return nil }
+        return GraphEdgePower(milliwatts: reading.milliwatts, flowsToParent: reading.direction == .input,
+                              isMeasured: reading.isMeasured)
+    }
+
+    static func strokes(for layout: GraphLayout, dimmed: Set<String>, palette: DataPalette) -> [GraphEdgeStroke] {
         let colors = palette.colors
         return layout.edges.map { edge in
             let dimFactor = dimmed.contains(edge.toID) ? 0.22 : 1
-            if mode == .power, !edge.isDeparting {
-                let tier = powers[edge.id]?.tier ?? .none
-                let color = Lagoon.powerColor(tier)
-                let opacity = (edge.isActive ? 0.95 : 0.6) * dimFactor
-                return GraphEdgeStroke(
-                    id: edge.id,
-                    path: edge.curve.path,
-                    end: edge.curve.end,
-                    color: color,
-                    width: Lagoon.powerWidth(tier),
-                    dash: edge.isDashed ? [4, 4] : [],
-                    glows: Lagoon.powerGlows(tier),
-                    opacity: opacity,
-                    drawsSocket: edge.kind == .link,
-                    solidColor: solid(color, opacity: opacity)
-                )
-            }
             switch edge.kind {
             case .trunk:
                 let color = edge.isActive ? colors.accent : colors.muted
@@ -208,9 +167,7 @@ enum GraphPaint {
         opacity >= 1 ? color : color.mix(with: Lagoon.background, by: 1 - opacity, in: .device)
     }
 
-    static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
-                            powers: [String: GraphEdgePower] = [:], palette: DataPalette) -> [GraphPulseTrack] {
-        if mode == .power { return powerPulseTracks(for: layout, dimmed: dimmed, powers: powers) }
+    static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>, palette: DataPalette) -> [GraphPulseTrack] {
         let colors = palette.colors
         return layout.edges.compactMap { edge in
             guard edge.isActive, !edge.isDeparting, let link = edge.link, !dimmed.contains(edge.toID) else {
@@ -226,25 +183,6 @@ enum GraphPaint {
                 period: period(for: tier),
                 phase: phase(for: edge.id),
                 dots: tier >= .gbps20 && !isTrunk ? 2 : 1
-            )
-        }
-    }
-
-    /// Pulses that travel the way the power flows: more watts, bigger and
-    /// faster dots.
-    static func powerPulseTracks(for layout: GraphLayout, dimmed: Set<String>,
-                                 powers: [String: GraphEdgePower]) -> [GraphPulseTrack] {
-        layout.edges.compactMap { edge in
-            guard let power = powers[edge.id], !dimmed.contains(edge.toID) else { return nil }
-            let tier = power.tier
-            return GraphPulseTrack(
-                id: edge.id,
-                curve: power.flowsToParent ? edge.curve.reversed : edge.curve,
-                color: Lagoon.powerColor(tier).mix(with: Lagoon.pulseMix, by: 0.25, in: .device),
-                radius: 1.8 + CGFloat(tier.rawValue) * 0.3,
-                period: 3.2 - Double(tier.rawValue) * 0.5,
-                phase: phase(for: edge.id),
-                dots: tier >= .under45 ? 2 : 1
             )
         }
     }
@@ -446,27 +384,34 @@ struct GraphChipsLayer: View {
     /// Chips never grow wider than the gap between columns.
     var maxChipWidth: CGFloat = 84
     var camera: GraphCamera
-    /// In power mode, chips show the power across each edge instead.
-    var mode: GraphLinkMode = .data
+    /// With Power on, each link's power hangs under its speed chip.
     var powers: [String: GraphEdgePower] = [:]
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(edges.filter { $0.chipPoint != nil && (mode == .power ? powers[$0.id] != nil : $0.link != nil) }) { edge in
-                if let point = edge.chipPoint {
-                    chip(for: edge)
-                        .background(Capsule().fill(Lagoon.background))
-                        .frame(maxWidth: maxChipWidth)
-                        .fixedSize(horizontal: false, vertical: true)
-                        // The chip's tooltip region, measured before the
-                        // zoom and centred on the chip's point in the layout.
+            ForEach(edges.filter { $0.chipPoint != nil && $0.link != nil }) { edge in
+                if let point = edge.chipPoint, let link = edge.link {
+                    bubble(SpeedChip(link: link))
+                        // Under the speed chip, which stays on the link, so
+                        // turning Power on moves nothing already on the map.
+                        // The guide goes on a ZStack: on a view inside an
+                        // `if`, the overlay ignores it.
+                        .overlay(alignment: .bottom) {
+                            ZStack {
+                                if let power = powers[edge.id] { bubble(PowerChip(power: power)) }
+                            }
+                            .alignmentGuide(.bottom) { $0[.top] - Self.stackSpacing }
+                        }
+                        // The chips' tooltip regions, measured before the
+                        // zoom, then moved so the speed chip's centre lands
+                        // on the chip's point in the layout.
                         .coordinateSpace(.named(GraphTooltip.space))
                         .transformPreference(GraphTooltipRegionsKey.self) { regions in
+                            guard let speed = regions.first(where: { $0.id == "speed" })?.rect else { return }
                             for index in regions.indices {
-                                let size = regions[index].rect.size
                                 regions[index].id = "edge:\(edge.id)/\(regions[index].id)"
-                                regions[index].rect = CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2,
-                                                             width: size.width, height: size.height)
+                                regions[index].rect = regions[index].rect.offsetBy(dx: point.x - speed.midX,
+                                                                                   dy: point.y - speed.midY)
                             }
                         }
                         .scaleEffect(camera.scale)
@@ -479,13 +424,15 @@ struct GraphChipsLayer: View {
         .accessibilityHidden(true)
     }
 
-    @ViewBuilder
-    private func chip(for edge: GraphEdge) -> some View {
-        if mode == .power, let power = powers[edge.id] {
-            PowerChip(power: power)
-        } else if let link = edge.link {
-            SpeedChip(link: link)
-        }
+    /// The gap between a speed chip and the power chip under it. None, so
+    /// the pair reads as one: sibling pairs are only about 4 pt apart.
+    static let stackSpacing: CGFloat = 0
+
+    private func bubble(_ chip: some View) -> some View {
+        chip
+            .background(Capsule().fill(Lagoon.background))
+            .frame(maxWidth: maxChipWidth)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

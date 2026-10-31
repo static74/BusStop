@@ -39,8 +39,6 @@ public enum Lagoon {
     /// What a hovered or selected link's core is mixed toward to stand out:
     /// white makes it brighter in Dark, black makes it darker in Light.
     public static let linkHighlightMix = themed(0xFFFFFF, 0x000000)
-    /// What power pulses are mixed toward, so the dots read as light on the link.
-    public static let pulseMix = themed(0xFFFFFF, 0xFFFFFF)
     /// Drop shadow under floating bubbles such as map tooltips.
     public static let shadow = themed(0x000000, 0x000000, opacity: 0.5, lightOpacity: 0.15)
     /// A faint fill that sets a small preview apart from its card (menu bar icon tiles).
@@ -138,19 +136,6 @@ public enum Lagoon {
         case .high: return themed(0xF6D653, 0x831922)
         }
     }
-
-    public static func powerWidth(_ tier: PowerTier) -> CGFloat {
-        switch tier {
-        case .none: return 1.25
-        case .under5: return 1.75
-        case .under15: return 2.5
-        case .under45: return 3.25
-        case .high: return 4
-        }
-    }
-
-    /// The two strongest power tiers glow, like the fastest links (Dark only).
-    public static func powerGlows(_ tier: PowerTier) -> Bool { tier >= .under45 }
 
     /// Text in a power tier's colour. The two lowest tiers are too faint for
     /// small text in either theme, so those use secondary text.

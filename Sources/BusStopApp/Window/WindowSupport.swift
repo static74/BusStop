@@ -408,12 +408,14 @@ enum TopologyWindowDefaults {
     /// Graph zoom from earlier versions, which kept it across launches. The
     /// graph now fits itself to the window until the user zooms.
     static let legacyGraphZoom = "topologyGraphZoom"
-    /// Data or Power, shared by the map and the Mac Outline.
-    static let linkMode = "graphLinkMode"
+    /// Whether power bubbles show, shared by the map and the Mac Outline.
+    static let showsPower = "graphShowsPower"
+    /// Data or Power from earlier versions, which had a separate power view.
+    static let legacyLinkMode = "graphLinkMode"
     /// Whether the sidebar's Cables section is expanded.
     static let cablesExpanded = "sidebarCablesExpanded"
 
-    static let all = [overviewMode, legacyGraphZoom, linkMode, cablesExpanded]
+    static let all = [overviewMode, legacyGraphZoom, showsPower, legacyLinkMode, cablesExpanded]
 
     static func reset(_ defaults: UserDefaults = .standard) {
         for key in all { defaults.removeObject(forKey: key) }

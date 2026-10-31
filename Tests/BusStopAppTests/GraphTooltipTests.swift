@@ -60,7 +60,7 @@ struct GraphTooltipTests {
     @Test @MainActor func chipTextsMatchWhatTheSystemTooltipsSaid() {
         #expect(SpeedChip.helpText(tenGigabit) == "USB 3.2 Gen 2 @ 10 Gb/s")
         #expect(PowerChip.helpText(GraphEdgePower(milliwatts: 47_000, flowsToParent: true, isMeasured: true))
-                == "47 W measured")
+                == "47 W into the Mac, measured")
         #expect(PowerChip.helpText(GraphEdgePower(milliwatts: 4_500, flowsToParent: false, isMeasured: false))
                 == "Up to 4.5 W budgeted for USB devices")
         #expect(TransportChip.helpText(TransportInfo(kind: .usb3, isActive: true, link: tenGigabit))

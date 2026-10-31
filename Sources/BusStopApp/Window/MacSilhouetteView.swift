@@ -3,14 +3,13 @@ import BusStopUI
 import SwiftUI
 
 /// The Mac Outline page: a header, the outline of the Mac with each port
-/// where it sits, the captions, and the shared Data/Power picker with legends
-/// over the bottom edge, as on the map.
+/// where it sits, the captions, and the shared Power toggle with legends over
+/// the bottom edge, as on the map.
 struct MacSilhouettePage: View {
     var store: PortStore
     var searchText: String
     var onSelect: (StoreSelection) -> Void
-    @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
-    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(TopologyWindowDefaults.showsPower) private var showsPower = false
 
     var body: some View {
         let snapshot = store.snapshot
@@ -22,7 +21,7 @@ struct MacSilhouettePage: View {
                 MacSilhouetteView(
                     snapshot: snapshot,
                     selectedPort: store.selection.flatMap { TopologyWindowView.owningPort(of: $0, in: snapshot) },
-                    mode: linkMode,
+                    showsPower: showsPower,
                     searchText: searchText,
                     onSelect: { onSelect(.port($0)) })
             }
@@ -33,36 +32,36 @@ struct MacSilhouettePage: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // An overlay, so the fixed-size picker sets no width for the page.
+        // An overlay, so the fixed-size toggle sets no width for the page.
         .overlay(alignment: .bottom) { controls }
     }
 
     private var controls: some View {
         HStack(alignment: .bottom, spacing: 12) {
-            GraphLinkModePicker(linkMode: $linkMode)
+            GraphPowerToggle(isOn: $showsPower)
+            // The map's speed key speaks of glows and pulses, which this page
+            // does not draw, so the state key speaks for it.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    modeLegend.accessibilityHidden(true)
-                    SilhouetteStateLegend(mode: linkMode)
+                if showsPower {
+                    HStack(spacing: 8) {
+                        GraphSpeedLegend().accessibilityHidden(true)
+                        GraphPowerLegend()
+                        SilhouetteStateLegend()
+                    }
                 }
-                // The speed or power key explains most of the colours, so it
-                // outlasts the state key, and then speaks for both.
-                modeLegend.accessibilityLabel(SilhouetteStateLegend.spokenText(linkMode, colorScheme))
-                SilhouetteStateLegend(mode: linkMode)
+                HStack(spacing: 8) {
+                    GraphSpeedLegend().accessibilityHidden(true)
+                    SilhouetteStateLegend()
+                }
+                // The speed key explains most of the colours, so it outlasts
+                // the state key, and then speaks for both.
+                GraphSpeedLegend().accessibilityLabel(SilhouetteStateLegend.spokenText)
+                SilhouetteStateLegend()
                 Color.clear.frame(width: 0, height: 0)
             }
             Spacer(minLength: 0)
         }
         .padding(16)
-    }
-
-    /// The map's key for the current mode. Its own spoken text describes the
-    /// map's glows and pulses, which this page does not draw.
-    @ViewBuilder private var modeLegend: some View {
-        switch linkMode {
-        case .data: GraphSpeedLegend()
-        case .power: GraphPowerLegend()
-        }
     }
 }
 
@@ -73,7 +72,8 @@ struct MacSilhouettePage: View {
 struct MacSilhouetteView: View {
     var snapshot: HostSnapshot
     var selectedPort: PortKey?
-    var mode: GraphLinkMode
+    /// Each port that carries power shows its watts in a bubble beside it.
+    var showsPower: Bool
     var searchText: String
     var onSelect: (PortKey) -> Void
 
@@ -108,6 +108,7 @@ struct MacSilhouetteView: View {
                                 Text(port.label.title)
                                     .lineLimit(1)
                                     .foregroundStyle(Lagoon.textPrimary)
+                                powerBubble(port)
                             }
                         }
                     }
@@ -183,7 +184,24 @@ struct MacSilhouetteView: View {
         let vertical = slot.face == .left || slot.face == .right
         if let key = slot.portKey, let port = snapshot.port(key) {
             portButton(port) {
-                marked(port, connector: slot.connector, vertical: vertical).padding(4)
+                marked(port, connector: slot.connector, vertical: vertical)
+                    .padding(4)
+                    // Towards the middle of the body: right of a laptop's
+                    // left side, left of its right side, under a desktop's
+                    // row. The guides go on ZStacks: on a view inside an
+                    // `if`, an overlay ignores them.
+                    .overlay(alignment: .trailing) {
+                        ZStack { if slot.face == .left { powerBubble(port) } }
+                            .alignmentGuide(.trailing) { $0[.leading] }
+                    }
+                    .overlay(alignment: .leading) {
+                        ZStack { if slot.face == .right { powerBubble(port) } }
+                            .alignmentGuide(.leading) { $0[.trailing] }
+                    }
+                    .overlay(alignment: .bottom) {
+                        ZStack { if !vertical { powerBubble(port) } }
+                            .alignmentGuide(.bottom) { $0[.top] }
+                    }
             }
         } else {
             // A connector macOS does not report: drawn, but nothing to act on.
@@ -195,10 +213,23 @@ struct MacSilhouetteView: View {
         }
     }
 
+    /// The port's watts while Power is on. The port's tooltip and spoken
+    /// label name them already.
+    @ViewBuilder
+    private func powerBubble(_ port: PhysicalPort) -> some View {
+        if showsPower, let power = GraphPaint.portPower(port) {
+            PowerChip(power: power)
+                .background(Capsule().fill(Lagoon.surface))
+                .fixedSize()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
     /// The port's connector with its selection ring and diagnostic dot.
     private func marked(_ port: PhysicalPort, connector: String, vertical: Bool) -> some View {
         SilhouetteConnector(connector: connector, vertical: vertical,
-                            fill: SilhouettePaint.paint(for: port, mode: mode).color(palette))
+                            fill: SilhouettePaint.paint(for: port).color(palette))
             .padding(3)
             .overlay {
                 if port.key == selectedPort {
@@ -273,18 +304,12 @@ enum SilhouettePaint: Equatable {
     case noRate
     /// Only a charger is plugged in.
     case charger
-    case power(PowerTier)
 
-    static func paint(for port: PhysicalPort, mode: GraphLinkMode) -> SilhouettePaint {
+    static func paint(for port: PhysicalPort) -> SilhouettePaint {
         guard port.isConnected else { return .empty }
-        switch mode {
-        case .power:
-            return .power(PowerTier(milliwatts: WindowText.portPower(port)?.milliwatts ?? 0))
-        case .data:
-            if let tier = port.link?.tier { return .link(tier) }
-            if port.charger != nil, port.devices.isEmpty { return .charger }
-            return .noRate
-        }
+        if let tier = port.link?.tier { return .link(tier) }
+        if port.charger != nil, port.devices.isEmpty { return .charger }
+        return .noRate
     }
 
     func color(_ palette: DataPalette) -> Color {
@@ -293,7 +318,6 @@ enum SilhouettePaint: Equatable {
         case .link(let tier): return Lagoon.linkColor(tier, palette)
         case .noRate: return palette.colors.accent
         case .charger: return Lagoon.powerIn
-        case .power(let tier): return Lagoon.powerColor(tier)
         }
     }
 }
@@ -437,18 +461,14 @@ nonisolated struct ChassisShape: Shape {
     }
 }
 
-/// Key for the outline's own colours: empty ports, and in Data mode
-/// connected ports with no data rate and charger-only ports.
+/// Key for the outline's own colours: empty ports, connected ports with no
+/// data rate, and charger-only ports.
 struct SilhouetteStateLegend: View {
-    var mode: GraphLinkMode
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dataPalette) private var palette
 
     var body: some View {
-        let swatches: [(String, SilhouettePaint)] = mode == .data
-            ? [("Empty", .empty), ("No rate", .noRate), ("Charger", .charger)]
-            : [("Empty", .empty)]
+        let swatches: [(String, SilhouettePaint)] = [("Empty", .empty), ("No rate", .noRate), ("Charger", .charger)]
         HStack(spacing: 12) {
             ForEach(swatches, id: \.0) { title, paint in
                 HStack(spacing: 5) {
@@ -467,14 +487,9 @@ struct SilhouetteStateLegend: View {
         .background(Capsule().fill(Lagoon.surface.opacity(0.94)))
         .overlay(Capsule().strokeBorder(WindowContrast.stroke(contrast), lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Self.spokenText(mode, colorScheme))
+        .accessibilityLabel(Self.spokenText)
     }
 
-    /// The legend's spoken text. The power ramp runs the other way in Light.
-    static func spokenText(_ mode: GraphLinkMode, _ scheme: ColorScheme) -> String {
-        if mode == .data {
-            return "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
-        }
-        return "Port colours by power: dim for empty, then \(GraphPowerLegend.rampWords(scheme)) as watts rise"
-    }
+    static let spokenText =
+        "Port colours: dim for empty, the link colour for its speed, accent when connected with no data rate, power colour for a charger"
 }

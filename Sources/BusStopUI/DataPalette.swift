@@ -7,7 +7,7 @@ import SwiftUI
 /// other presets follow Lagoon's shape (muted at USB 2, most vivid around
 /// 10 Gb/s, washing toward white in Dark and toward ink in Light) at the hue
 /// of a macOS accent colour, and meet the same contrast rules
-/// (`ThemeContrastTests`). Power mode keeps its own colours.
+/// (`ThemeContrastTests`). Power bubbles keep their own colours.
 public enum DataPalette: String, CaseIterable, Identifiable {
     case lagoon
     case sky

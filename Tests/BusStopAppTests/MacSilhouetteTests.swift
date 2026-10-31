@@ -19,20 +19,21 @@ struct MacSilhouetteTests {
     }
 
     @Test func dataPaint() {
-        #expect(SilhouettePaint.paint(for: port(isConnected: false), mode: .data) == .empty)
+        #expect(SilhouettePaint.paint(for: port(isConnected: false)) == .empty)
         let tenGigabit = LinkInfo(family: .usb, generation: "USB 3.2 Gen 2", bitsPerSecond: 10_000_000_000)
-        #expect(SilhouettePaint.paint(for: port(link: tenGigabit), mode: .data) == .link(.gbps10))
+        #expect(SilhouettePaint.paint(for: port(link: tenGigabit)) == .link(.gbps10))
         let hdmi = LinkInfo(family: .hdmi, generation: "HDMI")
-        #expect(SilhouettePaint.paint(for: port(link: hdmi, kind: .hdmi), mode: .data) == .noRate)
+        #expect(SilhouettePaint.paint(for: port(link: hdmi, kind: .hdmi)) == .noRate)
         let charger = ChargerInfo(name: "96W USB-C Power Adapter", ratedWatts: 96)
-        #expect(SilhouettePaint.paint(for: port(charger: charger), mode: .data) == .charger)
+        #expect(SilhouettePaint.paint(for: port(charger: charger)) == .charger)
     }
 
-    @Test func powerPaint() {
+    @Test func powerBubbleReadsThePort() throws {
         let charging = port(power: PortPower(direction: .input, milliwatts: 60_000, source: .smc),
                             charger: ChargerInfo(name: "96W USB-C Power Adapter", ratedWatts: 96))
-        #expect(SilhouettePaint.paint(for: charging, mode: .power) == .power(.high))
-        #expect(SilhouettePaint.paint(for: port(isConnected: false), mode: .power) == .empty)
+        let power = try #require(GraphPaint.portPower(charging))
+        #expect(power.label == "60 W" && power.flowsToParent && power.tier == .high)
+        #expect(GraphPaint.portPower(port(isConnected: false)) == nil)
     }
 
     private func demoStore(_ scenario: DemoScenario, suite: String) -> PortStore {

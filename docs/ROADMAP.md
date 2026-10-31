@@ -7,7 +7,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 3. **Cable report card.** One page per cable seen in a port: what the e-marker says (rated speed, current, voltage, Extended Power Range, active or optical, vendor), what was actually negotiated over it, and a plain verdict ("good for 40 Gb/s and 240 W"). It remembers cables by vendor and product ID so the same cable is recognised next time.
 4. **Charging bottleneck explainer.** When the Mac charges slower than the charger could deliver, say which part is the limit (charger, cable rating, port, battery temperature or charge limit) and what would fix it.
 5. **Charger history.** Remember chargers by their PD identity: profiles offered, highest contract, and when each was last seen.
-6. **Power colours that stay apart from data colours.** The warm data presets (Ember, Tangerine, Citrine), and Match System with a red, orange or yellow accent, overlap Power mode's heat ramp (red, orange, amber, gold) and the warning and critical colours, so a glance no longer tells the two modes apart. Give Power mode a look of its own: for example a ramp that steps away from the chosen data hue, a different stroke pattern or pulse shape, or a legend that names the mode on the map.
 
 ## Automation and integrations
 
@@ -29,7 +28,7 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - A hub chip's USB 2 half is merged into its USB 3 half even when the port has several hubs at its root.
 - A Thunderbolt dock's built-in hubs and USB functions fold into the dock's card and are listed in its inspector, so the map draws only devices joined by real cables (checked against the Anker Prime capture).
 - A Cables section in the sidebar lists every link below each port.
-- A Power mode colours the map's links by watts, with pulses that follow the power.
+- A Power toggle adds each link's watts in a bubble under its speed chip, on the map and the Mac Outline, so power and data share one map. Power no longer recolours the links, so the warm data presets cannot be mistaken for it.
 - USB vendor names come from a built-in copy of the usb.ids list when a device reports none, and a cable's e-marker vendor is named.
 - One port can be pinned to the menu bar, so its link speed or watts show next to the icon.
 - A compact popover layout shows one line per port, with each port's devices a click away.

@@ -30,8 +30,8 @@ struct AppearanceSettingsPane: View {
                 }
                 DataPaletteSwatch()
                 SettingsCaption(settings.dataColor == .system
-                    ? "Follows the accent colour in System Settings › Appearance. Links by speed, speed chips and the Mac Outline use it; Power mode keeps its own colours."
-                    : "Colours links by speed, speed chips and the Mac Outline. Power mode keeps its own colours.")
+                    ? "Follows the accent colour in System Settings › Appearance. Links by speed, speed chips and the Mac Outline use it; power bubbles keep their own colours."
+                    : "Colours links by speed, speed chips and the Mac Outline. Power bubbles keep their own colours.")
             }
 
             Section("Background") {

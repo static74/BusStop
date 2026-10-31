@@ -24,8 +24,8 @@ struct TopologyGraphView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
     @Environment(\.dataPalette) private var palette
-    /// Links show data rates or power.
-    @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
+    /// Links always show data rates; with Power on, their power too.
+    @AppStorage(TopologyWindowDefaults.showsPower) private var showsPower = false
 
     /// Zoom chosen with the buttons, the scroll wheel or a pinch.
     static let zoomRange: ClosedRange<Double> = 0.25...2.0
@@ -52,17 +52,15 @@ struct TopologyGraphView: View {
     /// not the layout or the strokes computed here.
     private func graph(_ layout: GraphLayout) -> some View {
         let dimmed = dimmedNodeIDs(in: layout)
-        let powers = linkMode == .power ? GraphPaint.powers(for: layout) : [:]
-        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
-                                         palette: palette)
-        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
-                                            palette: palette)
+        let powers = showsPower ? GraphPaint.powers(for: layout) : [:]
+        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, palette: palette)
+        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, palette: palette)
         return GeometryReader { proxy in
             GraphMap(
                 layout: layout,
                 strokes: strokes,
                 pulseTracks: tracks,
-                linkMode: $linkMode,
+                showsPower: $showsPower,
                 powers: powers,
                 snapshot: store.snapshot,
                 selectedTag: SelectionTag.string(for: store.selection),
@@ -192,13 +190,13 @@ nonisolated struct GraphPinch: Equatable {
 /// selects it on click. Cards sit above it and keep their own clicks.
 ///
 /// Chips and badges get the map's own tooltips (`GraphTooltipState`); the
-/// picker and zoom buttons keep the system's, each in its own hosting view
+/// Power toggle and zoom buttons keep the system's, each in its own hosting view
 /// (`GraphControlHost`).
 struct GraphMap: View {
     var layout: GraphLayout
     var strokes: [GraphEdgeStroke]
     var pulseTracks: [GraphPulseTrack]
-    @Binding var linkMode: GraphLinkMode
+    @Binding var showsPower: Bool
     var powers: [String: GraphEdgePower]
     var snapshot: HostSnapshot
     var selectedTag: String?
@@ -256,7 +254,7 @@ struct GraphMap: View {
             ZStack(alignment: .topLeading) {
                 GraphChipsLayer(edges: layout.edges.filter { $0.chipPoint.map(visible.contains) ?? false },
                                 dimmed: dimmed, maxChipWidth: layout.metrics.columnGap - 6, camera: camera,
-                                mode: linkMode, powers: powers)
+                                powers: powers)
                 ForEach(layout.nodes.filter { $0.frame.intersects(visible) }) { node in
                     GraphNodeView(
                         node: node,
@@ -319,7 +317,7 @@ struct GraphMap: View {
         }
         // A tooltip stays where its chip was, so it goes when the map moves.
         .onChange(of: camera) { tooltip.cameraMoved() }
-        .onChange(of: linkMode) { tooltip.dismiss() }
+        .onChange(of: showsPower) { tooltip.dismiss() }
         .onChange(of: size) { old, new in
             // A resized window (the inspector opening, say) keeps the middle
             // of the map in the middle.
@@ -421,16 +419,20 @@ struct GraphMap: View {
         commit(current.centering(rect, in: size))
     }
 
-    /// The picker and the zoom cluster each sit in their own hosting view, so
-    /// their tooltips do not depend on the map's (see `GraphControlHost`).
+    /// The Power toggle and the zoom cluster each sit in their own hosting
+    /// view, so their tooltips do not depend on the map's (see `GraphControlHost`).
     private func controls(zoom: CGFloat) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
-            GraphLinkModePicker(linkMode: $linkMode)
+            GraphPowerToggle(isOn: $showsPower)
+            // The power key goes first: the bubbles spell out their watts.
             ViewThatFits(in: .horizontal) {
-                switch linkMode {
-                case .data: GraphSpeedLegend()
-                case .power: GraphPowerLegend()
+                if showsPower {
+                    HStack(spacing: 8) {
+                        GraphSpeedLegend()
+                        GraphPowerLegend()
+                    }
                 }
+                GraphSpeedLegend()
                 Color.clear.frame(width: 0, height: 0)
             }
             Spacer(minLength: 0)
@@ -452,21 +454,21 @@ struct GraphMap: View {
     }
 }
 
-/// The Data / Power toggle, in its own hosting view (see `GraphControlHost`).
-/// The map and the Mac Outline share it and its saved choice.
-struct GraphLinkModePicker: View {
-    @Binding var linkMode: GraphLinkMode
+/// The Power toggle, in its own hosting view (see `GraphControlHost`). The
+/// map and the Mac Outline share it and its saved choice.
+struct GraphPowerToggle: View {
+    @Binding var isOn: Bool
 
     var body: some View {
         GraphControlHost {
-            Picker("Colour by", selection: $linkMode) {
-                ForEach(GraphLinkMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
+            // A filled bolt in the accent colour, like the zoom cluster's Fit,
+            // since an inactive window draws the button's on state grey.
+            Toggle(isOn: $isOn) {
+                Label("Power", systemImage: isOn ? "bolt.fill" : "bolt")
+                    .foregroundStyle(isOn ? Lagoon.accent : Lagoon.textPrimary)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .help("Colour by data rate or by power")
+            .toggleStyle(.button)
+            .help(isOn ? "Hide the power on each link" : "Show the power on each link")
         }
         .fixedSize()
     }
@@ -545,7 +547,8 @@ struct GraphZoomControl: View {
     }
 }
 
-/// Key for the power colours: one swatch per power tier, and what "≤" means.
+/// Key for the power bubbles' colours: one swatch per power tier, and what
+/// "≤" means.
 struct GraphPowerLegend: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
@@ -556,8 +559,7 @@ struct GraphPowerLegend: View {
                 HStack(spacing: 5) {
                     Capsule()
                         .fill(Lagoon.powerColor(tier))
-                        .frame(width: 16, height: Lagoon.powerWidth(tier))
-                        .lagoonGlow(Lagoon.powerGlows(tier) ? Lagoon.powerColor(tier).opacity(0.7) : .clear, radius: 3)
+                        .frame(width: 16, height: 6)
                     Text(Self.title(tier))
                         .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)
@@ -579,10 +581,10 @@ struct GraphPowerLegend: View {
 
     /// The legend's spoken text: the ramp runs the other way in Light.
     static func accessibilityText(_ scheme: ColorScheme) -> String {
-        "Power colours: grey for no power, then \(rampWords(scheme)) as watts rise. Pulses move the way the power flows. Values marked with a less-than-or-equal sign are USB power budgets, not measurements."
+        "Power bubble colours: grey for no power, then \(rampWords(scheme)) as watts rise. Values marked with a less-than-or-equal sign are USB power budgets, not measurements."
     }
 
-    /// The power ramp's colours from low to high watts, shared with the Mac outline legend.
+    /// The power ramp's colours from low to high watts.
     static func rampWords(_ scheme: ColorScheme) -> String {
         scheme == .dark ? "deep red, orange, amber and gold" : "dark gold, amber, rust and deep red"
     }

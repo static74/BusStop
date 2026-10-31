@@ -2,7 +2,7 @@ import AppKit
 import BusStopUI
 import SwiftUI
 
-/// Hosts one of the map's controls (the zoom cluster, the Data/Power picker)
+/// Hosts one of the map's controls (the zoom cluster, the Power toggle)
 /// in its own `NSHostingView`, so AppKit tracks its `.help` tooltips on
 /// their own instead of with the rest of the map.
 ///
