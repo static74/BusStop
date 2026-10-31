@@ -1,0 +1,2957 @@
+{
+  "adapter" : {
+    "AdapterID" : 0,
+    "AdapterPowerTier" : 2,
+    "AdapterVoltage" : 28000,
+    "Current" : 4990,
+    "Description" : "pd charger",
+    "FamilyCode" : -536854518,
+    "IsWireless" : false,
+    "PMUConfiguration" : 4990,
+    "UsbHvcHvcIndex" : 7,
+    "UsbHvcMenu" : [
+      {
+        "Index" : 0,
+        "MaxCurrent" : 2960,
+        "MaxVoltage" : 5000
+      },
+      {
+        "Index" : 1,
+        "MaxCurrent" : 2980,
+        "MaxVoltage" : 9000
+      },
+      {
+        "Index" : 2,
+        "MaxCurrent" : 2990,
+        "MaxVoltage" : 15000
+      },
+      {
+        "Index" : 3,
+        "MaxCurrent" : 4990,
+        "MaxVoltage" : 20000
+      }
+    ],
+    "Watts" : 140
+  },
+  "battery" : {
+    "AdapterDetails" : {
+      "AdapterID" : 0,
+      "AdapterPowerTier" : 2,
+      "AdapterVoltage" : 28000,
+      "Current" : 4990,
+      "Description" : "pd charger",
+      "FamilyCode" : -536854518,
+      "IsWireless" : false,
+      "PMUConfiguration" : 4990,
+      "UsbHvcHvcIndex" : 7,
+      "UsbHvcMenu" : [
+        {
+          "Index" : 0,
+          "MaxCurrent" : 2960,
+          "MaxVoltage" : 5000
+        },
+        {
+          "Index" : 1,
+          "MaxCurrent" : 2980,
+          "MaxVoltage" : 9000
+        },
+        {
+          "Index" : 2,
+          "MaxCurrent" : 2990,
+          "MaxVoltage" : 15000
+        },
+        {
+          "Index" : 3,
+          "MaxCurrent" : 4990,
+          "MaxVoltage" : 20000
+        }
+      ],
+      "Watts" : 140
+    },
+    "Amperage" : 0,
+    "AppleRawExternalConnected" : true,
+    "AvgTimeToEmpty" : 65535,
+    "AvgTimeToFull" : 65535,
+    "BatteryData" : {
+      "AbsoluteCapacity" : 0,
+      "AvgTimeToEmpty" : 65535,
+      "BatteryPower" : 0,
+      "CurrentCapacity" : 80,
+      "DesignCapacity" : 8579,
+      "FullChargeCapacity" : 8377,
+      "FullyCharged" : 0,
+      "MaxCapacity" : 100,
+      "NominalChargeCapacity" : 8621,
+      "RemainingCapacity" : 6634,
+      "TrueRemainingCapacity" : 0
+    },
+    "BatteryInstalled" : true,
+    "BestAdapterIndex" : 0,
+    "ChargerData" : {
+      "IsCharging" : 0,
+      "NotChargingReason" : 16777216,
+      "PMUConfiguration" : 4990,
+      "PMUConfigured" : 5008,
+      "SlowChargingReason" : 0,
+      "TimeChargingThermallyLimited" : 0
+    },
+    "CurrentCapacity" : 80,
+    "CycleCount" : 93,
+    "ExternalChargeCapable" : true,
+    "ExternalConnected" : true,
+    "FullyCharged" : false,
+    "IsCharging" : false,
+    "MaxCapacity" : 100,
+    "PortControllerInfo" : [
+      {
+        "PortControllerActiveContractRdo" : 0,
+        "PortControllerAttachCount" : 6,
+        "PortControllerBootFlags" : 0,
+        "PortControllerCapMismatch" : 0,
+        "PortControllerDataRoleSwapCount" : 0,
+        "PortControllerDataRoleSwapFailCount" : 0,
+        "PortControllerDetachCount" : 6,
+        "PortControllerDnSt" : 0,
+        "PortControllerElectionFailReason" : 0,
+        "PortControllerEvtBuffer" : {
+          "$data" : "AAAAAAAAAAAAAAAAAwEaA1/4AEAAAwIaAz8CX/gAAwEaA0AAX/gAAwIaAz8CX/gAAwEaA0AAX/gAAwIaAz8CX/gAAwEaA0AAX/gAAwIaAz8CX/gAAwEaA0AAX/gAAwIaAz8CX/gAAwEaA0AAX/gAAwIaAz8CX/gA"
+        },
+        "PortControllerFetStatus" : 0,
+        "PortControllerFwVersion" : 3211776,
+        "PortControllerHardResetCount" : 0,
+        "PortControllerHvEnRecoveryCount" : 0,
+        "PortControllerI2cErrCount" : 0,
+        "PortControllerInpFetEnFailCount" : 0,
+        "PortControllerIrqCntAlert" : 0,
+        "PortControllerIrqCntAppLd" : 0,
+        "PortControllerIrqCntConSrc" : 0,
+        "PortControllerIrqCntHrdRst" : 0,
+        "PortControllerIrqCntPdStsUpd" : 11,
+        "PortControllerIrqCntPlg" : 12,
+        "PortControllerIrqCntPwrStsUpd" : 18,
+        "PortControllerIrqCntRxIdSop" : 0,
+        "PortControllerIrqCntRxRdo" : 0,
+        "PortControllerIrqCntRxSnkCap" : 0,
+        "PortControllerIrqCntRxSrcCap" : 0,
+        "PortControllerIrqCntStsUpd" : 40,
+        "PortControllerIrqCntUsb2Plg" : 0,
+        "PortControllerIrqCntUsb2Wak" : 0,
+        "PortControllerIrqCntUvdmEnum" : 0,
+        "PortControllerIrqCntUvdmStsUpd" : 12,
+        "PortControllerIrqCntWakeAck" : 19382,
+        "PortControllerIrqCntldcm" : 0,
+        "PortControllerLoserReason" : 1,
+        "PortControllerMaxPower" : 0,
+        "PortControllerNEprPDOs" : 0,
+        "PortControllerNPDOs" : 0,
+        "PortControllerPDst" : 0,
+        "PortControllerPortMode" : 2,
+        "PortControllerPortPDO" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "PortControllerPowerState" : 255,
+        "PortControllerPwrRoleSwapCount" : 0,
+        "PortControllerPwrRoleSwapFailCount" : 0,
+        "PortControllerShortDetectCount" : 0,
+        "PortControllerSleepCmdFailCount" : 0,
+        "PortControllerSlpWakDisCause" : 0,
+        "PortControllerSlpWakDisTime" : 0,
+        "PortControllerSlpWakIsSleepEnabled" : 1,
+        "PortControllerSrcTypes" : 0,
+        "PortControllerSrdoCount" : 0,
+        "PortControllerSrdoRejectCount" : 0,
+        "PortControllerSrdoRetryCount" : 0,
+        "PortControllerSrdyCount" : 0,
+        "PortControllerSrdyRejectCount" : 0,
+        "PortControllerStuckCmdCount" : 0,
+        "PortControllerSurpriseAckCount" : 0,
+        "PortControllerSurpriseNackCount" : 0,
+        "PortControllerUvdmStatus" : 0,
+        "PortControllerVdoFailCount" : 0,
+        "PortControllerWakeCmdFailCount" : 0,
+        "PortControllerWakeFailCount" : 0,
+        "PortControllerWakeTimeoutCount" : 0
+      },
+      {
+        "PortControllerActiveContractRdo" : -2084087338,
+        "PortControllerAttachCount" : 6,
+        "PortControllerBootFlags" : 0,
+        "PortControllerCapMismatch" : 0,
+        "PortControllerDataRoleSwapCount" : 0,
+        "PortControllerDataRoleSwapFailCount" : 0,
+        "PortControllerDetachCount" : 6,
+        "PortControllerDnSt" : 0,
+        "PortControllerElectionFailReason" : 0,
+        "PortControllerEvtBuffer" : {
+          "$data" : "MD/xMATyA/A58QEwBPID8DzxATAE8gPwOfEB8YEDAhoCPwJfAwEaAT8DQABf8YE/8TAESF/wGfEBGjBAAV8wBPID8DnxAfGBAwIaAj8CXwMBGgE/A0AAX/GBP/EwBEhf8BnxARowMARAAV/yA/A58QEDAhoCPwJf"
+        },
+        "PortControllerFetStatus" : 0,
+        "PortControllerFwVersion" : 3211776,
+        "PortControllerHardResetCount" : 0,
+        "PortControllerHvEnRecoveryCount" : 0,
+        "PortControllerI2cErrCount" : 0,
+        "PortControllerInpFetEnFailCount" : 0,
+        "PortControllerIrqCntAlert" : 0,
+        "PortControllerIrqCntAppLd" : 1,
+        "PortControllerIrqCntConSrc" : 4,
+        "PortControllerIrqCntHrdRst" : 0,
+        "PortControllerIrqCntPdStsUpd" : 21,
+        "PortControllerIrqCntPlg" : 12,
+        "PortControllerIrqCntPwrStsUpd" : 23,
+        "PortControllerIrqCntRxIdSop" : 7,
+        "PortControllerIrqCntRxRdo" : 3,
+        "PortControllerIrqCntRxSnkCap" : 6,
+        "PortControllerIrqCntRxSrcCap" : 14,
+        "PortControllerIrqCntStsUpd" : 48,
+        "PortControllerIrqCntUsb2Plg" : 0,
+        "PortControllerIrqCntUsb2Wak" : 0,
+        "PortControllerIrqCntUvdmEnum" : 1,
+        "PortControllerIrqCntUvdmStsUpd" : 22,
+        "PortControllerIrqCntWakeAck" : 19381,
+        "PortControllerIrqCntldcm" : 0,
+        "PortControllerLoserReason" : 1,
+        "PortControllerMaxPower" : 0,
+        "PortControllerNEprPDOs" : 1,
+        "PortControllerNPDOs" : 4,
+        "PortControllerPDst" : 0,
+        "PortControllerPortMode" : 2,
+        "PortControllerPortPDO" : [
+          797020460,
+          184620,
+          307500,
+          410090,
+          0,
+          0,
+          0,
+          573940,
+          -768567668,
+          0,
+          0,
+          0,
+          0
+        ],
+        "PortControllerPowerState" : 255,
+        "PortControllerPwrRoleSwapCount" : 0,
+        "PortControllerPwrRoleSwapFailCount" : 0,
+        "PortControllerShortDetectCount" : 0,
+        "PortControllerSleepCmdFailCount" : 0,
+        "PortControllerSlpWakDisCause" : 0,
+        "PortControllerSlpWakDisTime" : 0,
+        "PortControllerSlpWakIsSleepEnabled" : 1,
+        "PortControllerSrcTypes" : 0,
+        "PortControllerSrdoCount" : 14,
+        "PortControllerSrdoRejectCount" : 0,
+        "PortControllerSrdoRetryCount" : 0,
+        "PortControllerSrdyCount" : 23,
+        "PortControllerSrdyRejectCount" : 9,
+        "PortControllerStuckCmdCount" : 0,
+        "PortControllerSurpriseAckCount" : 0,
+        "PortControllerSurpriseNackCount" : 0,
+        "PortControllerUvdmStatus" : 0,
+        "PortControllerVdoFailCount" : 0,
+        "PortControllerWakeCmdFailCount" : 0,
+        "PortControllerWakeFailCount" : 0,
+        "PortControllerWakeTimeoutCount" : 0
+      },
+      {
+        "PortControllerActiveContractRdo" : 0,
+        "PortControllerAttachCount" : 1,
+        "PortControllerBootFlags" : 0,
+        "PortControllerCapMismatch" : 0,
+        "PortControllerDataRoleSwapCount" : 0,
+        "PortControllerDataRoleSwapFailCount" : 0,
+        "PortControllerDetachCount" : 1,
+        "PortControllerDnSt" : 0,
+        "PortControllerElectionFailReason" : 0,
+        "PortControllerEvtBuffer" : {
+          "$data" : "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "PortControllerFetStatus" : 0,
+        "PortControllerFwVersion" : 3211776,
+        "PortControllerHardResetCount" : 0,
+        "PortControllerHvEnRecoveryCount" : 0,
+        "PortControllerI2cErrCount" : 0,
+        "PortControllerInpFetEnFailCount" : 0,
+        "PortControllerIrqCntAlert" : 0,
+        "PortControllerIrqCntAppLd" : 0,
+        "PortControllerIrqCntConSrc" : 0,
+        "PortControllerIrqCntHrdRst" : 0,
+        "PortControllerIrqCntPdStsUpd" : 0,
+        "PortControllerIrqCntPlg" : 0,
+        "PortControllerIrqCntPwrStsUpd" : 0,
+        "PortControllerIrqCntRxIdSop" : 0,
+        "PortControllerIrqCntRxRdo" : 0,
+        "PortControllerIrqCntRxSnkCap" : 0,
+        "PortControllerIrqCntRxSrcCap" : 0,
+        "PortControllerIrqCntStsUpd" : 2,
+        "PortControllerIrqCntUsb2Plg" : 0,
+        "PortControllerIrqCntUsb2Wak" : 0,
+        "PortControllerIrqCntUvdmEnum" : 0,
+        "PortControllerIrqCntUvdmStsUpd" : 0,
+        "PortControllerIrqCntWakeAck" : 19382,
+        "PortControllerIrqCntldcm" : 0,
+        "PortControllerLoserReason" : 1,
+        "PortControllerMaxPower" : 0,
+        "PortControllerNEprPDOs" : 0,
+        "PortControllerNPDOs" : 0,
+        "PortControllerPDst" : 0,
+        "PortControllerPortMode" : 2,
+        "PortControllerPortPDO" : [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "PortControllerPowerState" : 255,
+        "PortControllerPwrRoleSwapCount" : 0,
+        "PortControllerPwrRoleSwapFailCount" : 0,
+        "PortControllerShortDetectCount" : 0,
+        "PortControllerSleepCmdFailCount" : 0,
+        "PortControllerSlpWakDisCause" : 0,
+        "PortControllerSlpWakDisTime" : 0,
+        "PortControllerSlpWakIsSleepEnabled" : 1,
+        "PortControllerSrcTypes" : 0,
+        "PortControllerSrdoCount" : 0,
+        "PortControllerSrdoRejectCount" : 0,
+        "PortControllerSrdoRetryCount" : 0,
+        "PortControllerSrdyCount" : 0,
+        "PortControllerSrdyRejectCount" : 0,
+        "PortControllerStuckCmdCount" : 0,
+        "PortControllerSurpriseAckCount" : 0,
+        "PortControllerSurpriseNackCount" : 0,
+        "PortControllerUvdmStatus" : 0,
+        "PortControllerVdoFailCount" : 0,
+        "PortControllerWakeCmdFailCount" : 0,
+        "PortControllerWakeFailCount" : 0,
+        "PortControllerWakeTimeoutCount" : 0
+      },
+      {
+        "PortControllerActiveContractRdo" : 1103583702,
+        "PortControllerAttachCount" : 3,
+        "PortControllerBootFlags" : 0,
+        "PortControllerCapMismatch" : 0,
+        "PortControllerDataRoleSwapCount" : 0,
+        "PortControllerDataRoleSwapFailCount" : 0,
+        "PortControllerDetachCount" : 2,
+        "PortControllerDnSt" : 81,
+        "PortControllerElectionFailReason" : 0,
+        "PortControllerEvtBuffer" : {
+          "$data" : "8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT8BPwE/AT"
+        },
+        "PortControllerFetStatus" : 140,
+        "PortControllerFwVersion" : 3211776,
+        "PortControllerHardResetCount" : 0,
+        "PortControllerHvEnRecoveryCount" : 0,
+        "PortControllerI2cErrCount" : 0,
+        "PortControllerInpFetEnFailCount" : 0,
+        "PortControllerIrqCntAlert" : 0,
+        "PortControllerIrqCntAppLd" : 0,
+        "PortControllerIrqCntConSrc" : 0,
+        "PortControllerIrqCntHrdRst" : 0,
+        "PortControllerIrqCntPdStsUpd" : 7,
+        "PortControllerIrqCntPlg" : 5,
+        "PortControllerIrqCntPwrStsUpd" : 8,
+        "PortControllerIrqCntRxIdSop" : 3,
+        "PortControllerIrqCntRxRdo" : 0,
+        "PortControllerIrqCntRxSnkCap" : 0,
+        "PortControllerIrqCntRxSrcCap" : 6,
+        "PortControllerIrqCntStsUpd" : 15,
+        "PortControllerIrqCntUsb2Plg" : 0,
+        "PortControllerIrqCntUsb2Wak" : 0,
+        "PortControllerIrqCntUvdmEnum" : 3,
+        "PortControllerIrqCntUvdmStsUpd" : 11,
+        "PortControllerIrqCntWakeAck" : 19382,
+        "PortControllerIrqCntldcm" : 0,
+        "PortControllerLoserReason" : 0,
+        "PortControllerMaxPower" : 139720,
+        "PortControllerNEprPDOs" : 1,
+        "PortControllerNPDOs" : 4,
+        "PortControllerPDst" : 5,
+        "PortControllerPortMode" : 2,
+        "PortControllerPortPDO" : [
+          142709032,
+          184618,
+          307499,
+          410099,
+          -1059311616,
+          0,
+          0,
+          573939,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "PortControllerPowerState" : 255,
+        "PortControllerPwrRoleSwapCount" : 0,
+        "PortControllerPwrRoleSwapFailCount" : 0,
+        "PortControllerShortDetectCount" : 0,
+        "PortControllerSleepCmdFailCount" : 0,
+        "PortControllerSlpWakDisCause" : 0,
+        "PortControllerSlpWakDisTime" : 0,
+        "PortControllerSlpWakIsSleepEnabled" : 1,
+        "PortControllerSrcTypes" : 3,
+        "PortControllerSrdoCount" : 6,
+        "PortControllerSrdoRejectCount" : 0,
+        "PortControllerSrdoRetryCount" : 0,
+        "PortControllerSrdyCount" : 7,
+        "PortControllerSrdyRejectCount" : 1,
+        "PortControllerStuckCmdCount" : 0,
+        "PortControllerSurpriseAckCount" : 0,
+        "PortControllerSurpriseNackCount" : 0,
+        "PortControllerUvdmStatus" : 0,
+        "PortControllerVdoFailCount" : 0,
+        "PortControllerWakeCmdFailCount" : 0,
+        "PortControllerWakeFailCount" : 0,
+        "PortControllerWakeTimeoutCount" : 0
+      }
+    ],
+    "PowerTelemetryData" : {
+      "AccumSystemEffectiveTotalLoad" : 0,
+      "AccumSystemEffectiveTotalLoadCount" : 0,
+      "AccumulatedAdapterEfficiencyLoss" : 259897072733550,
+      "AccumulatedBatteryDischarge" : -14618255,
+      "AccumulatedBatteryPower" : 13640393,
+      "AccumulatedSystemEnergyConsumed" : 2910202368,
+      "AccumulatedSystemLoad" : 1887957063,
+      "AccumulatedSystemPowerIn" : 10476913793,
+      "AccumulatedWallEnergyEstimate" : 535834981,
+      "AdapterEfficiencyLoss" : 771,
+      "AdapterEfficiencyLossAccumulatorCount" : 109311,
+      "BatteryDischargeAccumulatorCount" : 3533,
+      "BatteryPower" : 0,
+      "BatteryPowerAccumulatorCount" : 285,
+      "PowerTelemetryErrorCount" : 0,
+      "SystemCurrentIn" : 1387,
+      "SystemEffectiveTotalLoad" : 0,
+      "SystemEnergyConsumed" : 10516,
+      "SystemLoad" : 37860,
+      "SystemLoadAccumulatorCount" : 109641,
+      "SystemPowerIn" : 37860,
+      "SystemPowerInAccumulatorCount" : 109434,
+      "SystemVoltageIn" : 27282,
+      "WallEnergyEstimate" : 11287
+    },
+    "TimeRemaining" : 65535,
+    "Voltage" : 12367
+  },
+  "captureNotes" : [
+
+  ],
+  "capturedAt" : "2026-10-31T20:34:47Z",
+  "displays" : [
+    {
+      "id" : 1,
+      "isBuiltin" : true,
+      "isMain" : true,
+      "pixelHeight" : 2234,
+      "pixelWidth" : 3456,
+      "productID" : 41055,
+      "refreshHz" : 120,
+      "vendorID" : 1552
+    }
+  ],
+  "machine" : {
+    "chip" : "Apple M5 Max",
+    "hasBattery" : true,
+    "model" : "Mac17,6",
+    "osBuild" : "26A434",
+    "osVersion" : "27.0.1",
+    "targetType" : "J716c"
+  },
+  "portControllerUUIDs" : {
+    "17/1" : "00000000-0000-0000-0000-000000000007",
+    "2/1" : "00000000-0000-0000-0000-000000000008",
+    "2/2" : "00000000-0000-0000-0000-000000000009",
+    "2/3" : "00000000-0000-0000-0000-00000000000A"
+  },
+  "portLocations" : {
+    "2/1" : "left-back",
+    "2/2" : "left-front",
+    "2/3" : "right"
+  },
+  "portNodes" : [
+    {
+      "classChain" : [
+        "AppleHPMInterfaceType10",
+        "AppleHPMInterface",
+        "AppleTCController",
+        "IOAccessoryManagerUSBC",
+        "IOAccessoryManager",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMInterfaceType10",
+      "id" : 4294970123,
+      "location" : "1",
+      "name" : "Port-USB-C",
+      "properties" : {
+        "AccessoryMode" : 0,
+        "ActiveCable" : false,
+        "AppLoaded Count" : 1,
+        "AuthorizationRequired" : false,
+        "AutoMatched" : false,
+        "Boot Flags" : {
+          "$data" : "QQIQAAGAAx4AAAAA"
+        },
+        "BuiltIn" : true,
+        "CFBundleIdentifier" : "com.apple.driver.AppleHPM",
+        "ConnectionActive" : false,
+        "ConnectionCount" : 6,
+        "Description" : "Port-USB-C@1",
+        "DisplayPortPinAssignment" : 0,
+        "FW Version" : {
+          "$data" : "AAIxAA=="
+        },
+        "FeaturesEnabled" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "FeaturesSupported" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "HChk" : {
+          "$data" : "YwAAAAAA"
+        },
+        "HPDAsserted" : false,
+        "HPM Mode Block Active" : false,
+        "IOAccessoryActivePowerMode" : 1,
+        "IOAccessoryDetect" : false,
+        "IOAccessoryID" : 100,
+        "IOAccessoryManagerSleepPower" : false,
+        "IOAccessoryManagerType" : 3,
+        "IOAccessoryPowerCurrentLimits" : [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "IOAccessoryPowerMode" : 3,
+        "IOAccessoryPrimaryDevicePort" : 1,
+        "IOAccessorySleepPowerCurrentLimit" : 0,
+        "IOAccessorySupportedPowerModes" : [
+          1,
+          3
+        ],
+        "IOAccessoryUSBActive" : true,
+        "IOAccessoryUSBConnectString" : "None",
+        "IOAccessoryUSBConnectType" : 0,
+        "IOAccessoryUSBConnectTypePublished" : 0,
+        "IOAccessoryUSBModeType" : 4,
+        "IOAccessoryUSBSuperSpeedActive" : false,
+        "IOPersonalityPublisher" : "com.apple.driver.AppleHPM",
+        "IOProviderClass" : "AppleHPMDeviceHAL",
+        "LDCMPin" : 1,
+        "LDCMPinDescription" : "Reference",
+        "LDCM_LiquidDetected" : false,
+        "LDCM_MeasurementStatus" : 0,
+        "LDCM_MeasurementStatusDescription" : "No Error",
+        "LDCM_MitigationsEnabled" : false,
+        "LDCM_State" : 1,
+        "LDCM_StateDescription" : "Idle",
+        "LDCM_UserOverrideActive" : false,
+        "Metadata" : {
+
+        },
+        "OpticalCable" : false,
+        "Overcurrent Count" : 0,
+        "Pin Configuration" : {
+          "rx1" : 0,
+          "rx2" : 4,
+          "sbu1" : 0,
+          "sbu2" : 0,
+          "tx1" : 0,
+          "tx2" : 3
+        },
+        "Plug Event Count" : 13,
+        "PlugOrientation" : 0,
+        "PortDescription" : "Port-USB-C@1",
+        "PortNumber" : 1,
+        "PortType" : 2,
+        "PortTypeDescription" : "USB-C",
+        "SOP UVDM Update Count" : 0,
+        "TransportsActive" : [
+
+        ],
+        "TransportsProvisioned" : [
+          "CC"
+        ],
+        "TransportsSupported" : [
+          "CC",
+          "USB2",
+          "USB3",
+          "CIO",
+          "DisplayPort"
+        ],
+        "TransportsUnauthorized" : [
+
+        ],
+        "UserAuthorizationStatus" : 0,
+        "UserAuthorizationStatusDescription" : "Not Required"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateCC",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateCC",
+      "id" : 4294970210,
+      "name" : "CC",
+      "parentID" : 4294970123,
+      "properties" : {
+        "Active" : false,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : false,
+        "AuthorizationStatus" : 0,
+        "AuthorizationStatusDescription" : "Not Required",
+        "DriverStatus" : 0,
+        "DriverStatusDescription" : "Not Monitored",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "TRM_TransportSupervised" : false,
+        "TransportDescription" : "Port-USB-C@1/CC",
+        "TransportType" : 1,
+        "TransportTypeDescription" : "CC",
+        "Tunneled" : false
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMLDCMType2",
+        "AppleHPMLDCM",
+        "IOPortFeatureLDCM",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMLDCMType2",
+      "id" : 4294970206,
+      "name" : "LDCM",
+      "parentID" : 4294970123,
+      "properties" : {
+        "ArchitectureVersion" : 4,
+        "Description" : "Port-USB-C@1/LDCM",
+        "FeatureType" : 2,
+        "FeatureTypeDescription" : "LDCM",
+        "FirmwareVersion" : "003.012.",
+        "HardwareVersion" : 1,
+        "LiquidDetected" : false,
+        "MeasurementStatus" : 0,
+        "MeasurementStatusDescription" : "No Error",
+        "Metadata" : {
+
+        },
+        "MitigationsEnabled" : false,
+        "MitigationsStatus" : 0,
+        "MitigationsSupported" : false,
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "State" : 0,
+        "StateDescription" : "Hardware Controlled",
+        "UserOverrideActive" : false
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerIn",
+        "IOPortFeaturePower",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerIn",
+      "id" : 4294970241,
+      "name" : "Power In",
+      "parentID" : 4294970123,
+      "properties" : {
+        "Active" : false,
+        "Description" : "Port-USB-C@1/Power In",
+        "FeatureType" : 3,
+        "FeatureTypeDescription" : "Power In",
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C"
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMInterfaceType10",
+        "AppleHPMInterface",
+        "AppleTCController",
+        "IOAccessoryManagerUSBC",
+        "IOAccessoryManager",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMInterfaceType10",
+      "id" : 4294969078,
+      "location" : "3",
+      "name" : "Port-USB-C",
+      "properties" : {
+        "AccessoryMode" : 0,
+        "ActiveCable" : false,
+        "AppLoaded Count" : 1,
+        "AuthorizationRequired" : false,
+        "AutoMatched" : false,
+        "Boot Flags" : {
+          "$data" : "QQIQAAGAAx4AAAAA"
+        },
+        "BuiltIn" : true,
+        "CFBundleIdentifier" : "com.apple.driver.AppleHPM",
+        "ConnectionActive" : false,
+        "ConnectionCount" : 1,
+        "Description" : "Port-USB-C@3",
+        "DisplayPortPinAssignment" : 0,
+        "FW Version" : {
+          "$data" : "AAIxAA=="
+        },
+        "FeaturesEnabled" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "FeaturesSupported" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "HChk" : {
+          "$data" : "YwAAAAAA"
+        },
+        "HPDAsserted" : false,
+        "HPM Mode Block Active" : false,
+        "IOAccessoryActivePowerMode" : 1,
+        "IOAccessoryDetect" : false,
+        "IOAccessoryID" : 100,
+        "IOAccessoryManagerSleepPower" : false,
+        "IOAccessoryManagerType" : 3,
+        "IOAccessoryPowerCurrentLimits" : [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "IOAccessoryPowerMode" : 3,
+        "IOAccessoryPrimaryDevicePort" : 259,
+        "IOAccessorySleepPowerCurrentLimit" : 0,
+        "IOAccessorySupportedPowerModes" : [
+          1,
+          3
+        ],
+        "IOAccessoryUSBActive" : true,
+        "IOAccessoryUSBConnectType" : 0,
+        "IOAccessoryUSBConnectTypePublished" : 0,
+        "IOAccessoryUSBModeType" : 4,
+        "IOPersonalityPublisher" : "com.apple.driver.AppleHPM",
+        "IOProviderClass" : "AppleHPMDeviceHAL",
+        "LDCMPin" : 1,
+        "LDCMPinDescription" : "Reference",
+        "LDCM_LiquidDetected" : false,
+        "LDCM_MeasurementStatus" : 0,
+        "LDCM_MeasurementStatusDescription" : "No Error",
+        "LDCM_MitigationsEnabled" : false,
+        "LDCM_State" : 1,
+        "LDCM_StateDescription" : "Idle",
+        "LDCM_UserOverrideActive" : false,
+        "Metadata" : {
+
+        },
+        "OpticalCable" : false,
+        "Overcurrent Count" : 0,
+        "Pin Configuration" : {
+          "rx1" : 0,
+          "rx2" : 0,
+          "sbu1" : 0,
+          "sbu2" : 0,
+          "tx1" : 0,
+          "tx2" : 0
+        },
+        "Plug Event Count" : 1,
+        "PlugOrientation" : 0,
+        "PortDescription" : "Port-USB-C@3",
+        "PortNumber" : 3,
+        "PortType" : 2,
+        "PortTypeDescription" : "USB-C",
+        "SOP UVDM Update Count" : 0,
+        "TransportsActive" : [
+
+        ],
+        "TransportsProvisioned" : [
+          "CC"
+        ],
+        "TransportsSupported" : [
+          "CC",
+          "USB2",
+          "USB3",
+          "CIO",
+          "DisplayPort"
+        ],
+        "UserAuthorizationStatus" : 0,
+        "UserAuthorizationStatusDescription" : "Not Required"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateCC",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateCC",
+      "id" : 4294970256,
+      "name" : "CC",
+      "parentID" : 4294969078,
+      "properties" : {
+        "Active" : false,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : false,
+        "AuthorizationStatus" : 0,
+        "AuthorizationStatusDescription" : "Not Required",
+        "DriverStatus" : 0,
+        "DriverStatusDescription" : "Not Monitored",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 3,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 3,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "TRM_TransportSupervised" : false,
+        "TransportDescription" : "Port-USB-C@3/CC",
+        "TransportType" : 1,
+        "TransportTypeDescription" : "CC",
+        "Tunneled" : false
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMLDCMType2",
+        "AppleHPMLDCM",
+        "IOPortFeatureLDCM",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMLDCMType2",
+      "id" : 4294970260,
+      "name" : "LDCM",
+      "parentID" : 4294969078,
+      "properties" : {
+        "ArchitectureVersion" : 4,
+        "Description" : "Port-USB-C@3/LDCM",
+        "FeatureType" : 2,
+        "FeatureTypeDescription" : "LDCM",
+        "FirmwareVersion" : "003.012.",
+        "HardwareVersion" : 1,
+        "LiquidDetected" : false,
+        "MeasurementStatus" : 0,
+        "MeasurementStatusDescription" : "No Error",
+        "Metadata" : {
+
+        },
+        "MitigationsEnabled" : false,
+        "MitigationsStatus" : 0,
+        "MitigationsSupported" : false,
+        "ParentBuiltInPortNumber" : 3,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 3,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "State" : 0,
+        "StateDescription" : "Hardware Controlled",
+        "UserOverrideActive" : false
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerIn",
+        "IOPortFeaturePower",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerIn",
+      "id" : 4294970549,
+      "name" : "Power In",
+      "parentID" : 4294969078,
+      "properties" : {
+        "Active" : false,
+        "Description" : "Port-USB-C@3/Power In",
+        "FeatureType" : 3,
+        "FeatureTypeDescription" : "Power In",
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 3,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 3,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C"
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMInterfaceType10",
+        "AppleHPMInterface",
+        "AppleTCController",
+        "IOAccessoryManagerUSBC",
+        "IOAccessoryManager",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMInterfaceType10",
+      "id" : 4294970141,
+      "location" : "2",
+      "name" : "Port-USB-C",
+      "properties" : {
+        "AccessoryMode" : 0,
+        "ActiveCable" : false,
+        "AppLoaded Count" : 1,
+        "AuthorizationRequired" : false,
+        "AutoMatched" : false,
+        "Boot Flags" : {
+          "$data" : "gQQAAAEAEB4AAAAA"
+        },
+        "BuiltIn" : true,
+        "CFBundleIdentifier" : "com.apple.driver.AppleHPM",
+        "ConnectionActive" : false,
+        "ConnectionCount" : 6,
+        "Description" : "Port-USB-C@2",
+        "DisplayPortPinAssignment" : 0,
+        "FW Version" : {
+          "$data" : "AAIxAA=="
+        },
+        "FeaturesEnabled" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "FeaturesSupported" : [
+          "TRM",
+          "LDCM",
+          "Power In"
+        ],
+        "HChk" : {
+          "$data" : "AAAAAAAA"
+        },
+        "HPDAsserted" : false,
+        "HPM Mode Block Active" : false,
+        "IOAccessoryActivePowerMode" : 1,
+        "IOAccessoryDetect" : false,
+        "IOAccessoryID" : 100,
+        "IOAccessoryManagerSleepPower" : false,
+        "IOAccessoryManagerType" : 3,
+        "IOAccessoryPowerCurrentLimits" : [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "IOAccessoryPowerMode" : 3,
+        "IOAccessoryPrimaryDevicePort" : 258,
+        "IOAccessorySleepPowerCurrentLimit" : 0,
+        "IOAccessorySupportedPowerModes" : [
+          1,
+          3
+        ],
+        "IOAccessoryUSBActive" : true,
+        "IOAccessoryUSBConnectString" : "None",
+        "IOAccessoryUSBConnectType" : 0,
+        "IOAccessoryUSBConnectTypePublished" : 0,
+        "IOAccessoryUSBModeType" : 4,
+        "IOAccessoryUSBSuperSpeedActive" : false,
+        "IOPersonalityPublisher" : "com.apple.driver.AppleHPM",
+        "IOProviderClass" : "AppleHPMDeviceHAL",
+        "LDCMPin" : 1,
+        "LDCMPinDescription" : "Reference",
+        "LDCM_LiquidDetected" : false,
+        "LDCM_MeasurementStatus" : 0,
+        "LDCM_MeasurementStatusDescription" : "No Error",
+        "LDCM_MitigationsEnabled" : false,
+        "LDCM_State" : 1,
+        "LDCM_StateDescription" : "Idle",
+        "LDCM_UserOverrideActive" : false,
+        "Metadata" : {
+
+        },
+        "OpticalCable" : false,
+        "Overcurrent Count" : 0,
+        "Pin Configuration" : {
+          "rx1" : 12,
+          "rx2" : 10,
+          "sbu1" : 3,
+          "sbu2" : 4,
+          "tx1" : 11,
+          "tx2" : 9
+        },
+        "Plug Event Count" : 12,
+        "PlugOrientation" : 0,
+        "PortDescription" : "Port-USB-C@2",
+        "PortNumber" : 2,
+        "PortType" : 2,
+        "PortTypeDescription" : "USB-C",
+        "SOP UVDM Update Count" : 0,
+        "SOPMfgString" : "Infineon",
+        "SOPPID" : {
+          "$data" : "g7U="
+        },
+        "SOPVID" : {
+          "$data" : "KRo="
+        },
+        "TransportsActive" : [
+
+        ],
+        "TransportsProvisioned" : [
+          "CC"
+        ],
+        "TransportsSupported" : [
+          "CC",
+          "USB2",
+          "USB3",
+          "CIO",
+          "DisplayPort"
+        ],
+        "TransportsUnauthorized" : [
+
+        ],
+        "UserAuthorizationStatus" : 0,
+        "UserAuthorizationStatusDescription" : "Not Required"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateCC",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateCC",
+      "id" : 4294970222,
+      "name" : "CC",
+      "parentID" : 4294970141,
+      "properties" : {
+        "Active" : false,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : false,
+        "AuthorizationStatus" : 0,
+        "AuthorizationStatusDescription" : "Not Required",
+        "DriverStatus" : 0,
+        "DriverStatusDescription" : "Not Monitored",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 2,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 2,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "TRM_TransportSupervised" : false,
+        "TransportDescription" : "Port-USB-C@2/CC",
+        "TransportType" : 1,
+        "TransportTypeDescription" : "CC",
+        "Tunneled" : false
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMLDCMType2",
+        "AppleHPMLDCM",
+        "IOPortFeatureLDCM",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMLDCMType2",
+      "id" : 4294970224,
+      "name" : "LDCM",
+      "parentID" : 4294970141,
+      "properties" : {
+        "ArchitectureVersion" : 4,
+        "Description" : "Port-USB-C@2/LDCM",
+        "FeatureType" : 2,
+        "FeatureTypeDescription" : "LDCM",
+        "FirmwareVersion" : "003.012.",
+        "HardwareVersion" : 1,
+        "LiquidDetected" : false,
+        "MeasurementStatus" : 0,
+        "MeasurementStatusDescription" : "No Error",
+        "Metadata" : {
+
+        },
+        "MitigationsEnabled" : false,
+        "MitigationsStatus" : 0,
+        "MitigationsSupported" : false,
+        "ParentBuiltInPortNumber" : 2,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 2,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C",
+        "State" : 0,
+        "StateDescription" : "Hardware Controlled",
+        "UserOverrideActive" : false
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerIn",
+        "IOPortFeaturePower",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerIn",
+      "id" : 4294970249,
+      "name" : "Power In",
+      "parentID" : 4294970141,
+      "properties" : {
+        "Active" : false,
+        "Description" : "Port-USB-C@2/Power In",
+        "FeatureType" : 3,
+        "FeatureTypeDescription" : "Power In",
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 2,
+        "ParentBuiltInPortType" : 2,
+        "ParentBuiltInPortTypeDescription" : "USB-C",
+        "ParentPortNumber" : 2,
+        "ParentPortType" : 2,
+        "ParentPortTypeDescription" : "USB-C"
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHPMInterfaceType11",
+        "AppleHPMInterface",
+        "AppleTCController",
+        "IOAccessoryManagerUSBC",
+        "IOAccessoryManager",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHPMInterfaceType11",
+      "id" : 4294970162,
+      "location" : "1",
+      "name" : "Port-MagSafe 3",
+      "properties" : {
+        "AccessoryMode" : 0,
+        "ActiveCable" : false,
+        "AppLoaded Count" : 1,
+        "AuthorizationRequired" : false,
+        "AutoMatched" : false,
+        "Boot Flags" : {
+          "$data" : "QQIQAAGAAx4AAAAA"
+        },
+        "BuiltIn" : true,
+        "CFBundleIdentifier" : "com.apple.driver.AppleHPM",
+        "ConnectionActive" : true,
+        "ConnectionCount" : 3,
+        "ConnectionUUID" : "REDACTED",
+        "Description" : "Port-MagSafe 3@1",
+        "DisplayPortPinAssignment" : 0,
+        "FW Version" : {
+          "$data" : "AAIxAA=="
+        },
+        "FeaturesEnabled" : [
+          "Power In"
+        ],
+        "FeaturesSupported" : [
+          "Power In"
+        ],
+        "HChk" : {
+          "$data" : "YwAAAAAA"
+        },
+        "HPDAsserted" : false,
+        "HPM Mode Block Active" : false,
+        "IOAccessoryActivePowerMode" : 1,
+        "IOAccessoryDetect" : true,
+        "IOAccessoryID" : -1,
+        "IOAccessoryManagerAllowedFeatures" : 0,
+        "IOAccessoryManagerSleepPower" : false,
+        "IOAccessoryManagerType" : 3,
+        "IOAccessoryPowerCurrentLimits" : [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "IOAccessoryPowerMode" : 3,
+        "IOAccessoryPrimaryDevicePort" : 261,
+        "IOAccessorySleepPowerCurrentLimit" : 0,
+        "IOAccessorySupportedPowerModes" : [
+          1,
+          3
+        ],
+        "IOAccessoryUSBActive" : true,
+        "IOAccessoryUSBConnectType" : 0,
+        "IOAccessoryUSBConnectTypePublished" : 0,
+        "IOAccessoryUSBModeType" : 4,
+        "IOPersonalityPublisher" : "com.apple.driver.AppleHPM",
+        "IOProviderClass" : "AppleHPMDeviceHAL",
+        "Metadata" : {
+
+        },
+        "OpticalCable" : false,
+        "Overcurrent Count" : 0,
+        "Pin Configuration" : {
+          "rx1" : 0,
+          "rx2" : 0,
+          "sbu1" : 0,
+          "sbu2" : 0,
+          "tx1" : 0,
+          "tx2" : 0
+        },
+        "Plug Event Count" : 6,
+        "PlugOrientation" : 1,
+        "PortDescription" : "Port-MagSafe 3@1",
+        "PortNumber" : 1,
+        "PortType" : 17,
+        "PortTypeDescription" : "MagSafe 3",
+        "SOP UVDM Update Count" : 0,
+        "TransportsActive" : [
+          "CC"
+        ],
+        "TransportsProvisioned" : [
+          "CC"
+        ],
+        "TransportsSupported" : [
+
+        ],
+        "UserAuthorizationStatus" : 0,
+        "UserAuthorizationStatusDescription" : "Not Required"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateCC",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateCC",
+      "id" : 4294970221,
+      "name" : "CC",
+      "parentID" : 4294970162,
+      "properties" : {
+        "Active" : true,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : false,
+        "AuthorizationStatus" : 0,
+        "AuthorizationStatusDescription" : "Not Required",
+        "DriverStatus" : 0,
+        "DriverStatusDescription" : "Not Monitored",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "Metadata" : {
+          "Product ID (SOP1)" : 30720,
+          "Vendor ID (SOP1)" : 1452
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 17,
+        "ParentBuiltInPortTypeDescription" : "MagSafe 3",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 17,
+        "ParentPortTypeDescription" : "MagSafe 3",
+        "TRM_TransportSupervised" : false,
+        "TransportDescription" : "Port-MagSafe 3@1/CC",
+        "TransportType" : 1,
+        "TransportTypeDescription" : "CC",
+        "Tunneled" : false
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerIn",
+        "IOPortFeaturePower",
+        "IOPortFeature",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerIn",
+      "id" : 4294970333,
+      "name" : "Power In",
+      "parentID" : 4294970162,
+      "properties" : {
+        "Active" : false,
+        "Description" : "Port-MagSafe 3@1/Power In",
+        "FeatureType" : 3,
+        "FeatureTypeDescription" : "Power In",
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 17,
+        "ParentBuiltInPortTypeDescription" : "MagSafe 3",
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 17,
+        "ParentPortTypeDescription" : "MagSafe 3"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerSource",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerSource",
+      "id" : 4295239082,
+      "name" : "USB-PD [*]",
+      "parentID" : 4294970333,
+      "properties" : {
+        "Description" : "Port-MagSafe 3@1/Power In/USB-PD",
+        "Metadata" : {
+
+        },
+        "Owner" : "IOService:/AppleARMPE/arm-io@10F00000/AppleSoCIO/smc@8C600000/AppleASCWrapV6/iop-smc-nub/RTBuddy(SMC)/SMCEndpoint1/AppleSMCKeysEndpoint/smc-charger-util/AppleSMCChargerUtil",
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 17,
+        "ParentBuiltInPortTypeDescription" : "MagSafe 3",
+        "ParentFeatureType" : 3,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 17,
+        "ParentPortTypeDescription" : "MagSafe 3",
+        "PowerSourceName" : "USB-PD",
+        "PowerSourceOptions" : [
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 2990,
+            "Max Power (mW)" : 44850,
+            "UUID" : "00000000-0000-0000-0000-000000000001",
+            "Voltage (mV)" : 15000
+          },
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 4990,
+            "Max Power (mW)" : 99800,
+            "UUID" : "00000000-0000-0000-0000-000000000002",
+            "Voltage (mV)" : 20000
+          },
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 4990,
+            "Max Power (mW)" : 139720,
+            "UUID" : "00000000-0000-0000-0000-000000000003",
+            "Voltage (mV)" : 28000
+          },
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 2960,
+            "Max Power (mW)" : 14800,
+            "UUID" : "00000000-0000-0000-0000-000000000004",
+            "Voltage (mV)" : 5000
+          },
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 2980,
+            "Max Power (mW)" : 26820,
+            "UUID" : "00000000-0000-0000-0000-000000000005",
+            "Voltage (mV)" : 9000
+          }
+        ],
+        "PowerSourceType" : 2,
+        "Priority" : 1000,
+        "WinningPowerSourceOption" : {
+          "Class" : "IOPortFeaturePowerSourceOptionFixed",
+          "Max Current (mA)" : 4990,
+          "Max Power (mW)" : 139720,
+          "UUID" : "00000000-0000-0000-0000-000000000003",
+          "Voltage (mV)" : 28000
+        }
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortFeaturePowerSource",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortFeaturePowerSource",
+      "id" : 4295239083,
+      "name" : "Brick ID",
+      "parentID" : 4294970333,
+      "properties" : {
+        "Description" : "Port-MagSafe 3@1/Power In/Brick ID",
+        "Metadata" : {
+
+        },
+        "Owner" : "IOService:/AppleARMPE/arm-io@10F00000/AppleSoCIO/smc@8C600000/AppleASCWrapV6/iop-smc-nub/RTBuddy(SMC)/SMCEndpoint1/AppleSMCKeysEndpoint/smc-charger-util/AppleSMCChargerUtil",
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 17,
+        "ParentBuiltInPortTypeDescription" : "MagSafe 3",
+        "ParentFeatureType" : 3,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 17,
+        "ParentPortTypeDescription" : "MagSafe 3",
+        "PowerSourceName" : "Brick ID",
+        "PowerSourceOptions" : [
+          {
+            "Class" : "IOPortFeaturePowerSourceOptionFixed",
+            "Max Current (mA)" : 500,
+            "Max Power (mW)" : 2500,
+            "UUID" : "00000000-0000-0000-0000-000000000006",
+            "Voltage (mV)" : 5000
+          }
+        ],
+        "PowerSourceType" : 0,
+        "Priority" : -500
+      }
+    },
+    {
+      "classChain" : [
+        "AppleHDMIPortController",
+        "IODPHDMIPortController",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleHDMIPortController",
+      "id" : 4294970963,
+      "location" : "1",
+      "name" : "Port-HDMI",
+      "properties" : {
+        "AuthorizationRequired" : false,
+        "AutoMatched" : false,
+        "BuiltIn" : true,
+        "ConnectionActive" : false,
+        "ConnectionCount" : 0,
+        "Description" : "Port-HDMI@1",
+        "FeaturesEnabled" : [
+
+        ],
+        "FeaturesSupported" : [
+
+        ],
+        "HDMIPortID" : 0,
+        "HDMI_HPD" : false,
+        "HDMI_HPD-Debounced" : 0,
+        "IODPHDMIControllerPortUserInterfaceSupported" : true,
+        "Metadata" : {
+
+        },
+        "PortDescription" : "Port-HDMI@1",
+        "PortNumber" : 1,
+        "PortType" : 6,
+        "PortTypeDescription" : "HDMI",
+        "TransportsActive" : [
+
+        ],
+        "TransportsProvisioned" : [
+          "DisplayPort"
+        ],
+        "TransportsSupported" : [
+          "DisplayPort"
+        ],
+        "UserAuthorizationStatus" : 0,
+        "UserAuthorizationStatusDescription" : "Not Required"
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateDisplayPort",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateDisplayPort",
+      "id" : 4294970964,
+      "name" : "DisplayPort",
+      "parentID" : 4294970963,
+      "properties" : {
+        "Active" : false,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : false,
+        "AuthorizationStatus" : 0,
+        "AuthorizationStatusDescription" : "Not Required",
+        "DriverStatus" : 2,
+        "DriverStatusDescription" : "Ready",
+        "HPD_State" : 0,
+        "HPD_StateDescription" : "Unknown",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "LaneCount" : 0,
+        "LinkRate" : 0,
+        "LinkRateDescription" : "No Link",
+        "MaxLaneCount" : 4,
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 6,
+        "ParentBuiltInPortTypeDescription" : "HDMI",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 6,
+        "ParentPortTypeDescription" : "HDMI",
+        "Role" : 2,
+        "RoleDescription" : "Source",
+        "SinkCount" : 0,
+        "TRM_TransportSupervised" : false,
+        "TransportDescription" : "Port-HDMI@1/DisplayPort",
+        "TransportType" : 5,
+        "TransportTypeDescription" : "DisplayPort",
+        "Tunneled" : false
+      }
+    },
+    {
+      "classChain" : [
+        "AppleSDXCSlot",
+        "IOPort",
+        "IOPortFamily",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "AppleSDXCSlot",
+      "id" : 4294971123,
+      "location" : "1",
+      "name" : "Port-SD Card",
+      "properties" : {
+        "64-bit" : true,
+        "AuthorizationPending" : false,
+        "AuthorizationRequired" : true,
+        "AutoMatched" : false,
+        "Base Frequency" : 50,
+        "BuiltIn" : true,
+        "Bus Voltage" : 3300,
+        "Card Present" : false,
+        "Clock Multiplier" : 3,
+        "ConnectionActive" : false,
+        "ConnectionCount" : 0,
+        "Description" : "Port-SD Card@1",
+        "FeaturesEnabled" : [
+          "TRM"
+        ],
+        "FeaturesSupported" : [
+          "TRM"
+        ],
+        "Host Supports UHS-II" : true,
+        "ID TRM Active" : false,
+        "IOMaximumSegmentAddressableBitCount" : 64,
+        "IOMaximumSegmentByteCountRead" : 65536,
+        "IOMaximumSegmentByteCountWrite" : 65536,
+        "IOMaximumSegmentCountRead" : 1024,
+        "IOMaximumSegmentCountWrite" : 1024,
+        "IOMinimumSegmentAlignmentByteCount" : 512,
+        "IOPMResetPowerStateOnWake" : true,
+        "IOReportLegend" : [
+          {
+            "IOReportChannelInfo" : {
+              "IOReportChannelUnit" : 72058115876454424
+            },
+            "IOReportChannels" : [
+              [
+                6000017649748170578,
+                17180000258,
+                "AppleSDXCSlot Power State"
+              ]
+            ],
+            "IOReportGroupName" : "SDXC Controller"
+          }
+        ],
+        "IOReportLegendPublic" : true,
+        "IOUnit" : 1,
+        "Metadata" : {
+
+        },
+        "PortDescription" : "Port-SD Card@1",
+        "PortNumber" : 1,
+        "PortType" : 11,
+        "PortTypeDescription" : "SD Card",
+        "Slot" : 1,
+        "TRANS TRM Active" : false,
+        "TRM Just Approved" : false,
+        "TransportsActive" : [
+
+        ],
+        "TransportsProvisioned" : [
+          "SD"
+        ],
+        "TransportsSupported" : [
+          "SD"
+        ],
+        "TransportsUnauthorized" : [
+
+        ],
+        "UserAuthorizationPending" : false,
+        "UserAuthorizationStatus" : 1,
+        "UserAuthorizationStatusDescription" : "No Action",
+        "r44" : -469581325,
+        "r48" : -1878493634,
+        "r544" : 6,
+        "r60" : -1197893223,
+        "r64" : -704378300,
+        "r68" : -14680063,
+        "r6C" : 108,
+        "r70" : -59562365,
+        "r78" : 4129573
+      }
+    },
+    {
+      "classChain" : [
+        "IOPortTransportStateSD",
+        "IOPortTransportState",
+        "IOService",
+        "IORegistryEntry",
+        "OSObject"
+      ],
+      "className" : "IOPortTransportStateSD",
+      "id" : 4294971124,
+      "name" : "SD",
+      "parentID" : 4294971123,
+      "properties" : {
+        "Active" : false,
+        "AuthenticationRequired" : false,
+        "AuthenticationStatus" : 0,
+        "AuthenticationStatusDescription" : "Idle",
+        "AuthorizationRequired" : true,
+        "AuthorizationStatus" : 2,
+        "AuthorizationStatusDescription" : "Policy Authorized",
+        "DriverStatus" : 0,
+        "DriverStatusDescription" : "Not Monitored",
+        "HashStatus" : 0,
+        "HashStatusDescription" : "Not Set",
+        "Index" : 0,
+        "Metadata" : {
+
+        },
+        "ParentBuiltInPortNumber" : 1,
+        "ParentBuiltInPortType" : 11,
+        "ParentBuiltInPortTypeDescription" : "SD Card",
+        "ParentPortBuiltIn" : true,
+        "ParentPortNumber" : 1,
+        "ParentPortType" : 11,
+        "ParentPortTypeDescription" : "SD Card",
+        "TRM_CacheMiss" : false,
+        "TRM_DeviceLocked" : false,
+        "TRM_IdentificationRestricted" : false,
+        "TRM_Profile" : 3,
+        "TRM_ProfileDescription" : "Allow Automatically When Unlocked",
+        "TRM_RelaxedPeriod" : true,
+        "TRM_State" : 1,
+        "TRM_StateDescription" : "Unrestricted",
+        "TRM_TransportRestricted" : false,
+        "TRM_TransportSupervised" : true,
+        "TransportDescription" : "Port-SD Card@1/SD",
+        "TransportType" : 12,
+        "TransportTypeDescription" : "SD",
+        "Tunneled" : false
+      }
+    }
+  ],
+  "schemaVersion" : 1,
+  "smcChannels" : [
+    {
+      "amps" : 0,
+      "index" : 1,
+      "present" : false,
+      "uuid" : "00000000000000000000000000000008",
+      "volts" : 0
+    },
+    {
+      "amps" : 0,
+      "index" : 2,
+      "present" : false,
+      "uuid" : "00000000000000000000000000000009",
+      "volts" : 0
+    },
+    {
+      "amps" : 0,
+      "index" : 3,
+      "present" : false,
+      "uuid" : "0000000000000000000000000000000a",
+      "volts" : 0
+    },
+    {
+      "amps" : 0,
+      "index" : 4,
+      "present" : false,
+      "uuid" : "00000000000000000000000000000007",
+      "volts" : 0
+    }
+  ],
+  "thunderboltSwitches" : [
+    {
+      "ancestry" : [
+        {
+          "className" : "IOThunderboltPort",
+          "id" : 4294970292,
+          "location" : "7",
+          "name" : "IOThunderboltPort"
+        },
+        {
+          "className" : "IOThunderboltControllerType7",
+          "id" : 4294970286,
+          "name" : "IOThunderboltControllerType7"
+        },
+        {
+          "className" : "AppleThunderboltNHIType7",
+          "id" : 4294970285,
+          "name" : "AppleThunderboltNHIType7"
+        },
+        {
+          "className" : "AppleThunderboltHALType7",
+          "id" : 4294969027,
+          "name" : "AppleThunderboltHALType7"
+        },
+        {
+          "className" : "AppleARMIODevice",
+          "id" : 4294968351,
+          "location" : "A1F00000",
+          "name" : "acio0"
+        },
+        {
+          "className" : "AppleSoCIO",
+          "id" : 4294968301,
+          "name" : "AppleSoCIO"
+        },
+        {
+          "className" : "IOPlatformDevice",
+          "id" : 4294968270,
+          "location" : "10F00000",
+          "name" : "arm-io"
+        },
+        {
+          "className" : "AppleARMPE",
+          "id" : 4294968203,
+          "name" : "AppleARMPE"
+        },
+        {
+          "className" : "IOPlatformExpertDevice",
+          "id" : 4294968197,
+          "name" : "J716cAP"
+        },
+        {
+          "className" : "IORegistryEntry",
+          "id" : 4294967552,
+          "name" : "Root"
+        }
+      ],
+      "node" : {
+        "classChain" : [
+          "IOThunderboltSwitchType7",
+          "IOThunderboltSwitchOS2",
+          "IOThunderboltSwitchOS",
+          "IOThunderboltSwitch",
+          "IOThunderboltNub",
+          "IOService",
+          "IORegistryEntry",
+          "OSObject"
+        ],
+        "className" : "IOThunderboltSwitchType7",
+        "id" : 4294970335,
+        "name" : "IOThunderboltSwitchType7",
+        "properties" : {
+          "Depth" : 0,
+          "Device ID" : 8210,
+          "Device Model ID" : 0,
+          "Device Model Name" : "iOS",
+          "Device Vendor ID" : 0,
+          "Device Vendor Name" : "Apple, Inc.",
+          "Max Port Number" : 11,
+          "Revision ID" : 0,
+          "Route String" : 0,
+          "Router ID" : 0,
+          "Thunderbolt Version" : 64,
+          "UID" : 408701666183872513,
+          "Upstream Port Number" : 7,
+          "Vendor ID" : 1452
+        }
+      },
+      "ports" : [
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970337,
+          "location" : "1",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 1,
+            "CLx State" : 0,
+            "Current Link Speed" : 0,
+            "Current Link Width" : 0,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 2,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 1,
+            "Link Bandwidth" : 100,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 1,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "1",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 1,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970340,
+          "location" : "2",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 1,
+            "CLx State" : 0,
+            "Current Link Speed" : 0,
+            "Current Link Width" : 0,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 1,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 2,
+            "Link Bandwidth" : 100,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 2,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "1",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 1,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970349,
+          "location" : "3",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 1048833,
+            "Description" : "PCIe Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "PCI Entry ID" : 4294970323,
+            "PCI Path" : "IOService:/AppleARMPE/arm-io@10F00000/AppleSoCIO/apciec0@50000000/AppleT6050PCIeC/pcic0-bridge@0",
+            "Port Number" : 3,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970350,
+          "location" : "4",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 2097409,
+            "Description" : "USB Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 4,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970352,
+          "location" : "5",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 5,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970355,
+          "location" : "6",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 6,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970356,
+          "location" : "8",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 0,
+            "Description" : "Port is inactive",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 8,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970357,
+          "location" : "9",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 9,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970358,
+          "location" : "A",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 10,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970359,
+          "location" : "B",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970335,
+          "properties" : {
+            "Adapter Type" : 2162945,
+            "Description" : "USB Gen T Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 11,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        }
+      ]
+    },
+    {
+      "ancestry" : [
+        {
+          "className" : "IOThunderboltPort",
+          "id" : 4294970311,
+          "location" : "7",
+          "name" : "IOThunderboltPort"
+        },
+        {
+          "className" : "IOThunderboltControllerType7",
+          "id" : 4294970297,
+          "name" : "IOThunderboltControllerType7"
+        },
+        {
+          "className" : "AppleThunderboltNHIType7",
+          "id" : 4294970258,
+          "name" : "AppleThunderboltNHIType7"
+        },
+        {
+          "className" : "AppleThunderboltHALType7",
+          "id" : 4294968406,
+          "name" : "AppleThunderboltHALType7"
+        },
+        {
+          "className" : "AppleARMIODevice",
+          "id" : 4294968361,
+          "location" : "A9F00000",
+          "name" : "acio1"
+        },
+        {
+          "className" : "AppleSoCIO",
+          "id" : 4294968301,
+          "name" : "AppleSoCIO"
+        },
+        {
+          "className" : "IOPlatformDevice",
+          "id" : 4294968270,
+          "location" : "10F00000",
+          "name" : "arm-io"
+        },
+        {
+          "className" : "AppleARMPE",
+          "id" : 4294968203,
+          "name" : "AppleARMPE"
+        },
+        {
+          "className" : "IOPlatformExpertDevice",
+          "id" : 4294968197,
+          "name" : "J716cAP"
+        },
+        {
+          "className" : "IORegistryEntry",
+          "id" : 4294967552,
+          "name" : "Root"
+        }
+      ],
+      "node" : {
+        "classChain" : [
+          "IOThunderboltSwitchType7",
+          "IOThunderboltSwitchOS2",
+          "IOThunderboltSwitchOS",
+          "IOThunderboltSwitch",
+          "IOThunderboltNub",
+          "IOService",
+          "IORegistryEntry",
+          "OSObject"
+        ],
+        "className" : "IOThunderboltSwitchType7",
+        "id" : 4294970318,
+        "name" : "IOThunderboltSwitchType7",
+        "properties" : {
+          "Depth" : 0,
+          "Device ID" : 8210,
+          "Device Model ID" : 0,
+          "Device Model Name" : "iOS",
+          "Device Vendor ID" : 0,
+          "Device Vendor Name" : "Apple, Inc.",
+          "Firmware Version" : "AppleCIOFirmwareV2-761.0.3~2102__2026-08-08-14:58:21-PDT__t6050",
+          "Max Port Number" : 11,
+          "Revision ID" : 0,
+          "Route String" : 0,
+          "Router ID" : 1,
+          "Thunderbolt Version" : 64,
+          "UID" : 408701666183872514,
+          "Upstream Port Number" : 7,
+          "Vendor ID" : 1452
+        }
+      },
+      "ports" : [
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970328,
+          "location" : "1",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 1,
+            "Buffer Allocation Request" : {
+              "Max HI" : 86,
+              "Max PCIe" : 127,
+              "Max USB Type2" : 67,
+              "Max USB3" : 14,
+              "Min DP Aux" : 4
+            },
+            "CLx State" : 0,
+            "Current Link Speed" : 2,
+            "Current Link Width" : 4,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 2,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 1,
+            "Link Bandwidth" : 400,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Micro Address" : 0,
+            "Port Number" : 1,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "2",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 5,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970361,
+          "location" : "2",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 1,
+            "Buffer Allocation Request" : {
+              "Max HI" : 86,
+              "Max PCIe" : 127,
+              "Max USB Type2" : 67,
+              "Max USB3" : 14,
+              "Min DP Aux" : 4
+            },
+            "CLx State" : 0,
+            "Current Link Speed" : 2,
+            "Current Link Width" : 4,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 1,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 2,
+            "Link Bandwidth" : 0,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Micro Address" : 0,
+            "Port Number" : 2,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "2",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 1,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970363,
+          "location" : "3",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 1048833,
+            "Description" : "PCIe Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "PCI Entry ID" : 4294970494,
+            "PCI Path" : "IOService:/AppleARMPE/arm-io@10F00000/AppleSoCIO/apciec1@60000000/AppleT6050PCIeC/pcic1-bridge@0",
+            "Port Number" : 3,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970365,
+          "location" : "4",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 2097409,
+            "Description" : "USB Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 4,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970367,
+          "location" : "5",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 5,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970368,
+          "location" : "6",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 6,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970369,
+          "location" : "8",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 0,
+            "Description" : "Port is inactive",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 8,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970370,
+          "location" : "9",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 9,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970371,
+          "location" : "A",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 10,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970372,
+          "location" : "B",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970318,
+          "properties" : {
+            "Adapter Type" : 2162945,
+            "Description" : "USB Gen T Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 11,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        }
+      ]
+    },
+    {
+      "ancestry" : [
+        {
+          "className" : "IOThunderboltPort",
+          "id" : 4294970603,
+          "location" : "7",
+          "name" : "IOThunderboltPort"
+        },
+        {
+          "className" : "IOThunderboltControllerType7",
+          "id" : 4294970599,
+          "name" : "IOThunderboltControllerType7"
+        },
+        {
+          "className" : "AppleThunderboltNHIType7",
+          "id" : 4294970563,
+          "name" : "AppleThunderboltNHIType7"
+        },
+        {
+          "className" : "AppleThunderboltHALType7",
+          "id" : 4294968413,
+          "name" : "AppleThunderboltHALType7"
+        },
+        {
+          "className" : "AppleARMIODevice",
+          "id" : 4294968367,
+          "location" : "81F00000",
+          "name" : "acio2"
+        },
+        {
+          "className" : "AppleSoCIO",
+          "id" : 4294968301,
+          "name" : "AppleSoCIO"
+        },
+        {
+          "className" : "IOPlatformDevice",
+          "id" : 4294968270,
+          "location" : "10F00000",
+          "name" : "arm-io"
+        },
+        {
+          "className" : "AppleARMPE",
+          "id" : 4294968203,
+          "name" : "AppleARMPE"
+        },
+        {
+          "className" : "IOPlatformExpertDevice",
+          "id" : 4294968197,
+          "name" : "J716cAP"
+        },
+        {
+          "className" : "IORegistryEntry",
+          "id" : 4294967552,
+          "name" : "Root"
+        }
+      ],
+      "node" : {
+        "classChain" : [
+          "IOThunderboltSwitchType7",
+          "IOThunderboltSwitchOS2",
+          "IOThunderboltSwitchOS",
+          "IOThunderboltSwitch",
+          "IOThunderboltNub",
+          "IOService",
+          "IORegistryEntry",
+          "OSObject"
+        ],
+        "className" : "IOThunderboltSwitchType7",
+        "id" : 4294970608,
+        "name" : "IOThunderboltSwitchType7",
+        "properties" : {
+          "Depth" : 0,
+          "Device ID" : 8210,
+          "Device Model ID" : 0,
+          "Device Model Name" : "iOS",
+          "Device Vendor ID" : 0,
+          "Device Vendor Name" : "Apple, Inc.",
+          "Max Port Number" : 11,
+          "Revision ID" : 0,
+          "Route String" : 0,
+          "Router ID" : 2,
+          "Thunderbolt Version" : 64,
+          "UID" : 408701666183872515,
+          "Upstream Port Number" : 7,
+          "Vendor ID" : 1452
+        }
+      },
+      "ports" : [
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970616,
+          "location" : "1",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 1,
+            "CLx State" : 0,
+            "Current Link Speed" : 0,
+            "Current Link Width" : 0,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 2,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 1,
+            "Link Bandwidth" : 100,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 1,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "3",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 1,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970627,
+          "location" : "2",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 1,
+            "CLx State" : 0,
+            "Current Link Speed" : 0,
+            "Current Link Width" : 0,
+            "Description" : "Thunderbolt Port",
+            "Dual-Link Port" : 1,
+            "Hop Table" : [
+
+            ],
+            "Lane" : 2,
+            "Link Bandwidth" : 100,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 2,
+            "Required Bandwidth Allocated" : 0,
+            "Socket ID" : "3",
+            "Supported Link Speed" : 14,
+            "Supported Link Width" : 2,
+            "Target Link Speed" : 14,
+            "Target Link Width" : 1,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970628,
+          "location" : "3",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 1048833,
+            "Description" : "PCIe Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "PCI Entry ID" : 4294970618,
+            "PCI Path" : "IOService:/AppleARMPE/arm-io@10F00000/AppleSoCIO/apciec2@70000000/AppleT6050PCIeC/pcic2-bridge@0",
+            "Port Number" : 3,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970630,
+          "location" : "4",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 2097409,
+            "Description" : "USB Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 4,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970632,
+          "location" : "5",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 5,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970633,
+          "location" : "6",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 6,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970635,
+          "location" : "8",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 0,
+            "Description" : "Port is inactive",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 8,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970640,
+          "location" : "9",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 9,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970642,
+          "location" : "A",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 917761,
+            "Description" : "DP or HDMI Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 10,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        },
+        {
+          "classChain" : [
+            "IOThunderboltPort",
+            "IOThunderboltNub",
+            "IOService",
+            "IORegistryEntry",
+            "OSObject"
+          ],
+          "className" : "IOThunderboltPort",
+          "id" : 4294970649,
+          "location" : "B",
+          "name" : "IOThunderboltPort",
+          "parentID" : 4294970608,
+          "properties" : {
+            "Adapter Type" : 2162945,
+            "Description" : "USB Gen T Adapter",
+            "Hop Table" : [
+
+            ],
+            "Link Bandwidth" : 1200,
+            "Max Credits" : 180,
+            "Maximum Bandwidth Allocated" : 0,
+            "Port Number" : 11,
+            "Required Bandwidth Allocated" : 0,
+            "Thunderbolt Version" : 64
+          }
+        }
+      ]
+    }
+  ],
+  "usbDevices" : [
+
+  ]
+}
