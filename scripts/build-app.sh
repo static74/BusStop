@@ -17,13 +17,19 @@
 #   SIGN_IDENTITY  The codesign identity. Default "-", which signs ad hoc. A
 #                  Developer ID Application identity (its name or SHA-1 hash)
 #                  also gets a secure timestamp, which notarization needs; see
-#                  scripts/notarize.sh.
+#                  scripts/notarize.sh. With a team's identity (not ad hoc)
+#                  both Info.plists get the team ID as BusStopTeamID, and the
+#                  app and the extension both claim the App Group
+#                  <team>.io.github.static74.busstop, through which the app
+#                  hands the widgets their data.
 #
 # Layout of the bundle:
 #   Contents/Info.plist            from Support/Info.plist, version stamped
 #   Contents/PkgInfo               "APPL????"
 #   Contents/MacOS/BusStop         the BusStopApp product
 #   Contents/Helpers/busstop       the command-line tool
+#   Contents/PlugIns/BusStopWidgets.appex   the desktop widgets, from
+#                                           Support/Widgets-Info.plist
 #   Contents/Resources/AppIcon.icns
 #   Contents/Resources/LICENSE.txt                Bus Stop's MIT License
 #   Contents/Resources/THIRD_PARTY_NOTICES.md     PortScope, WhatPort, WhatCable,
@@ -111,17 +117,20 @@ for arch in "${ARCH_LIST[@]}"; do
     if (( ${#ARCH_LIST[@]} > 1 )) || [[ "$arch" != "$HOST_ARCH" ]]; then
         arch_args=(--arch "$arch")
     fi
-    log "Building BusStopApp and busstop for $arch"
+    log "Building BusStopApp, busstop and BusStopWidgets for $arch"
     swift build -c "$CONFIGURATION" ${arch_args[@]+"${arch_args[@]}"} --product BusStopApp
     swift build -c "$CONFIGURATION" ${arch_args[@]+"${arch_args[@]}"} --product busstop
+    swift build -c "$CONFIGURATION" ${arch_args[@]+"${arch_args[@]}"} --product BusStopWidgets
     bin_path="$(swift build -c "$CONFIGURATION" ${arch_args[@]+"${arch_args[@]}"} --show-bin-path)"
     [[ -x "$bin_path/BusStopApp" ]] || fail "BusStopApp was not found in $bin_path"
     [[ -x "$bin_path/busstop" ]] || fail "busstop was not found in $bin_path"
+    [[ -x "$bin_path/BusStopWidgets" ]] || fail "BusStopWidgets was not found in $bin_path"
     # Staged as "app" and "cli": "BusStop" and "busstop" would be one file on
     # a case-insensitive volume.
     mkdir -p "$STAGE/$arch"
     cp "$bin_path/BusStopApp" "$STAGE/$arch/app"
     cp "$bin_path/busstop" "$STAGE/$arch/cli"
+    cp "$bin_path/BusStopWidgets" "$STAGE/$arch/widgets"
 done
 
 # Copies one staged binary into the bundle, merging architectures with lipo.
@@ -143,15 +152,21 @@ install_binary() {
 
 log "Assembling $APP"
 rm -rf "$APP" "$ZIP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources"
+APPEX="$APP/Contents/PlugIns/BusStopWidgets.appex"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources" "$APPEX/Contents/MacOS"
 
 install_binary app "$APP/Contents/MacOS/BusStop"
 install_binary cli "$APP/Contents/Helpers/busstop"
+install_binary widgets "$APPEX/Contents/MacOS/BusStopWidgets"
 
 cp Support/Info.plist "$APP/Contents/Info.plist"
-plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
-plutil -replace CFBundleVersion -string "$BUILD" "$APP/Contents/Info.plist"
-plutil -lint "$APP/Contents/Info.plist"
+cp Support/Widgets-Info.plist "$APPEX/Contents/Info.plist"
+# The extension carries the app's version, or the system may keep an old copy.
+for plist in "$APP/Contents/Info.plist" "$APPEX/Contents/Info.plist"; do
+    plutil -replace CFBundleShortVersionString -string "$VERSION" "$plist"
+    plutil -replace CFBundleVersion -string "$BUILD" "$plist"
+    plutil -lint "$plist"
+done
 
 [[ -f Support/AppIcon.icns ]] || fail "Support/AppIcon.icns is missing; run scripts/make-icon.py"
 cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
@@ -181,7 +196,40 @@ else
     log "Signing as $SIGN_IDENTITY with the hardened runtime"
 fi
 codesign "${sign_args[@]}" --identifier "$HELPER_IDENTIFIER" "$APP/Contents/Helpers/busstop"
-codesign "${sign_args[@]}" "$APP"
+
+# The team ID is the signing certificate's OU, which codesign reports as
+# TeamIdentifier; an ad hoc signature has none, so there is no App Group either.
+TEAM_ID="$(codesign --display --verbose=2 "$APP/Contents/Helpers/busstop" 2>&1 \
+    | sed -nE 's/^TeamIdentifier=([A-Z0-9]+)$/\1/p')"
+WIDGETS_ENTITLEMENTS="Support/Widgets.entitlements"
+app_entitlements=()
+APP_GROUP=""
+if [[ -n "$TEAM_ID" ]]; then
+    APP_GROUP="$TEAM_ID.io.github.static74.busstop"
+    log "Team $TEAM_ID: App Group $APP_GROUP"
+    for plist in "$APP/Contents/Info.plist" "$APPEX/Contents/Info.plist"; do
+        plutil -replace BusStopTeamID -string "$TEAM_ID" "$plist"
+    done
+    # Since macOS 15 both processes must claim the group, the unsandboxed app included.
+    ENTITLEMENTS_DIR="$BUILD_DIR/entitlements"
+    rm -rf "$ENTITLEMENTS_DIR"
+    mkdir -p "$ENTITLEMENTS_DIR"
+    cp "$WIDGETS_ENTITLEMENTS" "$ENTITLEMENTS_DIR/widgets.entitlements"
+    plutil -create xml1 "$ENTITLEMENTS_DIR/app.entitlements"
+    for file in "$ENTITLEMENTS_DIR/widgets.entitlements" "$ENTITLEMENTS_DIR/app.entitlements"; do
+        /usr/libexec/PlistBuddy -c "Add :com.apple.security.application-groups array" \
+            -c "Add :com.apple.security.application-groups:0 string $APP_GROUP" "$file"
+        plutil -lint "$file"
+    done
+    WIDGETS_ENTITLEMENTS="$ENTITLEMENTS_DIR/widgets.entitlements"
+    app_entitlements=(--entitlements "$ENTITLEMENTS_DIR/app.entitlements")
+fi
+
+# Nested code is signed first. macOS loads a widget extension only when it is
+# sandboxed, and lists it in the widget gallery only when it is signed by a
+# team: an ad hoc build bundles the widgets but the gallery leaves them out.
+codesign "${sign_args[@]}" --entitlements "$WIDGETS_ENTITLEMENTS" "$APPEX"
+codesign "${sign_args[@]}" ${app_entitlements[@]+"${app_entitlements[@]}"} "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # MARK: Package
@@ -195,7 +243,7 @@ ditto "$APP" "$ZIP_ROOT/$APP_NAME.app"
 cp LICENSE "$ZIP_ROOT/LICENSE.txt"
 cp THIRD_PARTY_NOTICES.md "$ZIP_ROOT/THIRD_PARTY_NOTICES.md"
 ditto -c -k "$ZIP_ROOT" "$ZIP"
-rm -rf "$STAGE" "$ZIP_ROOT"
+rm -rf "$STAGE" "$ZIP_ROOT" "$BUILD_DIR/entitlements"
 
 log "Done"
 printf '  App:       %s\n' "$APP"
@@ -203,4 +251,6 @@ printf '  Zip:       %s (%s bytes)\n' "$ZIP" "$(wc -c < "$ZIP" | tr -d ' ')"
 printf '  Version:   %s (build %s)\n' "$VERSION" "$BUILD"
 printf '  App archs: %s\n' "$(lipo -archs "$APP/Contents/MacOS/BusStop")"
 printf '  CLI archs: %s\n' "$(lipo -archs "$APP/Contents/Helpers/busstop")"
+printf '  Widgets:   %s\n' "$(lipo -archs "$APPEX/Contents/MacOS/BusStopWidgets")"
 printf '  Signed:    %s\n' "$([[ "$SIGN_IDENTITY" == "-" ]] && echo "ad hoc" || echo "$SIGN_IDENTITY")"
+printf '  App Group: %s\n' "${APP_GROUP:-none (no team)}"

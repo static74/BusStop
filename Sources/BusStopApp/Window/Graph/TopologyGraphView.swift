@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The topology graph: the Mac, its ports and every device chain, drawn as a
@@ -17,9 +18,12 @@ struct TopologyGraphView: View {
     var isWindowVisible: Bool
     /// A node to scroll into view; cleared once handled.
     @Binding var scrollRequest: TopologyScrollRequest?
+    /// Selects a clicked node or link; the window also opens the inspector.
+    var onSelect: (StoreSelection) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lagoonTextScale) private var textScale
+    @Environment(\.dataPalette) private var palette
     /// Links show data rates or power.
     @AppStorage(TopologyWindowDefaults.linkMode) private var linkMode: GraphLinkMode = .data
 
@@ -49,8 +53,10 @@ struct TopologyGraphView: View {
     private func graph(_ layout: GraphLayout) -> some View {
         let dimmed = dimmedNodeIDs(in: layout)
         let powers = linkMode == .power ? GraphPaint.powers(for: layout) : [:]
-        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
-        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers)
+        let strokes = GraphPaint.strokes(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
+                                         palette: palette)
+        let tracks = GraphPaint.pulseTracks(for: layout, dimmed: dimmed, mode: linkMode, powers: powers,
+                                            palette: palette)
         return GeometryReader { proxy in
             GraphMap(
                 layout: layout,
@@ -95,13 +101,13 @@ struct TopologyGraphView: View {
 
     private func select(_ node: GraphNode) {
         guard let tag = node.tag, let selection = SelectionTag.selection(for: tag) else { return }
-        store.selection = selection
+        onSelect(selection)
     }
 
     /// Selects the link that leads to the node tagged `childTag`.
     private func selectLink(_ childTag: String) {
         guard let selection = SelectionTag.selection(for: SelectionTag.link(childTag)) else { return }
-        store.selection = selection
+        onSelect(selection)
     }
 
     /// The layout input: the given ports plus ghosts for departing devices,
@@ -596,15 +602,17 @@ struct GraphPowerLegend: View {
 struct GraphSpeedLegend: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dataPalette) private var palette
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(SpeedTier.allCases, id: \.self) { tier in
                 HStack(spacing: 5) {
                     Capsule()
-                        .fill(Lagoon.linkColor(tier))
+                        .fill(Lagoon.linkColor(tier, palette))
                         .frame(width: 16, height: Lagoon.linkWidth(tier))
-                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier).opacity(0.7) : .clear, radius: 3)
+                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier, palette).opacity(0.7) : .clear,
+                                    radius: 3)
                     Text(Self.title(tier))
                         .lagoonFont(.caption2, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(Lagoon.textSecondary)

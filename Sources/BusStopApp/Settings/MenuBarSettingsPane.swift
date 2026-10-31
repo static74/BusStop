@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Menu Bar: icon style with live previews, what text sits next to it, how

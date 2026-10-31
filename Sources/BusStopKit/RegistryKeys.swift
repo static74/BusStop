@@ -113,9 +113,10 @@ enum RegistryKeys {
 
     // MARK: USB
 
-    /// `IOUSBHostDevice`. `kUSBContainerID` is left out on purpose: it is a
-    /// UUID unique to each device instance, no parser uses it, and captures
-    /// should not carry identifiers that work like serial numbers.
+    /// `IOUSBHostDevice`. `kUSBContainerID` is a UUID shared by every
+    /// function of one physical product; `DockParts` folds the parts of a
+    /// dock or display that share its root hub's. It works like a serial
+    /// number, so redacted exports carry a stand-in that keeps matches.
     static let usbDevice: [String] = [
         "USB Product Name", "kUSBProductString", "USB Vendor Name", "kUSBVendorString",
         "USB Serial Number", "kUSBSerialNumberString", "idVendor", "idProduct", "bcdDevice", "bcdUSB",
@@ -125,7 +126,7 @@ enum RegistryKeys {
         "USBPortType", "UsbTunnel", "Usb3LinkPreferred", "kUSBHubPowerSupply", "kUSBHubPowerSupplyType",
         "Requested Power", "Bus Power Available", "kUSBCurrentConfiguration", "kUSBPreferredConfiguration",
         "kUSBWakePortCurrentLimit", "kUSBSleepPortCurrentLimit", "UsbCPortNumber",
-        "Built-In", "non-removable", "UsbEnumerationState", "PortNum", "Low Power Displayed",
+        "Built-In", "non-removable", "UsbEnumerationState", "PortNum", "Low Power Displayed", "kUSBContainerID",
     ]
 
     /// `IOUSBHostInterface`.

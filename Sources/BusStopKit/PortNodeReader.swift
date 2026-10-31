@@ -28,6 +28,7 @@ enum PortNodeReader {
     struct Result {
         var nodes: [RawNode]
         var controllerUUIDs: [String: String]
+        var locations: [String: String]
     }
 
     static func read(rootID: UInt64?, notes: inout [String]) -> Result {
@@ -144,6 +145,26 @@ enum PortNodeReader {
         return nil
     }
 
+    /// The `port-location` ("back-left") of the device-tree node above a
+    /// port, searched up to `maxUUIDAncestors` levels in the `IOService`
+    /// plane. Nil when that node's `port-number` or `port-type` names another
+    /// port, since one controller can drive two ports (a MagSafe port can sit
+    /// under a USB-C port's controller).
+    static func portLocation(of entry: RegistryEntry, portType: Int, portNumber: Int) -> String? {
+        var current = entry.parent(in: RegistryPlane.service)
+        var level = 0
+        while let ancestor = current, level < maxUUIDAncestors {
+            if let location = ancestor.property("port-location")?.stringValue {
+                if let number = ancestor.property("port-number")?.intValue, number != portNumber { return nil }
+                if let type = ancestor.property("port-type")?.intValue, type != portType { return nil }
+                return location
+            }
+            current = ancestor.parent(in: RegistryPlane.service)
+            level += 1
+        }
+        return nil
+    }
+
     private static func isHPMDevice(_ className: String) -> Bool {
         className.hasPrefix("AppleHPMDevice") || ClassHierarchy.chain(for: className).contains("AppleHPMDevice")
     }
@@ -158,6 +179,7 @@ enum PortNodeReader {
         /// by class matching.
         private var serviceAncestors: [UInt64: [UInt64]] = [:]
         private var uuids: [String: String] = [:]
+        private var locations: [String: String] = [:]
 
         func contains(_ id: UInt64) -> Bool { indexByID[id] != nil }
 
@@ -179,7 +201,7 @@ enum PortNodeReader {
             )
             indexByID[id] = nodes.count
             nodes.append(node)
-            recordControllerUUID(for: entry, properties: bag)
+            recordControllerFacts(for: entry, properties: bag)
             return true
         }
 
@@ -201,10 +223,14 @@ enum PortNodeReader {
             serviceAncestors[id] = ancestors
         }
 
-        private mutating func recordControllerUUID(for entry: RegistryEntry, properties: PropertyBag) {
+        /// Records the HPM controller `UUID` and device-tree location of a port.
+        private mutating func recordControllerFacts(for entry: RegistryEntry, properties: PropertyBag) {
             guard properties.has("PortNumber"), !properties.has("ParentPortType"),
                   let type = properties.int("PortType"), let number = properties.int("PortNumber") else { return }
             let key = "\(type)/\(number)"
+            if locations[key] == nil {
+                locations[key] = PortNodeReader.portLocation(of: entry, portType: type, portNumber: number)
+            }
             guard uuids[key] == nil, let uuid = PortNodeReader.controllerUUID(of: entry) else { return }
             uuids[key] = uuid
         }
@@ -217,7 +243,7 @@ enum PortNodeReader {
                 guard let index = indexByID[id] else { continue }
                 result[index].parentID = ancestors.first { $0 != id && indexByID[$0] != nil }
             }
-            return Result(nodes: result, controllerUUIDs: uuids)
+            return Result(nodes: result, controllerUUIDs: uuids, locations: locations)
         }
     }
 }

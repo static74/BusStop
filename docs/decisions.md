@@ -14,7 +14,7 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - **Status dot.** `StatusDot` replaces `StatusRing`: a solid turquoise dot with the Dark glow when connected, a smaller solid `accentMuted` dot when empty. The popover card no longer draws it.
 - **Empty ports.** In the card layout, ports in use (or still showing a departing device) get cards and the rest share one `CompactPortList` card.
 - **Subtitles.** The popover's device caption keeps at most two facts; a self-powered hub shows its count and "Self-powered" without watts, and its map node shows "Hub · 2 devices".
-- **Appearance pane.** The tint slider sits under Buttons as Tint, the opacity slider's label carries its value, and the theme caption no longer names Lagoon, which users never see.
+- **Appearance pane.** The tint slider sits under Buttons as Tint, the opacity slider's label carries its value, and the theme caption no longer calls Dark "the Lagoon look": Lagoon now names a data colour preset, so the caption mixed up the theme with the link colours.
 
 **Why.** Each pattern had a cost beyond looks. Four names for one window made the user learn it four times. The tiles could show the same USB budget twice and leave out the battery, so the numbers did not add up for the reader. A ring with a centre dot reads as a radio button in a sidebar of selectable rows. Settings already used sentence case, so the capitals made the app disagree with itself. Five empty-port cards weighed as much as the ports in use.
 
@@ -26,6 +26,151 @@ Dated records of choices that shape the code, with the alternatives that were tu
 - *A hollow dot for empty ports.* A hollow circle beside a filled one is a radio group again.
 - *Make the compact layout the default to get one list.* The compact layout hides the battery and sparkline; cards stay the default and the compact layout stays one setting away.
 - *Drop the glow from the status dot.* It is one of the Dark glow sites the 2026-10-19 light-palette entry lists, and it still marks a live port.
+## 2026-10-29: A dock folds no device by its port alone
+
+**Question.** Rule E of the 2026-10-14 decision ("A dock's built-in USB parts leave the device tree") folds every device that is not a hub on a hub that rule C folded. On the owner's MacBook Pro, a Keychron Q3 Pro (3434:0630, on a standard port) and a Benchmark 1.0 audio device (04D8:FEEA, on a port the dock flags captive) are plugged into the Anker Prime dock and show as parts built into it, so they vanish from the map. Should a function fold because of the hub it sits on?
+
+**Decision.** No. Rule E is removed, and rules A to D and F are unchanged. A function on a captive hub now shows as a device under the dock, with `internalParentID` naming that hub. `DockPartsInvariantTests` checks on every capture, demo and random input that a built-in part is a hub, a billboard (C), a device with the dock's own IDs (B) or one that shares a container ID with the root hub (F).
+
+**Why.** On the owner's capture (`Tests/BusStopCoreTests/Fixtures/AnkerPrimeTB5Desk.json`), the dock's own Ethernet (0BDA:8156) and card reader (05E3:0764) sit on standard ports of the captive VIA hub, with no container ID, beside the Keychron. The Benchmark sits on a port the dock flags captive. No signal tells the dock's functions apart from devices a person plugged into the dock's ports, so a rule that folds functions by position hides real devices. The Ethernet and card reader are functions people use, so showing them as devices under the dock is accurate. The same principle shapes the hub chips pass of the same day: fold hub chips and the dock's own identity, never a function identified by where it sits.
+
+**Risks.**
+
+- The Anker's Ethernet and card reader appear as two devices under the dock (19 drawn devices below it on `AnkerPrimeTB5.json`, up from 17). Another dock's functions do the same.
+
+**Rejected alternatives.**
+
+- *Keep rule E and skip devices on standard ports.* The Benchmark sits on a port the dock flags captive, and the dock's own Ethernet and card reader sit on standard ones.
+- *Keep rule E and skip known device classes* (keyboards, audio). It would still hide anything outside the list, and the dock's own functions would need a list of their own.
+
+## 2026-10-29: Thunderbolt displays fold their built-in parts, and captive ports fold hub chips
+
+**Question.** A user with a Dell U4025QW on a MacBook Pro (M5 Max, macOS 27.0.1; `Tests/BusStopCoreTests/Fixtures/DellU4025QW.json`) saw the monitor as five cards: the display, its Intel "USB3.0 Hub" and three Realtek "4-Port USB 3.0 Hub" cards, with the Ethernet on one of them. `DockParts` only folded a head of kind `.dock`, and the monitor is a `.display`. Which of the monitor's USB devices are part of it, what evidence can say so, and how does the answer reach hardware nobody has captured?
+
+**Decision.**
+
+- `DockParts.fold` also takes a Thunderbolt display, with rules A to E unchanged. The inspector's section reads "Built into this display".
+- Bus Stop reads `kUSBContainerID` from every USB device. Rule F, for docks and displays, folds a device on a folded hub when every container ID it reports (both halves of a merged hub) is one the root hub reports. Missing and all-zero IDs match nothing.
+- A new pass, `HubChips`, runs after `DockParts` on every tree: a USB hub on a captive port of another hub is a chip of that hub and folds into it, down the chain. Devices that are not hubs never fold this way. The inspector says "Built into this hub", and All Devices names every kind of holder it leaves parts out of ("a dock or hub").
+- Exports keep redacting the container ID: its stand-in is the same for every device that shares it, so a redacted capture folds the same parts. An all-zero ID is kept as it is. The widget payload carries no property bags, so the ID never reaches it.
+
+**Why.** On the reporter's capture, by registry ID:
+
+- The monitor's switch (429, Intel JHL8440, "U4025QW") is the port's only switch with a live USB adapter and has a live DisplayPort adapter, so it is a `.display`. Its USB 3 hub (823, 8087:0B40) has `UsbTunnel` on the Mac's `AppleT8142USBXHCI` and pairs with the 1D5C:5801 USB 2 hub (352). Rule A folds it.
+- The switch, and the monitor's USB-PD identity, report 0x413C:0xC402 (Dell). No USB device has those IDs, so B and D find nothing.
+- The Realtek hub 944/860 is the only device on the root hub and reports `USBPortType` 0, as root ports do for everything. The Ethernet (272) and the Realtek hubs 297/338 and 383/407 on it are captive.
+
+The reporter's `ioreg` showed the Intel hub with one container ID and every Realtek chip and the Ethernet with another. On the owner's MacBook Pro the Anker Prime dock shows the same split. So nothing ties the Realtek group to the monitor, but the monitor does mark that group as one unit. These signals were checked:
+
+| Signal | Result on real hardware | Usable broadly? |
+| --- | --- | --- |
+| Captive hub ports | Correct inside both Dell monitors; the Anker dock flags one user port captive and some internal links standard | Yes, for hub chips |
+| `kUSBContainerID` | Groups a product's chips, but a Thunderbolt chip's hub has its own ID; captive devices seem to inherit their parent's ID | As a guard only |
+| `Built-In`, `non-removable`, hub port connector keys | Not present on any device or port | No |
+| Serial numbers, enumeration timing | Hubs report no serial; everything enumerates in one burst | No |
+| DisplayID ContainerID in EDID | Absent on the U4025QW | No |
+| USB-C cable e-marker, USB-PD identity | Describe the Mac-side cable and the product model only | No |
+
+Captive hub ports are the one signal that every USB product reports and that was right inside both Dell monitors. Limiting the fold to hubs bounds the cost of a wrong flag: the Anker flags a port where a person plugged in an audio device, and under this rule that device stays, because it is not a hub. The result on the reporter's monitor is one Realtek hub card holding the two lower chips, with the Ethernet, the webcam and two HID devices below it (5 below the monitor instead of 8). The Dell U4924DW behind the Anker dock folds the same way, and so does the UGREEN dock's two-chip VIA hub on the Mac mini capture.
+
+The Studio desk demo's Studio Display XDR has a tunnelled root hub too, so its hub is now a built-in part and the PSSD T9 and the camera hang off the display (7 drawn devices, down from 8). The README screenshots show the old tree until the Screenshots workflow runs again.
+
+**Risks.**
+
+- A hub chip on a port that reports standard stays a card, as before.
+- A wrong captive flag on a port where a person plugged in a hub hides that hub's card; the devices behind it still show, under the hub above.
+- A product that ships every unit with the same container ID (a firmware default Microsoft warns against) would match another unit of the same product plugged into it under F. Its root hub would have to carry that default too.
+- `kUSBContainerID` identifies a physical unit like a serial number. It is shown in the inspector's raw keys, as serial numbers are, and replaced in redacted exports; an export with redaction off carries it.
+
+**Rejected alternatives.**
+
+- *A catalogue of monitor models and the USB IDs built into them* (rule G, which shipped briefly on this branch): exact for the U4025QW, but the only product-specific table in the topology code, and every other monitor with the same layout stays broken until someone captures it and adds a row.
+- *Fold by layout* (a display, one hub alone on the root hub, every device on it captive): the Anker capture has the same Realtek layout a cable away from the dock.
+- *Tie the Realtek group to the monitor by container ID alone*: the chips and the Thunderbolt hub report different IDs on both real products.
+- *Fold captive functions too*, as rule E does inside a dock: a wrong flag would then hide a device someone plugged in.
+- *Classify the monitor as a dock.* It is a display, it carries the panel's video link, and the dock rules alone fold only the root hub.
+- *Keep `kUSBContainerID` out of captures,* as before: redaction already keeps its matches without the value, and without it a capture cannot show why parts fold.
+
+## 2026-10-27: The history keeps the serial numbers its events hold
+
+**Question.** The widget payload and redacted exports must not name a device by its serial number, but some devices put their serial in their product name, and the events and "keeps disconnecting" findings about a device outlive it. After a relaunch the history's events name devices the app has not seen this session. How does redaction know their serials?
+
+**Decision.** Each history section keeps `serials`: the serial numbers that a device puts in its own product or vendor name (`Exporter.serialsInNames`). One is saved when an event that holds it as a whole word is added. It is dropped with the last such event, and with Clear Events or Clear History. The app redacts the payload and exports against these plus this session's. A serial is never kept, so it is not removed from other devices' names, when it is not a whole word of its own device's name, when it has no digit (some devices report "Generic", and "Card" is a word of "SD Card Reader"), or when the name of another connected device, one without that serial, holds it as a word ("USB3" beside a "USB3.1 Hub"). In free text a display's numeric serial, or a serial of digits only, needs 5 characters, since 4-digit forms match resolutions and years; a 4-digit serial that is a word of its own device's name ("Drive 1234") is removed all the same. `busstop --watch` keeps the same list for its run: a finding can name a device that is in neither capture, when its culprit changes while the device is away.
+
+**Why.** The serials are already in the history, in the event titles that hold them, so the list adds nothing the file did not already carry. That differs from the saved best link turned down on 2026-10-19 ("Flaky connections are found by watching snapshots"), which would have written identity keys, with the serials of every device, into the file.
+
+**Rejected alternatives.**
+
+- *Events saved redacted, or a second redacted copy of each.* The Events page shows names as the device reports them, and two copies double the largest part of the file.
+- *Leaving restored events out of the payload.* The Health widget would lose real events after every relaunch.
+
+**Risks.**
+
+- A history saved by 1.2.0 or earlier has no list, and 1.2.0 drops it when it saves the file again after a downgrade; those events can show the serial in the widgets until they age out.
+- A serial-like word with a digit, such as "V1.0", that no other connected device's name holds is kept and removed from every name and event for up to 30 days, so a device plugged in later can show "REDACTED" in its name.
+- A serial without a digit ("ABCDEFGH", "DEADBEEF") is not kept, so the events about its device show it once the device is unplugged. Nor is one that the name of another connected device, one without that serial, held when it was seen ("Drive USB3" beside a "USB3.1 Hub").
+- The shared-word check sees only what is connected at the time: "USB3" on a "Drive USB3" seen before any "USB3.1 Hub" is kept, and the hub's name then shows "REDACTED.1 Hub" for up to 30 days.
+- A 4-digit serial in its own device's name is removed from all text, not only its device's: while "Drive 2160" or "Drive 2026" is connected, "3840 × 2160" and "MacBook Pro (14-inch, 2026, M5 Pro)" show "REDACTED", and after it is unplugged they still do until Bus Stop quits and the events about it are cleared or 30 days old.
+
+## 2026-10-26: Settings uses AppKit toolbar tabs, not a SwiftUI `TabView`
+
+**Question.** The Settings window's tab labels looked blurry on a 1x display (issue #45). Why, and what should draw the tabs?
+
+**Decision.** `SettingsTabViewController`, an `NSTabViewController` with `tabStyle = .toolbar`, is the window's content: one toolbar tab per `SettingsTab` with its SF Symbol and title, each hosting a `SettingsPaneRoot` of a fixed 620 × 460 pt. The window uses the `.preference` toolbar style and takes the selected pane's title, as System Settings does. `WindowManager.showSettings(tab:)` selects a tab on the open window instead of rebuilding the view.
+
+**Why.** In an `NSHostingController` window, SwiftUI builds `TabView` as an AppKit `NSTabView` with a segmented control on top. `NSTabView` centres that control without rounding: the tab view was 634 pt wide and the control 521 pt, so the control sat at x = 56.5, and at y = 4.5 inside its own layout. On a 1x display each label bitmap was drawn half a pixel off on both axes and blurred; on Retina 0.5 pt is a whole pixel, which is why it went unnoticed. Moving the control onto whole points raised the count of sharp edges in the tab bar from 266 to 910. `NSTabView` also ignored the `systemImage` in `.tabItem`, so the tabs had no icons. A layer scan of every Settings tab, every topology page, the popover and About, at all four Text Sizes, found no other text off the pixel grid.
+
+The toolbar tabs measured clean: no off-grid bitmap layers on any tab at any Text Size. Their item views also sit on half points, because the toolbar centres them, but the toolbar rounds where it draws them. A window one point wider, which moves the views by half a point, drew the labels on exactly the same pixels.
+
+**Consequences.** Each pane keeps its state while another tab is shown, as before. The toolbar labels use the system font at the system size, so they do not follow Text Size, as the old tabs did not. The selected tab uses the system highlight, not the Lagoon accent.
+
+**Rejected alternatives.**
+
+- *A segmented `Picker` above a `switch`.* Sharp and smaller, but text only, and it rebuilds a pane at each switch, so a running Identify a Port stopped when the user left Ports.
+- *Change the window width.* The vertical half point is inside `NSTabView`, and the horizontal one depends on the label widths.
+- *`.tabViewStyle(.grouped)` or `.tabBarOnly`.* The same `NSTabView` and the same offsets.
+- *`.sidebarAdaptable`.* Sharp, but turns Settings into a sidebar layout.
+- *Move the private segmented control by hand.* AppKit lays it out again.
+
+## 2026-10-26: The widget extension is a SwiftPM target, not an Xcode project
+
+**Question.** Desktop widgets need a WidgetKit app extension. Xcode builds one from an app extension target in a project. Bus Stop has no Xcode project (SPEC §9). Can the package build the extension?
+
+**Decision.** `BusStopWidgets` is a SwiftPM executable target that links BusStopCore and BusStopUI. `scripts/build-app.sh` builds it, wraps it in `Contents/PlugIns/BusStopWidgets.appex` with `Support/Widgets-Info.plist` (extension point `com.apple.widgetkit-extension`), stamps it with the app's version, and signs it sandboxed (`Support/Widgets.entitlements`) before the app. It links with `-e _NSExtensionMain`, as Xcode links app extensions and as Apple's own widgets are built. `scripts/smoke-test.sh` checks the bundle, the signature, the sandbox, the architectures and that the entry point jumps to `_NSExtensionMain`.
+
+**Why.** A placeholder widget built this way showed in Edit Widgets in all four sizes on macOS 27.0.1, so the extension needs no project file, and the app, the CLI and the extension still build the same way in CI and locally. A widget that starts in its `WidgetBundle`'s own `main` crashes at launch.
+
+**Rejected alternatives.**
+
+- *An Xcode project for the extension alone, or for everything.* A project file to maintain beside `Package.swift`, and two build systems to keep in step.
+- *Start in the `WidgetBundle`'s `@main`.* It crashes at launch.
+
+What SwiftPM does not do is generate App Intents metadata, so a configurable widget (a "Port Focus" where the user picks the port) waits for ROADMAP 13.
+
+## 2026-10-26: Widgets appear only in team-signed builds
+
+**Question.** The widget extension built and was bundled, but in an ad hoc signed build no widget showed in Edit Widgets. What does a build need for its widgets to appear?
+
+**Decision.** Widgets are supported only in builds signed by a team: releases (Developer ID) and builds a developer signs with an Apple Development certificate, installed in `/Applications`. Ad hoc builds (pull request CI, other people's source builds) still bundle the extension, and their tests cover the widgets' data and views, but no widget appears. The README and CONTRIBUTING.md say so.
+
+**Why.** chronod, which runs widgets, leaves ad hoc signed extensions out of the gallery and logs "Requested to add extension, but purging instead because we shouldn't cache it". An Apple Development certificate from the maintainer's team was enough. The App Group the widgets read from needs a team ID anyway.
+
+**Rejected alternatives.**
+
+- *Leave the extension out of ad hoc builds.* The smoke test then could not check its layout and entry point on pull requests, and source builds would differ from releases for no gain.
+
+## 2026-10-26: The widgets read their data from a team-prefixed App Group
+
+**Question.** The sandboxed extension cannot read the SMC or parts of IOKit, so the app has to hand it the data. Where should the app put it?
+
+**Decision.** The app writes `widget-payload.json` into the App Group container `<team>.io.github.static74.busstop`, which both processes find with `containerURL(forSecurityApplicationGroupIdentifier:)`. `scripts/build-app.sh` reads the team ID from the signature, writes it into both Info.plists as `BusStopTeamID`, and adds the group to both entitlements, the unsandboxed app's included, since macOS 15 requires both to claim it. An ad hoc build has no team, no group and no key, and the app writes nothing. The file is written atomically, mode 0600, holds a redacted snapshot, and goes with the history (SPEC §6).
+
+**Why.** On macOS a group prefixed with the team ID needs no provisioning profile, so the bundling script can still sign everything with `codesign` alone. Apple's guidance is that such a group also avoids the "access data from other apps" prompt; the release gate checks that on a clean Mac.
+
+**Rejected alternatives.**
+
+- *Write into the extension's own sandbox container* (`~/Library/Containers/io.github.static74.busstop.widgets/Data`). It works only because the app is unsandboxed, relies on a container path Apple does not document as shared, and is the kind of cross-app access macOS 15 and later can prompt for.
+- *A `group.`-prefixed App Group.* On macOS it needs a provisioning profile, which the bundling script would have to fetch and embed.
 
 ## 2026-10-23: Releases ship a plain disk image
 

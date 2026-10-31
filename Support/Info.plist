@@ -18,6 +18,17 @@
 	<string>Bus Stop</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.static74.busstop</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>busstop</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleVersion</key>

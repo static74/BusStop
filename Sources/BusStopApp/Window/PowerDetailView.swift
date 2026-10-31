@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The Power page: where the power goes, the charger and its profiles, the battery, and

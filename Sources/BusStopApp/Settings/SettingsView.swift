@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
@@ -34,37 +35,24 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// Root view of the settings window: one tab per `SettingsTab`, each a
-/// grouped form. Changes apply immediately, including Text Size, which
-/// rescales this window too.
-struct SettingsView: View {
+/// One settings pane with the window's shared environment: each tab of
+/// `SettingsTabViewController` hosts one. Changes apply immediately,
+/// including Text Size, which rescales the pane too.
+struct SettingsPaneRoot: View {
     var store: PortStore
-    var initialTab: SettingsTab = .general
+    var tab: SettingsTab
 
-    /// The tab the user picked; nil until they pick one, so `initialTab` wins.
-    @State private var chosenTab: SettingsTab? = nil
+    /// Every pane's size, so switching tabs does not resize the window.
+    static let size = CGSize(width: 620, height: 460)
 
     var body: some View {
-        TabView(selection: selectedTab) {
-            ForEach(SettingsTab.allCases) { tab in
-                pane(for: tab)
-                    .tabItem { Label(tab.title, systemImage: tab.symbolName) }
-                    .tag(tab)
-            }
-        }
-        .frame(width: 620, height: 500)
-        .background(Lagoon.background)
-        .tint(Lagoon.accent)
-        .lagoonFont(.body)
-        .lagoonTextScale(store.settings.textSize)
-        .onChange(of: initialTab) { chosenTab = nil }
-    }
-
-    private var selectedTab: Binding<SettingsTab> {
-        Binding(
-            get: { chosenTab ?? initialTab },
-            set: { chosenTab = $0 }
-        )
+        pane(for: tab)
+            .frame(width: Self.size.width, height: Self.size.height)
+            .background(Lagoon.background)
+            .tint(Lagoon.accent)
+            .lagoonFont(.body)
+            .lagoonTextScale(store.settings.textSize)
+            .dataPalette(store.settings.dataColor)
     }
 
     @ViewBuilder

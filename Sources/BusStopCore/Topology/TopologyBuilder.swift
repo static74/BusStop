@@ -32,8 +32,9 @@ public enum TopologyBuilder {
         build(raw, options: options, foldsDockParts: true)
     }
 
-    /// `foldsDockParts` false keeps a dock's built-in parts in the tree, as
-    /// before `DockParts` existed; tests compare the two.
+    /// `foldsDockParts` false keeps the built-in parts of docks and hubs in
+    /// the tree, as before `DockParts` and `HubChips` existed; tests compare
+    /// the two.
     static func build(_ raw: RawSnapshot, options: BuildOptions, foldsDockParts: Bool) -> HostSnapshot {
         let index = TopologyNodeIndex(raw.portNodes)
         let ports = PortParser.parse(index)
@@ -100,8 +101,10 @@ public enum TopologyBuilder {
         let usb = USBTreeBuilder.build(raw.usbDevices, context: context, options: options)
         otherDevices.append(contentsOf: usb.unattributed)
 
-        // A dock's own USB parts leave the tree (`DockParts`). Displays are
-        // added below, so they are never candidates.
+        // A dock's or Thunderbolt display's own USB parts leave the tree
+        // (`DockParts`), and so do the extra chips of a hub (`HubChips`).
+        // Screens from `raw.displays` are added below, so they are never
+        // candidates.
         let dockEvidence = foldsDockParts
             ? DockParts.Evidence(raw: raw, companions: usb.companions,
                                  usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
@@ -110,9 +113,12 @@ public enum TopologyBuilder {
         for record in ports.records {
             let (nested, remaining) = USBTreeBuilder.nest(usb.byPort[record.key] ?? [], into: chains[record.key] ?? [],
                                                           usbTunnelSwitchIDs: thunderbolt.usbTunnelSwitchIDs)
-            devices[record.key] = dockEvidence.map { DockParts.fold(nested + remaining, evidence: $0) }
-                ?? nested + remaining
+            devices[record.key] = dockEvidence.map { evidence in
+                HubChips.fold(DockParts.fold(nested + remaining, evidence: evidence), evidence: evidence)
+            } ?? nested + remaining
         }
+        // A hub built from several chips shows as one (`HubChips`).
+        if let dockEvidence { otherDevices = HubChips.fold(otherDevices, evidence: dockEvidence) }
 
         // Displays.
         var displayIDs = Set<String>()
@@ -225,7 +231,8 @@ public enum TopologyBuilder {
                                              siblings: siblings, model: raw.machine.model,
                                              userNames: options.userPortNames,
                                              supportsThunderbolt: thunderboltSupport[record.key],
-                                             siblingCapabilities: siblingCapabilities(record.kind))
+                                             siblingCapabilities: siblingCapabilities(record.kind),
+                                             registryLocation: raw.portLocations[record.key.description])
             physicalPorts.append(PhysicalPort(
                 key: record.key, kind: record.kind, number: record.number, registryName: record.registryName,
                 label: labelled.label, capabilityDescription: labelled.capability, supportedTransports: supported,
@@ -275,13 +282,21 @@ public enum TopologyBuilder {
             order[port.key] = PortLabeler.sortKey(kind: port.kind, number: port.number, siblings: siblings,
                                                   model: raw.machine.model,
                                                   supportsThunderbolt: thunderboltSupport[port.key],
-                                                  siblingCapabilities: siblingCapabilities(port.kind))
+                                                  siblingCapabilities: siblingCapabilities(port.kind),
+                                                  registryLocation: raw.portLocations[port.key.description])
         }
         physicalPorts.sort { lhs, rhs in
             let l = order[lhs.key] ?? (Int.max, Int.max, Int.max)
             let r = order[rhs.key] ?? (Int.max, Int.max, Int.max)
             if l != r { return l < r }
             return lhs.key < rhs.key
+        }
+        // Ports placed only as far as "Front" are numbered in port order, which is physical
+        // only where a hardware location or the catalogue places them.
+        let placed = physicalPorts.indices.filter { ![.user, .generic].contains(physicalPorts[$0].label.source) }
+        let sharing = Dictionary(grouping: placed) { physicalPorts[$0].label.title }.values.filter { $0.count > 1 }
+        for indices in sharing {
+            for (offset, index) in indices.enumerated() { physicalPorts[index].label.ordinal = offset + 1 }
         }
 
         var notes = raw.captureNotes

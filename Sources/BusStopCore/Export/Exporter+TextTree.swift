@@ -1,20 +1,37 @@
 import Foundation
 
 extension Exporter {
-    /// Plain-text tree used by the CLI's default output.
+    /// Plain-text tree used by the CLI's default output, here for
+    /// `busstop --demo studioDesk`:
     ///
     /// ```
-    /// MacBook Pro (14-inch, 2026, M5 Pro) · macOS 27.0
-    /// Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%
-    /// ├─ Left Rear · MagSafe   96W USB-C Power Adapter   ↓ 61 W
-    /// ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4.5 W
-    /// │  └─ Samsung T9 · 10 Gb/s · 4.5 W
+    /// MacBook Pro (14-inch, 2026, M5 Pro) · macOS 27.0 · demo
+    /// Power: 140W USB-C Power Adapter · 28 V × 5 A · 62 W in · Charging · 76% · 4 W to ports
+    /// ├─ Left Rear · MagSafe   140W USB-C Power Adapter   ↓ 62 W
+    /// ├─ Left Center · USB-C   USB4 v2 / TB5 @ 80 Gb/s
+    /// │  └─ Studio Display XDR · 80 Gb/s
+    /// │     ├─ PSSD T9 · 10 Gb/s · 4.5 W
+    /// │     └─ Studio Display XDR Camera · 480 Mb/s · 2.5 W
+    /// ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4 W
+    /// │  └─ USB3.1 Hub · 10 Gb/s · 4 W
+    /// │     ├─ DataTraveler 3.0 · 480 Mb/s · 2.5 W
+    /// │     ├─ Keychron K8 Pro · 12 Mb/s · 0.5 W
+    /// │     └─ USB Optical Mouse · 1.5 Mb/s · 0.5 W
+    /// ├─ Right Front · SD Card   (empty)
+    /// ├─ Right Rear · HDMI   (empty)
     /// └─ Right Center · USB-C   (empty)
+    ///
+    /// Displays
+    /// ├─ Color LCD · 3024 × 1964 @ 120 Hz · built-in
+    /// └─ Studio Display XDR · 5120 × 2880 @ 120 Hz · Left Center · USB-C
+    ///
+    /// Diagnostics
+    /// └─ Warning: DataTraveler 3.0 is running at USB 2 speed
     /// ```
     ///
-    /// Then, when present, sections for other devices, displays and
-    /// diagnostics. The output is deterministic, has no colour codes and no
-    /// trailing spaces, and ends with a newline. Text from the capture
+    /// The Other devices, Displays and Diagnostics sections appear only
+    /// when they have entries. The output is deterministic, has no colour
+    /// codes and no trailing spaces, and ends with a newline. Text from the capture
     /// (names, versions) goes through `Format.terminalSafe`, so it cannot
     /// carry control characters or terminal escape sequences.
     public static func textTree(_ snapshot: HostSnapshot) -> String {
@@ -68,7 +85,7 @@ enum TextTree {
     /// Separator between the columns of a port line.
     static let gap = "   "
 
-    /// "Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82%".
+    /// "Power: 96W USB-C Power Adapter · 20 V × 4.7 A · 61 W in · Charging · 82% · 4.5 W to ports".
     static func powerLine(_ power: PowerSummary) -> String {
         var parts: [String] = []
         if let charger = power.charger {
@@ -123,7 +140,7 @@ enum TextTree {
         }
     }
 
-    /// "Samsung T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
+    /// "PSSD T9 · 10 Gb/s · 4.5 W". A dock's built-in parts get no line,
     /// as they get no card on the map.
     static func deviceText(_ device: DeviceNode) -> String {
         let name = Format.terminalSafe(device.name)

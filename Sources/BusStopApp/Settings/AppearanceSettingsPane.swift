@@ -1,7 +1,8 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
-/// Appearance: theme, background opacity, button tint, text size and link animation.
+/// Appearance: theme, data colours, background opacity, button tint, text size and link animation.
 struct AppearanceSettingsPane: View {
     var store: PortStore
 
@@ -19,6 +20,18 @@ struct AppearanceSettingsPane: View {
                 }
                 .pickerStyle(.segmented)
                 SettingsCaption("Match System follows System Settings › Appearance. The menu bar icon always follows the menu bar.")
+            }
+
+            Section("Data colours") {
+                Picker("Colours", selection: $settings.dataColor) {
+                    ForEach(DataColorSetting.allCases) { setting in
+                        Text(setting.title).tag(setting)
+                    }
+                }
+                DataPaletteSwatch()
+                SettingsCaption(settings.dataColor == .system
+                    ? "Follows the accent colour in System Settings › Appearance. Links by speed, speed chips and the Mac Outline use it; Power mode keeps its own colours."
+                    : "Colours links by speed, speed chips and the Mac Outline. Power mode keeps its own colours.")
             }
 
             Section("Background") {
@@ -78,6 +91,27 @@ struct AppearanceSettingsPane: View {
     }
 }
 
+/// The chosen data colours, one swatch per speed tier, as the map's key draws them.
+struct DataPaletteSwatch: View {
+    @Environment(\.dataPalette) private var palette
+
+    var body: some View {
+        LabeledContent("Preview") {
+            HStack(spacing: 6) {
+                ForEach(SpeedTier.allCases, id: \.self) { tier in
+                    Capsule()
+                        .fill(Lagoon.linkColor(tier, palette))
+                        .frame(width: 22, height: Lagoon.linkWidth(tier) + 2)
+                        .lagoonGlow(Lagoon.linkGlows(tier) ? Lagoon.linkColor(tier, palette).opacity(0.7) : .clear,
+                                    radius: 3)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(palette.title) data colours, from USB 2 to 80 gigabits per second")
+    }
+}
+
 /// A miniature of a Bus Stop card over a busy "desktop", at the chosen
 /// background opacity.
 struct AppearancePreviewSwatch: View {
@@ -94,7 +128,7 @@ struct AppearancePreviewSwatch: View {
                     Text("Left Front · USB-C")
                         .lagoonFont(.callout, weight: .semibold)
                         .foregroundStyle(Lagoon.textPrimary)
-                    Text("Samsung T9 · 4.5 W")
+                    Text("PSSD T9 · 4.5 W")
                         .lagoonFont(.caption)
                         .foregroundStyle(Lagoon.textSecondary)
                 }

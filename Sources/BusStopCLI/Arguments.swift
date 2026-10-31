@@ -180,7 +180,7 @@ enum ArgumentParser {
             .map { "                      \($0.rawValue.padding(toLength: 12, withPad: " ", startingAt: 0)) \($0.title)" }
             .joined(separator: "\n")
         return """
-        busstop \(BusStopVersion.string): a live map of every port on your Mac.
+        busstop \(BusStopVersion.string): a live map of the ports on your Mac.
 
         Usage: busstop [--json | --markdown | --raw] [--watch] [--demo <scenario>]
                        [--input <file>] [--no-redact] [--no-smc]
@@ -205,10 +205,9 @@ enum ArgumentParser {
                             unplugged and plugged back in every few seconds.
 
         Other:
-          --no-redact       Keep serial numbers, other unit identifiers and the
-                            computer name in the text tree and in --json,
-                            --markdown, --raw and --watch output (redacted by
-                            default).
+          --no-redact       Keep serial numbers and other unit identifiers in
+                            the text tree and in --json, --markdown, --raw and
+                            --watch output (redacted by default).
           --no-smc          Do not read per-port power from the SMC.
           --version         Print the version.
           -h, --help        Print this help.

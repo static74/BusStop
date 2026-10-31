@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The power card under the header (docs/SPEC.md §3.2, item 2).

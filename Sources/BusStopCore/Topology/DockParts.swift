@@ -3,7 +3,8 @@ import Foundation
 /// Folds the USB parts built into a Thunderbolt dock (its USB root hub, its
 /// internal hubs and its own USB functions) out of the device tree and into
 /// the dock's `internalParts`, so the map draws only devices joined to the
-/// dock by real cables (SPEC §5.4 "Built-in dock parts").
+/// dock by real cables (SPEC §5.4 "Built-in dock parts"). A Thunderbolt
+/// display with a USB hub counts as a dock here.
 ///
 /// The rules work top-down from the dock: a USB device can be built in only
 /// when what it hangs off is the dock's root hub or another built-in part,
@@ -24,7 +25,11 @@ import Foundation
 ///   hub's own ports, whose flags are not reliable.
 /// - D. Identity holder: a hub with a B device on a captive port. When more
 ///   than one hub in the dock qualifies, B and D are both off.
-/// - E. A device that is not a hub, on a hub folded by C.
+/// - F. Container: a device on a hub folded by any rule, when every
+///   `kUSBContainerID` it reports (both halves of a merged hub) is one the
+///   root hub reports. USB gives every function of one physical product the
+///   same container ID, so this reaches hub chips a captive flag cannot. A
+///   device with no container ID, or an all-zero one, matches nothing.
 ///
 /// What hangs off a part and matches no rule moves up to the dock with its
 /// subtree, and its `internalParentID` names the part.
@@ -35,7 +40,7 @@ enum DockParts {
         case identity
         case captive
         case identityHolder
-        case captiveFunction
+        case container
     }
 
     /// A device's own USB vendor and product IDs.
@@ -61,6 +66,9 @@ enum DockParts {
         var identities: [UInt64: Identity] = [:]
         /// Downstream switches with a live USB tunnel.
         var usbTunnelSwitchIDs: Set<UInt64> = []
+        /// `kUSBContainerID` of each USB device, as lowercase hex digits,
+        /// left out when missing or all zero.
+        var containerIDs: [UInt64: String] = [:]
 
         init(raw: RawSnapshot, companions: [UInt64: UInt64], usbTunnelSwitchIDs: Set<UInt64>) {
             self.companions = companions
@@ -69,6 +77,10 @@ enum DockParts {
             for (id, device) in devices {
                 let p = device.node.properties
                 if let type = p.int("USBPortType") { portTypes[id] = type }
+                if let container = PowerParser.normalizedUUID(p.string("kUSBContainerID")),
+                   container.contains(where: { $0 != "0" }) {
+                    containerIDs[id] = container
+                }
                 if p.bool("UsbTunnel") == true {
                     tunnelled.insert(id)
                     if DockParts.isHostController(device.ancestry) { hostTunnelled.insert(id) }
@@ -119,7 +131,7 @@ enum DockParts {
         // By registry ID, which is unique among USB devices: a device ID can
         // repeat, and another hub with the same one must not be taken for the root.
         return devices.map { head in
-            guard head.bus == .thunderbolt, head.kind == .dock, head.registryID == dockID,
+            guard head.bus == .thunderbolt, head.kind == .dock || head.kind == .display, head.registryID == dockID,
                   let rootIndex = head.children.firstIndex(where: { $0.bus == .usb && $0.registryID == rootID })
             else { return head }
             return folding(head, rootIndex: rootIndex, evidence: evidence)
@@ -134,6 +146,7 @@ enum DockParts {
             let holders = dock.flattened().map(\.device).filter { isHub($0) && holdsIdentity($0, known, evidence) }
             if holders.count > 1 { identity = nil }
         }
+        let rootContainers = Set(containers(of: dock.children[rootIndex], evidence))
 
         var parts: [DeviceNode] = []
         var children: [DeviceNode] = []
@@ -144,7 +157,7 @@ enum DockParts {
             parts.append(part)
             for child in node.children {
                 if let childRule = self.rule(for: child, parent: node, parentRule: rule, identity: identity,
-                                             evidence: evidence) {
+                                             rootContainers: rootContainers, evidence: evidence) {
                     absorb(child, rule: childRule, parentPartID: node.id)
                 } else {
                     var moved = child
@@ -168,9 +181,10 @@ enum DockParts {
     }
 
     /// The rule that makes `child` of the built-in part `parent` built in
-    /// too, or nil when it stays on the map.
+    /// too, or nil when it stays on the map. `rootContainers` are the root
+    /// hub's container IDs, for rule F.
     static func rule(for child: DeviceNode, parent: DeviceNode, parentRule: Rule, identity: Identity?,
-                     evidence: Evidence) -> Rule? {
+                     rootContainers: Set<String>, evidence: Evidence) -> Rule? {
         guard child.bus == .usb, child.registryID != nil else { return nil }
         if let identity, matches(child, identity) { return .identity }
         if let identity, isHub(child), holdsIdentity(child, identity, evidence) { return .identityHolder }
@@ -179,7 +193,8 @@ enum DockParts {
            isHub(child) || isBillboard(child, evidence), isCaptive(child, evidence) {
             return .captive
         }
-        if parentRule == .captive, !isHub(child) { return .captiveFunction }
+        let own = containers(of: child, evidence)
+        if !own.isEmpty, own.allSatisfy(rootContainers.contains) { return .container }
         return nil
     }
 
@@ -216,6 +231,13 @@ enum DockParts {
         guard let id = node.registryID, evidence.portTypes[id] == 1 else { return false }
         guard let companion = evidence.companions[id] else { return true }
         return evidence.portTypes[companion] == 1
+    }
+
+    /// The container IDs a device reports: its own and, on a merged hub, its
+    /// USB 2 half's. Missing and all-zero IDs are left out.
+    static func containers(of node: DeviceNode, _ evidence: Evidence) -> [String] {
+        guard let id = node.registryID else { return [] }
+        return [id, evidence.companions[id]].compactMap { $0.flatMap { evidence.containerIDs[$0] } }
     }
 
     /// A hub with a device of the dock's own IDs on a captive port.

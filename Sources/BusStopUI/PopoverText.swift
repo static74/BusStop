@@ -2,15 +2,16 @@ import AppKit
 import BusStopCore
 import SwiftUI
 
-/// Text helpers for the popover: counts, VoiceOver phrasing and clipboard text.
-enum PopoverText {
+/// Text helpers for the popover and the widgets: counts, VoiceOver phrasing
+/// and clipboard text.
+public enum PopoverText {
     /// "1 device", "3 devices".
-    static func count(_ value: Int, _ singular: String, _ plural: String) -> String {
+    public static func count(_ value: Int, _ singular: String, _ plural: String) -> String {
         "\(value) \(value == 1 ? singular : plural)"
     }
 
     /// "4 ports · 6 devices · 61 W in".
-    static func summary(for snapshot: HostSnapshot) -> String {
+    public static func summary(for snapshot: HostSnapshot) -> String {
         var parts = [
             count(snapshot.ports.count, "port", "ports"),
             count(snapshot.deviceCount, "device", "devices"),
@@ -31,7 +32,7 @@ enum PopoverText {
     /// USB power the Mac allocates to devices it could not tie to a port: the
     /// USB devices under Other devices that it powers itself (not through a
     /// Thunderbolt dock), stopping at self-powered hubs.
-    static func unattributedUSBMilliwatts(_ snapshot: HostSnapshot) -> Int {
+    public static func unattributedUSBMilliwatts(_ snapshot: HostSnapshot) -> Int {
         snapshot.otherDevices
             .filter { $0.bus == .usb && !$0.isTunneled }
             .reduce(0) { $0 + $1.rolledUpMilliwatts }
@@ -39,18 +40,18 @@ enum PopoverText {
 
     /// The power figure for the menu bar: `PowerSummary.headlineMilliwatts`,
     /// or what unattributed USB devices draw when the ports report nothing.
-    static func headlineMilliwatts(for snapshot: HostSnapshot) -> Int? {
+    public static func headlineMilliwatts(for snapshot: HostSnapshot) -> Int? {
         if let headline = snapshot.power.headlineMilliwatts { return headline }
         let unattributed = unattributedUSBMilliwatts(snapshot)
         return unattributed > 0 ? unattributed : nil
     }
 
-    /// The compact row's middle text: "Samsung T9", "3 devices", the
+    /// The compact row's middle text: "PSSD T9", "3 devices", the
     /// charger's name, "Connected" or "Nothing connected". `devices` includes
     /// ghosts (`PortStore.devicesWithGhosts(on:)`), so a device that just left
     /// keeps its line until its ghost goes. "N devices" counts every level,
     /// like `PhysicalPort.deviceCount`.
-    static func compactSummary(_ port: PhysicalPort, devices: [DeviceNode]) -> String {
+    public static func compactSummary(_ port: PhysicalPort, devices: [DeviceNode]) -> String {
         if devices.count == 1, let device = devices.first { return device.name }
         if devices.count > 1 {
             return count(devices.reduce(0) { $0 + 1 + $1.descendantCount }, "device", "devices")
@@ -60,7 +61,7 @@ enum PopoverText {
     }
 
     /// "3 devices · 7.5 W" for hubs and docks.
-    static func rollUp(for device: DeviceNode) -> String? {
+    public static func rollUp(for device: DeviceNode) -> String? {
         guard !device.children.isEmpty else { return nil }
         var text = count(device.descendantCount, "device", "devices")
         let milliwatts = device.rolledUpMilliwatts
@@ -71,12 +72,12 @@ enum PopoverText {
     // MARK: VoiceOver
 
     /// "Left Front USB-C" from "Left Front · USB-C".
-    static func spokenPortTitle(_ label: PortLabel) -> String {
+    public static func spokenPortTitle(_ label: PortLabel) -> String {
         label.title.replacingOccurrences(of: " \u{00B7} ", with: " ")
     }
 
     /// "10 gigabits per second".
-    static func spokenRate(_ link: LinkInfo?) -> String? {
+    public static func spokenRate(_ link: LinkInfo?) -> String? {
         guard let rate = link?.rateLabel else { return nil }
         let units: [(String, String)] = [
             (" Gb/s", " gigabits per second"),
@@ -91,7 +92,7 @@ enum PopoverText {
     }
 
     /// "4.5 watts", "120 milliwatts".
-    static func spokenPower(milliwatts: Int) -> String {
+    public static func spokenPower(milliwatts: Int) -> String {
         let text = Format.power(milliwatts: milliwatts)
         if text.hasSuffix(" mW") { return String(text.dropLast(3)) + " milliwatts" }
         if text.hasSuffix(" W") { return String(text.dropLast(2)) + " watts" }
@@ -100,18 +101,18 @@ enum PopoverText {
 
     /// "61 watts in", "up to 4.5 watts" (a budget or contract, not a measurement),
     /// or nil when the port draws or gives nothing.
-    static func spokenPortPower(_ power: PortPower?) -> String? {
+    public static func spokenPortPower(_ power: PortPower?) -> String? {
         guard let power, let milliwatts = power.milliwatts, milliwatts > 0 else { return nil }
         let phrase = (power.isMeasured ? "" : "up to ") + spokenPower(milliwatts: milliwatts)
         return power.direction == .input ? phrase + " in" : phrase
     }
 
-    /// "Left Front USB-C port, Samsung T9 connected at 10 gigabits per second, 4.5 watts",
+    /// "Left Front USB-C port, PSSD T9 connected at 10 gigabits per second, 4.5 watts",
     /// then ", pinned to the menu bar" when `isPinned`, then the titles of its
     /// `health` findings. `speaksLink` adds the port's link speed ("link at 40
     /// gigabits per second") unless the one device already says it; the compact
     /// row needs it because its speed chip is not read.
-    static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool, speaksLink: Bool = false,
+    public static func portAccessibilityLabel(_ port: PhysicalPort, isPinned: Bool, speaksLink: Bool = false,
                                        health: [Diagnostic] = []) -> String {
         var parts = ["\(spokenPortTitle(port.label)) port"]
         if port.devices.count == 1, let device = port.devices.first {
@@ -141,7 +142,7 @@ enum PopoverText {
     }
 
     /// The VoiceOver label for one device row.
-    static func deviceAccessibilityLabel(_ device: DeviceNode, port: PhysicalPort?, depth: Int,
+    public static func deviceAccessibilityLabel(_ device: DeviceNode, port: PhysicalPort?, depth: Int,
                                          isDeparting: Bool) -> String {
         var parts: [String] = []
         var phrase = device.name
@@ -174,7 +175,7 @@ enum PopoverText {
     // MARK: Clipboard
 
     /// Multi-line description of a device for "Copy Details".
-    static func details(for device: DeviceNode, port: PhysicalPort?, redactSerials: Bool) -> String {
+    public static func details(for device: DeviceNode, port: PhysicalPort?, redactSerials: Bool) -> String {
         var lines = [device.name]
         lines.append("Kind: \(device.kind.displayName)")
         lines.append("Port: \(port?.label.title ?? "Not attributed to a port")")
@@ -203,24 +204,24 @@ enum PopoverText {
         return Exporter.redacted(text, serials: serials)
     }
 
-    static func copyToPasteboard(_ text: String) {
+    public static func copyToPasteboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
 
     /// Findings about a port's connections that put a mark on its card.
-    static let healthKinds: Set<DiagnosticKind> = [.flakyConnection, .linkFlapping, .speedRegression, .portStandsOut]
+    public static let healthKinds: Set<DiagnosticKind> = [.flakyConnection, .linkFlapping, .speedRegression, .portStandsOut]
 
     /// The port's connection-health findings, most severe first.
-    static func health(of port: PhysicalPort, in diagnostics: [Diagnostic]) -> [Diagnostic] {
+    public static func health(of port: PhysicalPort, in diagnostics: [Diagnostic]) -> [Diagnostic] {
         diagnostics.filter { $0.portKey == port.key && healthKinds.contains($0.kind) }
     }
 }
 
 extension View {
     /// Reports this view's height whenever it changes.
-    func onHeightChange(_ action: @escaping (CGFloat) -> Void) -> some View {
+    public func onHeightChange(_ action: @escaping (CGFloat) -> Void) -> some View {
         onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.height
         } action: { height in

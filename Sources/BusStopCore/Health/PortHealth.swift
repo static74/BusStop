@@ -3,7 +3,7 @@ import Foundation
 /// One port's last 7 local calendar days, from the history archive (SPEC
 /// §5.4, "Port health"). All-time totals stay the hardware counters in
 /// `PhysicalPort.statistics`.
-public struct PortHealth: Sendable, Hashable {
+public struct PortHealth: Sendable, Hashable, Codable {
     public var plugEvents = 0
     public var connections = 0
     public var overcurrents = 0
@@ -27,13 +27,39 @@ extension HistoryArchive {
     /// Port health for one Mac model over the 7 local days ending with the
     /// day of `now`, keyed by port. Ports with nothing on record are left out.
     public func portHealth(model: String, now: Date, calendar: Calendar = .current) -> [PortKey: PortHealth] {
-        guard let section = sections[model] else { return [:] }
         let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) ?? now
+        return portHealth(model: model, from: start, to: .distantFuture)
+    }
+
+    /// Port health per local day for the same 7 days, oldest first, so the
+    /// last entry is the day of `now`. Ports with nothing on record are left out.
+    public func dailyPortHealth(model: String, now: Date, calendar: Calendar = .current) -> [PortKey: [PortHealth]] {
+        let today = calendar.startOfDay(for: now)
+        let starts = (-6...0).map { calendar.date(byAdding: .day, value: $0, to: today) ?? today }
+        let days = starts.indices.map { index in
+            portHealth(model: model, from: starts[index],
+                       to: index + 1 < starts.count ? starts[index + 1] : .distantFuture)
+        }
+        var result: [PortKey: [PortHealth]] = [:]
+        for key in Set(days.flatMap(\.keys)) {
+            result[key] = days.map { day in
+                var health = day[key] ?? PortHealth()
+                // "At any age", so it says nothing about the day.
+                health.lastOvercurrentAt = nil
+                return health
+            }
+        }
+        return result
+    }
+
+    /// Port health from `start` up to, not including, `end`.
+    private func portHealth(model: String, from start: Date, to end: Date) -> [PortKey: PortHealth] {
+        guard let section = sections[model] else { return [:] }
         var result: [PortKey: PortHealth] = [:]
 
         for (key, days) in section.portDays {
             guard let port = PortKey(key) else { continue }
-            for day in days where day.day >= start {
+            for day in days where day.day >= start && day.day < end {
                 result[port, default: PortHealth()].plugEvents += day.plugEvents
                 result[port, default: PortHealth()].connections += day.connections
                 result[port, default: PortHealth()].overcurrents += day.overcurrents
@@ -53,7 +79,8 @@ extension HistoryArchive {
         // A connect just before the window still makes a short connection that ends inside it.
         let connectStart = start.addingTimeInterval(-PortHealth.shortConnection)
         for event in section.events.reversed()
-        where event.date >= start || (event.kind == .deviceConnected && event.date >= connectStart) {
+        where event.date < end
+            && (event.date >= start || (event.kind == .deviceConnected && event.date >= connectStart)) {
             let subject = event.subjectID ?? event.deviceID ?? event.id
             switch event.kind {
             case .deviceConnected:

@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 import Testing
 @testable import BusStopApp
@@ -98,12 +99,12 @@ struct ThemeContrastTests {
         ("menuBarBackdrop[0]", Lagoon.menuBarBackdrop[0], Color(hex: 0x1B2A3A)),
         ("menuBarBackdrop[1]", Lagoon.menuBarBackdrop[1], Color(hex: 0x0E1A1C)),
         ("menuBarItemHighlight", Lagoon.menuBarItemHighlight, Color(hex: 0xFFFFFF, opacity: 0.14)),
-        ("link.legacy", Lagoon.linkColor(.legacy), Color(hex: 0x3C5E5A)),
-        ("link.gbps5", Lagoon.linkColor(.gbps5), Color(hex: 0x22A69B)),
-        ("link.gbps10", Lagoon.linkColor(.gbps10), Color(hex: 0x3EE6D4)),
-        ("link.gbps20", Lagoon.linkColor(.gbps20), Color(hex: 0x5FF0E0)),
-        ("link.gbps40", Lagoon.linkColor(.gbps40), Color(hex: 0x8AFFF3)),
-        ("link.gbps80", Lagoon.linkColor(.gbps80), Color(hex: 0xC9FFF9)),
+        ("link.legacy", Lagoon.linkColor(.legacy, .lagoon), Color(hex: 0x3C5E5A)),
+        ("link.gbps5", Lagoon.linkColor(.gbps5, .lagoon), Color(hex: 0x22A69B)),
+        ("link.gbps10", Lagoon.linkColor(.gbps10, .lagoon), Color(hex: 0x3EE6D4)),
+        ("link.gbps20", Lagoon.linkColor(.gbps20, .lagoon), Color(hex: 0x5FF0E0)),
+        ("link.gbps40", Lagoon.linkColor(.gbps40, .lagoon), Color(hex: 0x8AFFF3)),
+        ("link.gbps80", Lagoon.linkColor(.gbps80, .lagoon), Color(hex: 0xC9FFF9)),
         ("power.none", Lagoon.powerColor(PowerTier.none), Color(hex: 0x636363)),
         ("power.under5", Lagoon.powerColor(.under5), Color(hex: 0xB6322D)),
         ("power.under15", Lagoon.powerColor(.under15), Color(hex: 0xDE6129)),
@@ -128,7 +129,12 @@ struct ThemeContrastTests {
     /// The map asks for ramp colours on every frame; a fresh dynamic colour
     /// per call would never compare equal and would allocate each time.
     @Test func rampColoursAreStable() {
-        for tier in SpeedTier.allCases { #expect(Lagoon.linkColor(tier) == Lagoon.linkColor(tier)) }
+        for palette in DataPalette.allCases {
+            for tier in SpeedTier.allCases {
+                #expect(Lagoon.linkColor(tier, palette) == Lagoon.linkColor(tier, palette))
+            }
+            #expect(palette.colors.pulse == palette.colors.pulse)
+        }
         for tier in PowerTier.allCases { #expect(Lagoon.powerColor(tier) == Lagoon.powerColor(tier)) }
     }
 
@@ -149,7 +155,12 @@ struct ThemeContrastTests {
 
     @Test func lightLinksAndSeriesReachThreeToOne() {
         var colors: [(String, Color)] = [("accentGlow", Lagoon.accentGlow)]
-        colors += SpeedTier.allCases.filter { $0 > .legacy }.map { ("link \($0)", Lagoon.linkColor($0)) }
+        for palette in DataPalette.allCases {
+            colors += SpeedTier.allCases.filter { $0 > .legacy }.map {
+                ("\(palette) link \($0)", Lagoon.linkColor($0, palette))
+            }
+            colors.append(("\(palette) pulse", palette.colors.pulse))
+        }
         colors += PowerTier.allCases.filter { $0 > .none }.map { ("power \($0)", Lagoon.powerColor($0)) }
         colors += PowerChartPalette.ports.enumerated().map { ("chart port \($0.offset)", $0.element) }
         colors.append(("chart otherPorts", PowerChartPalette.otherPorts))
@@ -161,9 +172,10 @@ struct ThemeContrastTests {
     @Test func dimTokensReadAtLeastAsWellAsInDark() {
         let dim: [(String, Color)] = [
             ("accentMuted", Lagoon.accentMuted),
-            ("link legacy", Lagoon.linkColor(.legacy)),
             ("power none", Lagoon.powerColor(PowerTier.none)),
-        ]
+        ] + DataPalette.allCases.flatMap { palette in
+            [("\(palette) link legacy", Lagoon.linkColor(.legacy, palette)), ("\(palette) muted", palette.colors.muted)]
+        }
         for (name, color) in dim {
             for (dark, light) in zip(Self.surfaces(.dark), Self.surfaces(.light)) {
                 let darkRatio = Self.rgb(color, .dark).contrast(with: dark)
@@ -183,12 +195,17 @@ struct ThemeContrastTests {
             return Self.rgb(text, .light).over(background, opacity: textOpacity).contrast(with: background)
         }
 
-        for tier in SpeedTier.allCases {
-            #expect(ratio(Lagoon.linkTextColor(tier), on: Lagoon.linkColor(tier), at: 0.12, over: raised) >= 4.5,
-                    "speed chip \(tier)")
-            // TransportChip: the rate at its faded opacity on the 0.10 fill.
-            #expect(ratio(Lagoon.linkTextColor(tier), textOpacity: Lagoon.textFade(0.8, .light),
-                          on: Lagoon.linkColor(tier), at: 0.10, over: raised) >= 4.5, "transport rate \(tier)")
+        for palette in DataPalette.allCases {
+            for tier in SpeedTier.allCases {
+                let text = Lagoon.linkTextColor(tier, palette), fill = Lagoon.linkColor(tier, palette)
+                #expect(ratio(text, on: fill, at: 0.12, over: raised) >= 4.5, "\(palette) speed chip \(tier)")
+                // TransportChip: the rate at its faded opacity on the 0.10 fill.
+                #expect(ratio(text, textOpacity: Lagoon.textFade(0.8, .light), on: fill, at: 0.10, over: raised) >= 4.5,
+                        "\(palette) transport rate \(tier)")
+            }
+            // A chip with no known rate uses the palette's accent.
+            let accent = palette.colors.accent
+            #expect(ratio(accent, on: accent, at: 0.12, over: raised) >= 4.5, "\(palette) accent chip")
         }
         for tier in PowerTier.allCases {
             #expect(ratio(Lagoon.powerTextColor(tier), on: Lagoon.powerColor(tier), at: 0.12, over: raised) >= 4.5,
@@ -230,10 +247,12 @@ struct ThemeContrastTests {
         }
         func rises(_ values: [Double]) -> Bool { zip(values, values.dropFirst()).allSatisfy { $0 < $1 } }
         func falls(_ values: [Double]) -> Bool { zip(values, values.dropFirst()).allSatisfy { $0 > $1 } }
-        let links = SpeedTier.allCases.map(Lagoon.linkColor)
+        for palette in DataPalette.allCases {
+            let links = SpeedTier.allCases.map { Lagoon.linkColor($0, palette) }
+            #expect(rises(lightness(links, .dark)), "\(palette)")
+            #expect(falls(lightness(links, .light)), "\(palette)")
+        }
         let powers = PowerTier.allCases.map { Lagoon.powerColor($0) }
-        #expect(rises(lightness(links, .dark)))
-        #expect(falls(lightness(links, .light)))
         #expect(rises(lightness(powers, .dark)))
         #expect(falls(lightness(powers, .light)))
     }

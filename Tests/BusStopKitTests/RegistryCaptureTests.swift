@@ -42,13 +42,11 @@ struct RegistryCaptureTests {
         }
     }
 
-    /// `kUSBContainerID` is unique to each USB device instance and no parser
-    /// uses it, so it is never captured.
-    @Test func captureLeavesOutUSBContainerIDs() {
-        #expect(!RegistryKeys.usbDevice.contains("kUSBContainerID"))
+    /// `kUSBContainerID` ties a dock's or display's USB parts together
+    /// (`DockParts` rule F), so USB devices carry it. Port nodes do not.
+    @Test func captureKeepsUSBContainerIDs() {
+        #expect(RegistryKeys.usbDevice.contains("kUSBContainerID"))
         #expect(!RegistryKeys.anyPortChild.contains("kUSBContainerID"))
-        let raw = RegistryCapture.capture(includeSMC: false)
-        #expect(raw.usbDevices.allSatisfy { !$0.node.properties.has("kUSBContainerID") })
     }
 
     @Test func concurrentCapturesAreSafe() async {

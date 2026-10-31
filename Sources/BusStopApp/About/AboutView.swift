@@ -1,5 +1,6 @@
 import AppKit
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Root view of the About window: icon, name, version, what Bus Stop
@@ -28,7 +29,7 @@ struct AboutView: View {
                     .textSelection(.enabled)
             }
 
-            Text("A live map of every port on your Mac.")
+            Text("A live map of the ports on your Mac.")
                 .lagoonFont(.headline, weight: .semibold, design: .rounded)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Lagoon.accent)

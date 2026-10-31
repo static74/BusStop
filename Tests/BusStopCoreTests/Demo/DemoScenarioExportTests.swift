@@ -115,19 +115,19 @@ struct DemoScenarioExportTests {
             ├─ Left Rear · MagSafe   140W USB-C Power Adapter   ↓ 62 W
             ├─ Left Center · USB-C   USB4 v2 / TB5 @ 80 Gb/s
             │  └─ Studio Display XDR · 80 Gb/s
-            │     └─ Studio Display XDR Hub · 10 Gb/s
-            │        ├─ PSSD T9 · 10 Gb/s · 4.5 W
-            │        └─ Studio Display XDR Camera · 480 Mb/s · 2.5 W
+            │     ├─ PSSD T9 · 10 Gb/s · 4.5 W
+            │     └─ Studio Display XDR Camera · 480 Mb/s · 2.5 W
             ├─ Left Front · USB-C   USB 3.2 Gen 2 @ 10 Gb/s   ↑ 4 W
             │  └─ USB3.1 Hub · 10 Gb/s · 4 W
             │     ├─ DataTraveler 3.0 · 480 Mb/s · 2.5 W
             │     ├─ Keychron K8 Pro · 12 Mb/s · 0.5 W
             │     └─ USB Optical Mouse · 1.5 Mb/s · 0.5 W
+            ├─ Right Front · SD Card   (empty)
             ├─ Right Rear · HDMI   (empty)
             └─ Right Center · USB-C   (empty)
 
             Displays
-            ├─ Built-in Liquid Retina XDR Display · 3024 × 1964 @ 120 Hz · built-in
+            ├─ Color LCD · 3024 × 1964 @ 120 Hz · built-in
             └─ Studio Display XDR · 5120 × 2880 @ 120 Hz · Left Center · USB-C
 
             Diagnostics

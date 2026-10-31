@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Top of the popover: machine name, a one-line summary (with the Demo badge

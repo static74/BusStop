@@ -13,7 +13,49 @@ All notable changes to Bus Stop are recorded here. The format follows [Keep a Ch
 - A port's status shows as a solid dot, brighter when something is connected, instead of a ring that looked like a radio button. Popover cards drop it, since the port icon already shows the state.
 - In the card layout, empty ports share one card with a line each, so ports in use stand out.
 - Device subtitles show at most two facts, so they no longer truncate in the popover or on map nodes.
-- Settings › Appearance: the tint slider is under Buttons, the opacity slider shows its value in its label, and the theme caption no longer uses an internal name.
+- Settings › Appearance: the tint slider is under Buttons, the opacity slider shows its value in its label, and the theme caption no longer calls Dark "the Lagoon look", a name the data colour presets now use.
+- A Thunderbolt display with a USB hub, such as a Dell U4025QW, folds its built-in USB hub into its card, as a dock does. Built-in parts are listed in the inspector under "Built into this display" and left out of device counts. In the Studio desk demo, the PSSD T9 and the camera now hang off the Studio Display XDR, without its hub between them.
+- Bus Stop reads each USB device's container ID, which every part of one physical product shares, and folds the hub chips and functions of a dock or display that share its root hub's ID, even where the hub reports no captive ports. Raw captures and JSON exports include the ID; with redaction on (the default) it is replaced by a stand-in that still shows which devices share one.
+- A USB hub built from several hub chips shows as one hub card, with the extra chips listed in the inspector under "Built into this hub". Bus Stop recognises a chip by the captive port macOS reports it on, so this works for any hub, monitor or dock, not a list of models. A Dell U4025QW now shows one hub with its Ethernet, webcam and HID devices.
+
+### Fixed
+
+- A device plugged into a dock no longer disappears from the map. Bus Stop used to fold every device on certain internal dock hubs into the dock, which hid a keyboard and an audio device plugged into an Anker Prime dock. The dock's own Ethernet and card reader now show as devices under the dock.
+- Clicking a device, port or link on the map, or a row in List view, opens the inspector when it is closed. Before, only a link did.
+
+## [1.2.1] - 2026-10-27
+
+### Changed
+
+- The README is shorter and written for people using Bus Stop; build and project details live in CONTRIBUTING.md and docs/. The tagline in the About window, `busstop --help` and the Ports widget's description now says "the ports on your Mac" rather than "every port", since macOS does not report some SD card slots.
+- The demo setups match what real Macs report: the MacBook Pro demos list their empty SD card slot, built-in displays are named "Color LCD", and examples in Settings and the docs name the Samsung drive "PSSD T9", the name the drive itself reports.
+
+### Fixed
+
+- When a device puts its serial number in its name, the widgets no longer show that number after you unplug the device, in its events or in a "keeps disconnecting" finding, even after Bus Stop restarts. Redacted exports and `busstop --watch` hide it in that finding too. The history now keeps those serial numbers with the events that hold them. Not covered: a history saved by 1.2.0 or earlier, whose events can still show such a number in the widgets until they are 30 days old or you clear the history; a serial number without a digit; and one that the name of another connected device, one without that serial, also holds, such as "USB3" beside a "USB3.1 Hub". The last two show in the device's events and findings once it is unplugged.
+- Redacted exports, `busstop --watch` and the widgets no longer replace a resolution such as "3840 × 2160", or a year, with "REDACTED" when a display's serial number, or a device's 4-digit serial number, happens to match it. They still do while the device carrying it is named after that number ("Drive 2160"), and for up to 30 days after it is unplugged.
+- The Settings tabs are sharp on non-Retina displays. They were drawn half a pixel off and looked blurry. Settings now has standard Mac toolbar tabs, each with its icon, and the window takes the name of the selected tab.
+
+## [1.2.0] - 2026-10-26
+
+### Added
+
+- Settings › Appearance › Data colours: colour links by speed with a preset instead of Lagoon's turquoise. Sky, Iris, Orchid, Ember, Tangerine, Citrine, Fern and Graphite keep Lagoon's shift from dim to bright, and Match System follows the accent colour in System Settings. The map, its pulses and key, speed chips and the Mac Outline all follow; Power mode and the desktop widgets keep their colours. Lagoon stays the default.
+- Desktop widgets, in Large and Extra Large. **Ports** has one row per port in physical order with its device, link speed, watts and any diagnostic, and in Extra Large the devices behind each hub and dock. **Power** shows the charger and its USB-PD contract, the battery, total watts in and out and a last-hour chart, and in Extra Large the watts per port and a 24-hour chart. **Health** shows current diagnostics and flaky connections with their likely culprit, or "All links healthy", and in Extra Large the recent events and each port's last 7 days. A widget shows a Demo badge in demo mode, "Bus Stop isn't running" when its data is more than 5 minutes old, and "Open Bus Stop" before it has any. Clicking a widget opens Bus Stop on that page.
+- `busstop://` links: `busstop://topology/<page>` opens the topology window on a page (`overview`, `silhouette`, `allPorts`, `devices`, `power`, `events` or `diagnostics`), and `busstop://port/<type>/<number>` opens it with that port selected.
+- For the widgets, the app writes what they show to `widget-payload.json` in its App Group container, atomically and readable only by your user account. The snapshot in it is redacted like an export and leaves out the raw IORegistry properties, so it holds no serial numbers. Clear History and turning off "Keep history between launches" delete it; with history off it leaves out the events, the 24-hour power and the port health.
+- Widgets appear only in builds signed by a team and installed in `/Applications`. Release builds are; a build from source signed ad hoc bundles the widgets, but macOS leaves them out of Edit Widgets.
+- Settings › Ports › Identify a Port: plug something into a port, or unplug it, and Bus Stop highlights that port so you can confirm or correct its name. Copy Catalogue Entry puts this Mac's port names on the clipboard as a catalogue entry you can send upstream. Nothing is sent over the network.
+
+### Changed
+
+- Ports are named from where the Mac itself says they are. Recent Macs publish each Thunderbolt port's position in the IORegistry ("back-left"), and Bus Stop now uses it ahead of its model catalogue, so a Mac mini with M4 shows "Rear (left)", "Rear (center)" and "Rear (right)" instead of three ports named "Rear". Ports without it use the catalogue as before. Raw captures (`busstop --raw`) include these positions.
+- Ports that would share a name are numbered, such as "Front · USB-C 1" and "Front · USB-C 2".
+
+### Fixed
+
+- The app icon no longer shows as coloured noise at 16 and 32 px, as in the widget gallery's app list. The icon file stored those sizes in slots macOS reads as raw pixels; it is now made with `iconutil`.
+- A USB 3 port now shows the rate the Mac reports for it. A Mac mini with M4 says "Gen 1" signalling for a 10 Gb/s hub, and Bus Stop showed the port at 5 Gb/s while the hub on it showed 10 Gb/s. A real capture of that Mac is now a test fixture.
 
 ## [1.1.2] - 2026-10-24
 
@@ -130,7 +172,9 @@ The first release.
 - `scripts/build-app.sh`, `scripts/install.sh` and `scripts/smoke-test.sh` for building, installing and checking the app bundle; CI on Linux, macOS 26 and macOS 27; tagged releases with a universal, ad-hoc-signed zip and its SHA-256 checksum. The app bundle and the zip carry Bus Stop's licence and the MIT notices of PortScope, WhatPort and WhatCable.
 - Screenshots of the app in demo mode, captured by CI on macOS 27 and published to the `screenshots` branch by a separate job that holds the only write token.
 
-[Unreleased]: https://github.com/static74/BusStop/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/static74/BusStop/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/static74/BusStop/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/static74/BusStop/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/static74/BusStop/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/static74/BusStop/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/static74/BusStop/releases/tag/v1.1.0

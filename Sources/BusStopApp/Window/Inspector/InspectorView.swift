@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// The trailing inspector: every known field of the selected host, port,
@@ -462,15 +463,16 @@ struct DeviceInspector: View {
         }
     }
 
-    /// The dock's own hubs and USB functions, which have no card or row of
-    /// their own (`DockParts`).
+    /// The dock's (or Thunderbolt display's) own hubs and USB functions,
+    /// which have no card or row of their own (`DockParts`).
     private func builtInSection(_ parts: [DeviceNode]) -> some View {
-        InspectorSection(title: "Built into this dock", trailing: "\(parts.count)") {
+        let host = WindowText.builtInHost(device)
+        return InspectorSection(title: "Built into this \(host)", trailing: "\(parts.count)") {
             ForEach(parts) { part in
                 InspectorPartRow(part: part, siblings: parts)
             }
-            Text("These hubs and functions are inside the dock, so the map and the device lists leave them out. "
-                + "Devices plugged into the dock's ports still appear, attached to the dock.")
+            Text("These hubs and functions are inside the \(host), so the map and the device lists leave them out. "
+                + "Devices plugged into the \(host)'s ports still appear, attached to the \(host).")
                 .lagoonFont(.caption)
                 .foregroundStyle(Lagoon.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

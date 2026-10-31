@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Bottom of the popover: "Updated just now" and the prominent

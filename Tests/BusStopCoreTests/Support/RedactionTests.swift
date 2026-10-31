@@ -191,6 +191,16 @@ struct RedactionTests {
         #expect(!Exporter.isUnitIdentifierKey("UIDCount"))
     }
 
+    /// An all-zero container ID identifies nothing and stays as it is, so it
+    /// never turns into a stand-in that looks like a real, shared one.
+    @Test func zeroContainerIDIsKept() {
+        let zero = "00000000-0000-0000-0000-000000000000"
+        let bag: PropertyBag = ["kUSBContainerID": .string(zero), "Other UUID": .string(zero)]
+        let redacted = Exporter.redacted(bag)
+        #expect(redacted.string("kUSBContainerID") == zero)
+        #expect(redacted.string("Other UUID") != zero)
+    }
+
     @Test func dashedAndUndashedUUIDsKeepMatching() throws {
         let dashed = "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
         let raw = TopologyFixtures.raw(
@@ -373,10 +383,344 @@ struct RedactionTests {
         #expect(Exporter.redacted(connected).title.contains(serial))
     }
 
+    /// A device that has left: its serial is no longer in the snapshot, so it is passed in.
+    @Test func serialsOfDevicesNoLongerConnectedAreRedacted() throws {
+        let serial = "SNXYZ123"
+        let gone = TopologyBuilder.build(try captureWithSerialInName(serial))
+        #expect(Exporter.serialsInNames(of: gone).contains(serial))
+        let snapshot = S.snapshot(.studioDesk)
+        #expect(!Exporter.textSerials(in: snapshot).contains(serial))
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .deviceDisconnected,
+                                    title: "Drive \(serial) disconnected", detail: "Drive \(serial) on Left")
+        let redacted = Exporter.redacted(event, serialsFrom: [snapshot], serials: Exporter.serialsInNames(of: gone))
+        #expect(redacted.title == "Drive REDACTED disconnected" && redacted.detail == "Drive REDACTED on Left")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).title.contains(serial))
+
+        // A diagnostic still names it (a device that keeps disconnecting), in the snapshot and in exports.
+        var withFinding = snapshot
+        withFinding.diagnostics.append(Diagnostic(id: "flaky", kind: .flakyConnection, severity: .warning,
+                                                  title: "Drive \(serial) keeps disconnecting", detail: ""))
+        let serials: Set<String> = [serial]
+        #expect(Exporter.redacted(withFinding, serials: serials).diagnostics.last?.title
+                == "Drive REDACTED keeps disconnecting")
+        #expect(!text(try Exporter.json(withFinding, serials: serials)).contains(serial))
+        #expect(!Exporter.markdown(withFinding, serials: serials).contains(serial))
+        #expect(Exporter.markdown(withFinding).contains(serial))
+    }
+
     @Test func wholeWordsOnly() {
         #expect(Exporter.redacted("Drive SN-12/34 (SN-12/34)", serials: ["SN-12/34"]) == "Drive REDACTED (REDACTED)")
         #expect(Exporter.redacted("512345 and 1234", serials: ["1234"]) == "512345 and REDACTED")
         #expect(Exporter.redacted("ABC is short", serials: ["ABC"]) == "ABC is short")
+    }
+
+    /// A 4-digit device serial in its own name is removed, connected or gone, although a
+    /// 4-digit one elsewhere is kept so that "2160" in a resolution stays.
+    @Test(arguments: ["1234", "2160"])
+    func fourDigitSerialsInTheirOwnNameAreRedacted(_ serial: String) throws {
+        let raw = try captureWithSerialInName(serial)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Drive \(serial)"))
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Drive \(serial)"))
+        #expect(!Exporter.markdown(snapshot, redact: true).contains("Drive \(serial)"))
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .deviceConnected,
+                                    title: "Drive \(serial) connected", detail: "")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).title == "Drive REDACTED connected")
+        let payload = text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot, events: [event])))
+        #expect(!payload.contains("Drive \(serial)"))
+        // Unplugged: the serial is kept for the events about it.
+        let serials = Exporter.serialsInNames(of: snapshot)
+        #expect(serials.contains(serial))
+        var gone = event
+        gone.title = "Drive \(serial) disconnected"
+        let later = WidgetPayload(snapshot: S.snapshot(.studioDesk), events: [gone], serials: serials)
+        #expect(later.events.first?.title == "Drive REDACTED disconnected")
+    }
+
+    /// Studio desk with the external display named after `serial`, which is its serial number.
+    private func displayNamedAfterItsSerial(_ serial: Int) throws -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { $0.name == "Studio Display XDR" })
+        raw.displays[index].serialNumber = serial
+        raw.displays[index].name = "Studio Display \(serial)"
+        return raw
+    }
+
+    /// Studio desk with the charger's `key` ("Name" or "Manufacturer") set to `text` and its serial to `serial`.
+    private func chargerNamedAfterItsSerial(_ serial: String, key: String = "Name", text: String? = nil) throws
+        -> RawSnapshot {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        var battery = try #require(raw.battery).values
+        guard case .dict(var details) = battery["AdapterDetails"] else { throw CancellationError() }
+        details[key] = .string(text ?? "Charger \(serial)")
+        details["SerialString"] = .string(serial)
+        battery["AdapterDetails"] = .dict(details)
+        raw.battery = PropertyBag(battery)
+        var adapter = raw.adapter?.values ?? [:]
+        adapter[key] = .string(text ?? "Charger \(serial)")
+        adapter["SerialString"] = .string(serial)
+        raw.adapter = PropertyBag(adapter)
+        return raw
+    }
+
+    /// A charger whose manufacturer holds its serial ("Maker 1234") loses it, in the snapshot and the raw capture.
+    @Test func chargerManufacturerLosesItsShortSerial() throws {
+        let raw = try chargerNamedAfterItsSerial("1234", key: "Manufacturer", text: "Maker 1234")
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.power.charger?.manufacturer == "Maker 1234")
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Maker 1234"))
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Maker 1234"))
+    }
+
+    /// An Apple charger names itself on its AppleUVDM node ("User String", "Vendor"), with its serial there too.
+    @Test(arguments: [("User String", "Charger"), ("Vendor", "Maker")])
+    func chargerSerialOnItsUVDMNodeLeavesTheRawName(_ key: String, _ word: String) throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.portNodes.firstIndex { $0.className == "IOPortTransportProtocolAppleUVDM" })
+        var values = raw.portNodes[index].properties.values
+        values[key] = .string("\(word) 1234")
+        values["Serial Number"] = .string("1234")
+        raw.portNodes[index].properties = PropertyBag(values)
+        let json = text(try Exporter.rawJSON(raw, redact: true))
+        #expect(json.contains("\(word) REDACTED") && !json.contains("\(word) 1234"))
+    }
+
+    /// A USB device's name only under one of the keys the parser reads, with a generic registry name.
+    @Test(arguments: ["kUSBProductString", "USB Product Name", "kUSBVendorString"])
+    func usbNameKeysLoseTheirShortSerial(_ key: String) throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        for name in ["kUSBProductString", "USB Product Name", "kUSBVendorString", "USB Vendor Name"] {
+            values[name] = nil
+        }
+        values["USB Serial Number"] = .string("1234")
+        values["kUSBSerialNumberString"] = .string("1234")
+        values[key] = .string("Drive 1234")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = "IOUSBHostDevice"
+        for interface in raw.usbDevices[index].interfaces.indices { raw.usbDevices[index].interfaces[interface].name = nil }
+        let json = text(try Exporter.rawJSON(raw, redact: true))
+        #expect(json.contains("Drive REDACTED") && !json.contains("Drive 1234"))
+    }
+
+    /// Two entries that share a serial (a hub's two halves, say) each name it: neither name
+    /// counts as another device's, so the serial is kept.
+    @Test func serialsSharedByTheirOwnPartsAreKept() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let indices = raw.usbDevices.indices.filter { raw.usbDevices[$0].node.properties.values["USB Serial Number"] != nil }
+        try #require(indices.count >= 2)
+        for (index, name) in zip(indices, ["Drive SN12345", "Drive SN12345 Hub"]) {
+            var values = raw.usbDevices[index].node.properties.values
+            values["USB Serial Number"] = .string("SN12345")
+            values["USB Product Name"] = .string(name)
+            raw.usbDevices[index].node.properties = PropertyBag(values)
+            raw.usbDevices[index].node.name = name
+        }
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.filter { $0.device.serialNumber == "SN12345" }.count == 2)
+        #expect(Exporter.serialsInNames(of: snapshot).contains("SN12345"))
+    }
+
+    /// The two halves may report the serial in different case; it is still one serial.
+    @Test func serialsSharedInAnotherCaseAreKept() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let indices = raw.usbDevices.indices.filter { raw.usbDevices[$0].node.properties.values["USB Serial Number"] != nil }
+        try #require(indices.count >= 2)
+        for (index, (serial, name)) in zip(indices, [("SN12345", "Drive SN12345"), ("sn12345", "Drive SN12345 Hub")]) {
+            var values = raw.usbDevices[index].node.properties.values
+            values["USB Serial Number"] = .string(serial)
+            values["USB Product Name"] = .string(name)
+            raw.usbDevices[index].node.properties = PropertyBag(values)
+            raw.usbDevices[index].node.name = name
+        }
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == "sn12345" })
+        #expect(Exporter.serialsInNames(of: snapshot).contains("SN12345"))
+    }
+
+    /// A display named after a 4-digit serial: its event id carries the serial, and the title names it.
+    @Test func displayNamedAfterAShortSerialIsRedactedInItsEvents() {
+        let event = ConnectionEvent(id: "displayDisconnected:display:610:ae3a:8544:1790000000000", date: S.date,
+                                    kind: .displayDisconnected, title: "Studio Display 8544 disconnected",
+                                    detail: "3840 × 2160 @ 60 Hz", deviceID: "display:610:ae3a:8544")
+        let redacted = Exporter.redacted(event)
+        #expect(redacted.title == "Studio Display REDACTED disconnected")
+        #expect(redacted.detail == "3840 × 2160 @ 60 Hz")
+    }
+
+    /// The raw capture knows the names of displays and chargers, so a short serial in them goes too.
+    @Test func rawDisplayAndChargerNamesLoseTheirShortSerials() throws {
+        let display = text(try Exporter.rawJSON(try displayNamedAfterItsSerial(8544), redact: true))
+        #expect(display.contains("Studio Display") && !display.contains("Studio Display 8544"))
+        let charger = text(try Exporter.rawJSON(try chargerNamedAfterItsSerial("1234"), redact: true))
+        #expect(charger.contains("Charger REDACTED") && !charger.contains("Charger 1234"))
+    }
+
+    /// A serial in the vendor's name ("Vendor 1234") is removed as one in the product name is.
+    @Test func shortSerialsInTheVendorNameAreRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string("1234")
+        values["USB Vendor Name"] = .string("Vendor 1234")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.vendorName == "Vendor 1234" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Vendor 1234"))
+        #expect(!text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot))).contains("Vendor 1234"))
+        #expect(!text(try Exporter.rawJSON(raw, redact: true)).contains("Vendor 1234"))
+        #expect(Exporter.serialsInNames(of: snapshot).contains("1234"))
+    }
+
+    /// A charger is on the Mac and on its port, and a display has a device row of the same name:
+    /// a name met twice is still only its own, so the serial is kept for after unplug.
+    @Test func chargerAndDisplaySerialsInTheirNamesAreKept() throws {
+        let charger = TopologyBuilder.build(try chargerNamedAfterItsSerial("C4H12345"))
+        #expect(charger.power.charger?.name == "Charger C4H12345")
+        #expect(Exporter.serialsInNames(of: charger).contains("C4H12345"))
+        let display = TopologyBuilder.build(try displayNamedAfterItsSerial(12345))
+        #expect(display.allDevices.contains { $0.device.name == "Studio Display 12345" })
+        #expect(Exporter.serialsInNames(of: display).contains("12345"))
+    }
+
+    /// A serial that another connected device's name holds as a word is not kept after unplug,
+    /// where it would turn "USB3.1 Hub" into "REDACTED.1 Hub".
+    @Test func serialsOtherNamesHoldAreNotKept() throws {
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName("USB3"))
+        #expect(snapshot.allDevices.contains { $0.device.name == "USB3.1 Hub" })
+        #expect(!Exporter.serialsInNames(of: snapshot).contains("USB3"))
+        #expect(Exporter.serialsInNames(of: TopologyBuilder.build(try captureWithSerialInName("USB7"))).contains("USB7"))
+    }
+
+    /// A serial padded with spaces (from a snapshot not built by the parser, which trims) is
+    /// matched trimmed in other names too.
+    @Test func paddedSerialsOtherNamesHoldAreNotKept() throws {
+        let built = TopologyBuilder.build(try captureWithSerialInName("USB3"))
+        let json = text(try JSONEncoder().encode(built))
+        #expect(json.contains(#""serialNumber":"USB3""#))
+        let padded = json.replacingOccurrences(of: #""serialNumber":"USB3""#, with: #""serialNumber":" USB3 ""#)
+        let snapshot = try JSONDecoder().decode(HostSnapshot.self, from: Data(padded.utf8))
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == " USB3 " })
+        #expect(Exporter.serialsInNames(of: snapshot).isDisjoint(with: [" USB3 ", "USB3"]))
+    }
+
+    /// Short device serials in a name are removed, although a display's 4-digit serial is not.
+    @Test(arguments: ["1A2B3", "12345", "C0DE", "SN12"])
+    func shortDeviceSerialsInNamesAreRedacted(_ serial: String) throws {
+        let snapshot = TopologyBuilder.build(try captureWithSerialInName(serial))
+        #expect(snapshot.allDevices.contains { $0.device.name == "Drive \(serial)" })
+        #expect(!text(try Exporter.json(snapshot, redact: true)).contains("Drive \(serial)"))
+        #expect(!Exporter.markdown(snapshot, redact: true).contains("Drive \(serial)"))
+        let payload = text(try JSONEncoder().encode(WidgetPayload(snapshot: snapshot)))
+        #expect(!payload.contains("Drive \(serial)"))
+        #expect(Exporter.serialsInNames(of: snapshot).contains(serial))
+    }
+
+    /// Display serial 8544 is "2160" in hex: a resolution or a year must not match a display's short number.
+    @Test func shortDisplaySerialsStayOutOfFreeText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        raw.displays[index].serialNumber = 8544
+        var snapshot = TopologyBuilder.build(raw)
+        #expect(!Exporter.textSerials(in: snapshot).contains("2160"))
+        snapshot.diagnostics.append(Diagnostic(id: "res", kind: .flakyConnection, severity: .info,
+                                               title: "Runs at 3840 × 2160 since 2026", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Runs at 3840 × 2160 since 2026")
+        #expect(Exporter.markdown(snapshot).contains("3840 × 2160"))
+        let event = ConnectionEvent(id: "1", date: S.date, kind: .displayConnected,
+                                    title: "LG UltraFine connected", detail: "3840 × 2160 @ 60 Hz")
+        #expect(Exporter.redacted(event, serialsFrom: [snapshot]).detail == "3840 × 2160 @ 60 Hz")
+        // A display's long serial is still removed from free text.
+        let long = String(0x2C41_09F3)
+        var named = event
+        named.detail = "Panel \(long)"
+        #expect(Exporter.redacted(named, serialsFrom: [S.snapshot(.studioDesk)]).detail == "Panel REDACTED")
+    }
+
+    /// A display event's id ends in its serial: a 4-digit one is redacted in the id but
+    /// left in the text, where it would match a resolution.
+    @Test func shortDisplaySerialInAnEventIDStaysOutOfItsText() {
+        let event = ConnectionEvent(id: "displayConnected:display:610:ae3a:2160:1790000000000", date: S.date,
+                                    kind: .displayConnected, title: "LG UltraFine connected",
+                                    detail: "3840 × 2160 @ 60 Hz", deviceID: "display:610:ae3a:2160")
+        let redacted = Exporter.redacted(event)
+        #expect(redacted.deviceID == "display:610:ae3a:REDACTED")
+        #expect(redacted.detail == "3840 × 2160 @ 60 Hz")
+    }
+
+    /// A number under a serial key in a raw capture is a display serial, so a 4-digit one stays in other text.
+    @Test func shortNumberSerialKeysStayOutOfRawText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["DisplaySerialNumber"] = .int(2160)
+        values["PreferredMode"] = .string("3840 × 2160")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let json = text(try Exporter.rawJSON(raw, redact: true))
+        #expect(json.contains("3840 × 2160"))
+        #expect(!json.contains("\"DisplaySerialNumber\" : 2160"))
+    }
+
+    /// A 5-digit display serial cannot be a resolution or a year, so it is still removed from text.
+    @Test func fiveDigitDisplaySerialsAreRedacted() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.displays.firstIndex { ($0.serialNumber ?? 0) > 999 })
+        raw.displays[index].serialNumber = 12345
+        var snapshot = TopologyBuilder.build(raw)
+        snapshot.diagnostics.append(Diagnostic(id: "panel", kind: .flakyConnection, severity: .info,
+                                               title: "Panel 12345 flickers", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Panel REDACTED flickers")
+    }
+
+    /// A serial without a digit (an ordinary word), or one that is only part of a word of its name, is not kept.
+    @Test(arguments: [("Generic", "Generic Card Reader", "Kingston"), ("Card", "SD Card Reader", "Generic"),
+                      ("Data7", "Data7Traveler 3.0", "Kingston")])
+    func serialsThatAreNotTheirOwnWordAreNotKept(_ serial: String, _ product: String, _ vendor: String) throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string(serial)
+        values["USB Product Name"] = .string(product)
+        values["USB Vendor Name"] = .string(vendor)
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        raw.usbDevices[index].node.name = product
+        let snapshot = TopologyBuilder.build(raw)
+        let device = try #require(snapshot.allDevices.first { $0.device.serialNumber == serial }?.device)
+        #expect(device.name == product && device.vendorName == vendor)
+        #expect(!Exporter.serialsInNames(of: snapshot).contains(serial))
+    }
+
+    /// A 4-digit device serial ("2160", "2026") stays out of free text, where it would match a
+    /// resolution or a year. A 5-digit one is still removed (`shortDeviceSerialsInNamesAreRedacted`).
+    @Test func fourDigitDeviceSerialsStayOutOfFreeText() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let indices = raw.usbDevices.indices.filter { raw.usbDevices[$0].node.properties.values["USB Serial Number"] != nil }
+        try #require(indices.count >= 2)
+        for (index, serial) in zip(indices, ["2160", "2026"]) {
+            var values = raw.usbDevices[index].node.properties.values
+            values["USB Serial Number"] = .string(serial)
+            raw.usbDevices[index].node.properties = PropertyBag(values)
+        }
+        var snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.machine.name.contains("2026"))
+        snapshot.diagnostics.append(Diagnostic(id: "res", kind: .flakyConnection, severity: .info,
+                                               title: "Runs at 3840 × 2160", detail: ""))
+        #expect(Exporter.redacted(snapshot).diagnostics.last?.title == "Runs at 3840 × 2160")
+        #expect(Exporter.markdown(snapshot).contains(snapshot.machine.name))
+    }
+
+    /// A serial the device does not put in its name ("Generic") is not kept for later redaction.
+    @Test func serialsNotInTheirOwnNameAreNotKept() throws {
+        var raw = DemoScenario.studioDesk.raw(at: S.date)
+        let index = try #require(raw.usbDevices.firstIndex { $0.node.properties.values["USB Serial Number"] != nil })
+        var values = raw.usbDevices[index].node.properties.values
+        values["USB Serial Number"] = .string("Generic")
+        raw.usbDevices[index].node.properties = PropertyBag(values)
+        let snapshot = TopologyBuilder.build(raw)
+        #expect(snapshot.allDevices.contains { $0.device.serialNumber == "Generic" })
+        #expect(!Exporter.serialsInNames(of: snapshot).contains("Generic"))
     }
 
     // MARK: EDID

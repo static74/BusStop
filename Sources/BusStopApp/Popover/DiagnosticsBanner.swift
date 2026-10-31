@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// Banner shown when at least one warning or critical diagnostic exists

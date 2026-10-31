@@ -24,6 +24,10 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     public struct Section: Sendable, Hashable, Codable {
         /// Newest first, unique ids.
         public var events: [ConnectionEvent] = []
+        /// Serial numbers that appear in the events' titles or details (a device
+        /// named after its serial), so the widget payload and exports can still
+        /// redact them after a relaunch. Dropped with the last event that holds them.
+        public var serials: Set<String> = []
         /// Oldest first, one per minute that had a sample.
         public var power: [PowerBucket] = []
         /// Samples of the minute in progress.
@@ -151,19 +155,27 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
     }
 
     /// Adds `events` (in the order they happened, as `SnapshotDiffer` returns
-    /// them) newest first, skipping ids already kept.
-    public mutating func append(_ events: [ConnectionEvent], model: String) {
+    /// them) newest first, skipping ids already kept. Those of `serials` that
+    /// appear in their text are kept with them.
+    public mutating func append(_ events: [ConnectionEvent], model: String, serials: Set<String> = []) {
         guard !events.isEmpty else { return }
         var seen = Set(self.events(model: model).map(\.id))
         let fresh = events.filter { seen.insert($0.id).inserted }
         sections[model, default: Section()].events.insert(contentsOf: fresh.reversed(), at: 0)
+        sections[model]?.serials.formUnion(Section.serials(serials, in: fresh))
         sections[model]?.trimCount()
     }
 
     /// The event log for one Mac model, newest first.
     public func events(model: String) -> [ConnectionEvent] { sections[model]?.events ?? [] }
 
-    public mutating func clearEvents(model: String) { sections[model]?.events.removeAll() }
+    /// The serial numbers that appear in one Mac model's events.
+    public func serials(model: String) -> Set<String> { sections[model]?.serials ?? [] }
+
+    public mutating func clearEvents(model: String) {
+        sections[model]?.events.removeAll()
+        sections[model]?.serials.removeAll()
+    }
 
     /// Applies the age caps to every section, including models not seen this session.
     /// While one section's clock is in doubt, all are trimmed against its trusted
@@ -251,13 +263,16 @@ public struct HistoryArchive: Sendable, Hashable, Codable {
 extension HistoryArchive.Section {
     /// Keys spelled out so `init(from:)` can decode lists entry by entry.
     enum CodingKeys: String, CodingKey {
-        case events, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt, lastCaptureAt
-        case clockJumpedAt, trustedAt
+        case events, serials, power, pendingPower, portDays, lastCounters, lastLiquid, lastOvercurrentAt
+        case lastCaptureAt, clockJumpedAt, trustedAt
     }
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        events = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)?.elements ?? []
+        let decodedEvents = try c.decodeIfPresent(LossyList<ConnectionEvent>.self, forKey: .events)
+        events = decodedEvents?.elements ?? []
+        // Only for redaction, so a value of the wrong type is dropped, not the whole file.
+        serials = Set((try? c.decodeIfPresent(LossyList<String>.self, forKey: .serials))??.elements ?? [])
         power = try c.decodeIfPresent(LossyList<HistoryArchive.PowerBucket>.self, forKey: .power)?.elements ?? []
         pendingPower = try c.decodeIfPresent(LossyList<PowerSample>.self, forKey: .pendingPower)?.elements ?? []
         portDays = try c.decodeIfPresent([String: LossyList<HistoryArchive.PortDay>].self, forKey: .portDays)?
@@ -268,6 +283,9 @@ extension HistoryArchive.Section {
         lastCaptureAt = try c.decodeIfPresent(Date.self, forKey: .lastCaptureAt)
         clockJumpedAt = try c.decodeIfPresent(Date.self, forKey: .clockJumpedAt)
         trustedAt = try c.decodeIfPresent(Date.self, forKey: .trustedAt)
+        // An event dropped above may have been the last to hold a serial. Only then is the log
+        // searched, oldest first, since a serial is most often held by events from long ago.
+        if decodedEvents?.skipped == true, !serials.isEmpty { serials = Self.serials(serials, in: events.reversed()) }
     }
 
     mutating func record(_ snapshot: HostSnapshot, afterGap: Bool, calendar: Calendar) {
@@ -372,7 +390,11 @@ extension HistoryArchive.Section {
         }
         let now = trimDate(now: now)
         let eventCutoff = now.addingTimeInterval(-HistoryArchive.eventAge)
-        if let oldest = events.last, oldest.date < eventCutoff { events.removeAll { $0.date < eventCutoff } }
+        if let oldest = events.last, oldest.date < eventCutoff {
+            let held = serialsHeld(by: events.lazy.filter { $0.date < eventCutoff })
+            events.removeAll { $0.date < eventCutoff }
+            pruneSerials(held)
+        }
         trimCount()
         let powerCutoff = now.addingTimeInterval(-HistoryArchive.powerAge)
         if let first = power.first, first.start < powerCutoff { power.removeAll { $0.start < powerCutoff } }
@@ -384,7 +406,36 @@ extension HistoryArchive.Section {
     }
 
     mutating func trimCount() {
-        if events.count > HistoryArchive.maxEvents { events.removeLast(events.count - HistoryArchive.maxEvents) }
+        guard events.count > HistoryArchive.maxEvents else { return }
+        let drop = events.count - HistoryArchive.maxEvents
+        // Worked out before the removal, and no slice kept across it, so `removeLast` does not copy the log.
+        let held = serialsHeld(by: events[(events.count - drop)...])
+        events.removeLast(drop)
+        pruneSerials(held)
+    }
+
+    /// The saved serials that `dropped`, events about to leave the log, hold.
+    func serialsHeld(by dropped: some Collection<ConnectionEvent>) -> Set<String> {
+        serials.isEmpty ? [] : Self.serials(serials, in: dropped)
+    }
+
+    /// Drops those of `held` (from `serialsHeld(by:)`) that no event left holds.
+    /// Only they are looked for, oldest events first, since the events that
+    /// still name a device are most likely the next to go. The cost is one scan
+    /// of the log for each serial whose event was dropped, at worst: about 5 ms
+    /// for an append at the count cap, and 85 ms for an age trim that drops
+    /// 1,000 events naming 20 serials (release build).
+    mutating func pruneSerials(_ held: Set<String>) {
+        guard !held.isEmpty else { return }
+        serials.subtract(held.subtracting(Self.serials(held, in: events.reversed())))
+    }
+
+    /// Those of `serials` that appear as a whole word, ignoring case, in the
+    /// title or detail of one of `events`, as redaction matches them.
+    static func serials(_ serials: Set<String>, in events: some Collection<ConnectionEvent>) -> Set<String> {
+        serials.filter { serial in
+            events.contains { IDShape.containsWord(serial, in: $0.title) || IDShape.containsWord(serial, in: $0.detail) }
+        }
     }
 
     /// Keeps the newest `fraction` of events, power minutes and each port's
@@ -393,7 +444,9 @@ extension HistoryArchive.Section {
         func dropCount(_ count: Int) -> Int { count - Int(Double(count) * fraction) }
         let eventDrop = dropCount(events.count)
         let powerDrop = dropCount(power.count)
+        let held = serialsHeld(by: events[(events.count - eventDrop)...])
         events.removeLast(eventDrop)
+        pruneSerials(held)
         power.removeFirst(powerDrop)
         var dropped = eventDrop + powerDrop > 0
         for (key, days) in portDays {
@@ -410,6 +463,8 @@ extension HistoryArchive.Section {
 /// skipped instead of failing the whole list.
 private struct LossyList<Element: Decodable>: Decodable {
     var elements: [Element] = []
+    /// True when an entry did not decode and was stepped over.
+    var skipped = false
 
     /// Decodes nothing, so a bad entry can be stepped over.
     private struct Skip: Decodable {
@@ -424,6 +479,7 @@ private struct LossyList<Element: Decodable>: Decodable {
             } else {
                 // A failed decode does not move the container on; this does.
                 _ = try container.decode(Skip.self)
+                skipped = true
             }
         }
     }

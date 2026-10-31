@@ -2,21 +2,16 @@
 
 Planned work after 1.0, roughly in priority order within each group. Items move to the changelog when they ship. Nothing here adds network access or telemetry: anything that sends data off the Mac is opt-in, local-network only, and off by default.
 
-## Correctness on real hardware
-
-1. **Validation on real Macs and capture fixtures.** Collect raw captures (`busstop --raw`) from as many Mac models, docks, displays, hubs and chargers as possible, and turn each into a regression fixture under `Tests/BusStopCoreTests/Fixtures`. Every topology rule that was written from documentation alone gets a real capture behind it. Start with the setups already reported: a Thunderbolt dock feeding monitors and USB hubs. The first one is in: an Anker Prime Thunderbolt 5 dock with two monitors and USB hubs on a MacBook Pro (`Fixtures/AnkerPrimeTB5.json`).
-2. **"Identify this port" flow.** A guided check in Settings: "plug something into the port you want to name" lights up the port that changed and lets the user confirm or correct its name. It fixes the catalogue for Macs whose port locations are wrong or missing, and can produce a catalogue entry to send upstream.
-
 ## Cables and power
 
 3. **Cable report card.** One page per cable seen in a port: what the e-marker says (rated speed, current, voltage, Extended Power Range, active or optical, vendor), what was actually negotiated over it, and a plain verdict ("good for 40 Gb/s and 240 W"). It remembers cables by vendor and product ID so the same cable is recognised next time.
 4. **Charging bottleneck explainer.** When the Mac charges slower than the charger could deliver, say which part is the limit (charger, cable rating, port, battery temperature or charge limit) and what would fix it.
 5. **Charger history.** Remember chargers by their PD identity: profiles offered, highest contract, and when each was last seen.
+6. **Power colours that stay apart from data colours.** The warm data presets (Ember, Tangerine, Citrine), and Match System with a red, orange or yellow accent, overlap Power mode's heat ramp (red, orange, amber, gold) and the warning and critical colours, so a glance no longer tells the two modes apart. Give Power mode a look of its own: for example a ramp that steps away from the chosen data hue, a different stroke pattern or pulse shape, or a legend that names the mode on the map.
 
 ## Automation and integrations
 
-13. **Shortcuts and App Intents.** Actions such as "Get devices on port", "Get charging wattage" and "Is a device connected", so Shortcuts and automations can use Bus Stop's data. Needs an Xcode project and a signing team.
-14. **Widgets.** Desktop and Notification Center widgets for charging state, total watts and a chosen port.
+13. **Shortcuts and App Intents.** Actions such as "Get devices on port", "Get charging wattage" and "Is a device connected", so Shortcuts and automations can use Bus Stop's data. Needs a signing team, and the App Intents metadata SwiftPM does not generate (the widgets showed a SwiftPM-built extension works otherwise).
 15. **Rules and actions.** Simple local rules: "when this drive connects at USB 2 speed, notify me", "when the dock disconnects, run this shortcut".
 16. **CLI webhook and MQTT output (opt-in, local).** `busstop --watch` can post events to a local webhook or MQTT broker for home-automation setups. Off by default, local network only, and documented as the one feature that sends data anywhere.
 
@@ -43,3 +38,6 @@ Planned work after 1.0, roughly in priority order within each group. Items move 
 - Devices that keep disconnecting, links that keep changing speed and devices slower than before on the same port raise a warning that names the likely culprit (cable, port, hub or device).
 - Each port shows its plug events, connections, overcurrents, liquid detections and connection errors over the last 7 days next to the hardware's all-time counts, with a gentle note when a port has far more problems than its siblings; the overcurrent warning now lasts 24 hours across relaunches.
 - A light Lagoon theme in Settings › Appearance (Dark, Light or Match System), with Dark as the default.
+- Real captures back the topology rules as regression fixtures: an Anker Prime Thunderbolt 5 dock with two monitors and USB hubs on a MacBook Pro (`Fixtures/AnkerPrimeTB5.json`), and a USB-C monitor and a UGREEN DisplayLink dock on a Mac mini with M4 (`Fixtures/MacMiniM4UgreenDock.json`). New captures from other Macs, docks and chargers (`busstop --raw`) are still welcome.
+- Desktop widgets: Ports, Power and Health, each in Large and Extra Large, fed by the app through an App Group and shown in team-signed builds such as releases. A widget where the user picks the port waits for item 13, since it needs App Intents.
+- Settings › Ports › Identify a Port: plug into or unplug from a port and Bus Stop highlights it, so its name can be confirmed or corrected; Copy Catalogue Entry puts the port names on the clipboard as a catalogue entry to send upstream.

@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 // Layers drawn behind the graph's nodes: a dotted backdrop, the links, the
@@ -142,8 +143,9 @@ enum GraphPaint {
     }
 
     static func strokes(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
-                        powers: [String: GraphEdgePower] = [:]) -> [GraphEdgeStroke] {
-        layout.edges.map { edge in
+                        powers: [String: GraphEdgePower] = [:], palette: DataPalette) -> [GraphEdgeStroke] {
+        let colors = palette.colors
+        return layout.edges.map { edge in
             let dimFactor = dimmed.contains(edge.toID) ? 0.22 : 1
             if mode == .power, !edge.isDeparting {
                 let tier = powers[edge.id]?.tier ?? .none
@@ -164,7 +166,7 @@ enum GraphPaint {
             }
             switch edge.kind {
             case .trunk:
-                let color = edge.isActive ? Lagoon.accent : Lagoon.accentMuted
+                let color = edge.isActive ? colors.accent : colors.muted
                 let opacity = (edge.isActive ? 0.42 : 0.7) * dimFactor
                 return GraphEdgeStroke(
                     id: edge.id,
@@ -181,7 +183,7 @@ enum GraphPaint {
             case .link:
                 let tier = edge.link?.tier
                 let color = edge.isDeparting
-                    ? Lagoon.textTertiary : tier.map { Lagoon.linkColor($0) } ?? Lagoon.accent
+                    ? Lagoon.textTertiary : tier.map { Lagoon.linkColor($0, palette) } ?? colors.accent
                 let opacity = (edge.isDeparting ? 0.45 : 0.95) * dimFactor
                 return GraphEdgeStroke(
                     id: edge.id,
@@ -207,8 +209,9 @@ enum GraphPaint {
     }
 
     static func pulseTracks(for layout: GraphLayout, dimmed: Set<String>, mode: GraphLinkMode = .data,
-                            powers: [String: GraphEdgePower] = [:]) -> [GraphPulseTrack] {
+                            powers: [String: GraphEdgePower] = [:], palette: DataPalette) -> [GraphPulseTrack] {
         if mode == .power { return powerPulseTracks(for: layout, dimmed: dimmed, powers: powers) }
+        let colors = palette.colors
         return layout.edges.compactMap { edge in
             guard edge.isActive, !edge.isDeparting, let link = edge.link, !dimmed.contains(edge.toID) else {
                 return nil
@@ -218,7 +221,7 @@ enum GraphPaint {
             return GraphPulseTrack(
                 id: edge.id,
                 curve: edge.curve,
-                color: isTrunk ? Lagoon.accent : Lagoon.accentGlow,
+                color: isTrunk ? colors.accent : colors.pulse,
                 radius: isTrunk ? 1.6 : 2 + CGFloat(tier.rawValue) * 0.18,
                 period: period(for: tier),
                 phase: phase(for: edge.id),

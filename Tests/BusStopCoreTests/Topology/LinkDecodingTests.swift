@@ -77,6 +77,12 @@ struct LinkDecodingTests {
             .label == "USB 3.2 Gen 2x2 @ 20 Gb/s")
         #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignaling": 2, "LaneCount": 2]).bitsPerSecond == 20_000_000_000)
         #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignalingDescription": "Gen 1"]).bitsPerSecond == 5_000_000_000)
+        // The reported data rate wins over the signalling generation.
+        #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignaling": 1, "DataRateDescription": "10 Gbps"]).label
+            == "USB 3.2 Gen 2 @ 10 Gb/s")
+        #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignaling": 2, "DataRateDescription": "10 Gbps"]).detail == nil)
+        #expect(LinkDecoding.usb3TransportLink(["SuperSpeedSignaling": 1, "DataRateDescription": "None"]).bitsPerSecond
+            == 5_000_000_000)
         let unknown = LinkDecoding.usb3TransportLink(["GenerationDescription": "USB 3.x"])
         #expect(unknown.generation == "USB 3")
         #expect(unknown.bitsPerSecond == nil)

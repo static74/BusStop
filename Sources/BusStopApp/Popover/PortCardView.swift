@@ -1,4 +1,5 @@
 import BusStopCore
+import BusStopUI
 import SwiftUI
 
 /// One physical port (docs/SPEC.md §3.2, item 4): connector icon, title,

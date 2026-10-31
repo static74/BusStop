@@ -1,6 +1,6 @@
 # Bus Stop: implementation plan
 
-This plan was executed in October 2026. It records how the work was split so contributors can see which part of the code owns what.
+This plan was executed in October 2026 and is kept as history: some of what it describes (the Linux build, the `#if os(macOS)` guards) was later removed, see docs/decisions.md. It records how the work was split so contributors can see which part of the code owns what.
 
 ## Phase 0: research (done)
 

@@ -3,7 +3,8 @@
 # Prepares a release: sets BusStopVersion.string, turns CHANGELOG.md's
 # [Unreleased] section into the new version, runs the tests, commits and tags
 # vX.Y.Z on main. It never pushes. Pushing the tag starts release.yml, which
-# builds the app and publishes the GitHub release with BusStop.zip.
+# builds the app, has Apple notarize it, and publishes the GitHub release with
+# BusStop.dmg and its SHA-256.
 #
 # Usage: scripts/release.sh 1.1.0
 
@@ -53,5 +54,5 @@ git commit -q -am "Release $VERSION"
 git tag -a "$TAG" -m "Bus Stop $VERSION"
 
 printf '\nCommitted "Release %s" and tagged %s. Check them with:\n  git show --stat HEAD\n' "$VERSION" "$TAG"
-printf 'Publish (builds on the paid xcode-27 runner and creates the GitHub release):\n  git push origin main %s\n' "$TAG"
+printf 'Publish with the command below, then approve the run in Actions › Release;\nit builds on the paid xcode-27 runner and creates the GitHub release:\n  git push origin main %s\n' "$TAG"
 printf 'Undo instead:\n  git tag -d %s && git reset --hard HEAD~1\n' "$TAG"
