@@ -424,9 +424,9 @@ struct GraphChipsLayer: View {
         .accessibilityHidden(true)
     }
 
-    /// The gap between a speed chip and the power chip under it. None, so
-    /// the pair reads as one: sibling pairs are only about 4 pt apart.
-    static let stackSpacing: CGFloat = 0
+    /// The gap between a speed chip and the power chip under it, much less
+    /// than the gap between neighbouring pairs, so each pair reads as one.
+    static let stackSpacing: CGFloat = 1
 
     private func bubble(_ chip: some View) -> some View {
         chip

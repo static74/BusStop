@@ -18,10 +18,11 @@ struct GraphPowerTests {
     }
 
     /// A power bubble hangs under its speed chip, so in one column each
-    /// chip's point needs a stack's height (two chips and any gap) of room
-    /// below it before the next chip's top half, at every text size, in
+    /// chip's point needs half a speed chip, the gap and a power chip of room
+    /// below it before the next speed chip's top half, at every text size, in
     /// every demo setup and under a hub with 15 devices, whose links fan out
-    /// from the hub's card closest together (1.7 pt to spare at Small).
+    /// from the hub's card closest together. Pairs should also stay clearly
+    /// further apart than a speed chip is from its own power chip.
     @Test @MainActor func stackedChipsNeverOverlap() {
         let link = LinkInfo(family: .usb, generation: "USB 3.2 Gen 2", bitsPerSecond: 10_000_000_000)
         var inputs: [(String, GraphInput)] = []
@@ -48,16 +49,20 @@ struct GraphPowerTests {
         var compared = 0
         for (name, input) in inputs {
             for size in TextSizeSetting.allCases {
-                let chip = NSHostingView(rootView: SpeedChip(link: link).environment(\.lagoonTextScale, size.scale))
-                let height = chip.fittingSize.height
+                let speed = NSHostingView(rootView: SpeedChip(link: link).environment(\.lagoonTextScale, size.scale))
+                    .fittingSize.height
+                let power = NSHostingView(rootView: PowerChip(power: GraphEdgePower(
+                    milliwatts: 4_500, flowsToParent: false, isMeasured: false)).environment(\.lagoonTextScale, size.scale))
+                    .fittingSize.height
+                let stack = speed + GraphChipsLayer.stackSpacing + power
                 let layout = GraphLayout.make(input, metrics: GraphMetrics.standard.scaled(by: size.scale))
                 let points = layout.edges.compactMap { $0.link == nil ? nil : $0.chipPoint }
                 for column in Dictionary(grouping: points, by: { $0.x.rounded() }).values {
                     let ys = column.map(\.y).sorted()
                     for (upper, lower) in zip(ys, ys.dropFirst()) {
                         compared += 1
-                        #expect(lower - upper >= 2 * height + GraphChipsLayer.stackSpacing,
-                                "\(name) at \(size): chips \(lower - upper) pt apart, stack \(2 * height) pt")
+                        #expect(lower - upper - stack >= 3 * GraphChipsLayer.stackSpacing,
+                                "\(name) at \(size): chips \(lower - upper) pt apart, stack \(stack) pt")
                     }
                 }
             }
