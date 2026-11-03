@@ -1,21 +1,59 @@
-MIT License
+Bus Stop End User License Agreement
 
-Copyright (c) 2026 static74
+Copyright (c) 2026 Obscurus Technologies LLC. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This agreement is between you and Obscurus Technologies LLC, an Illinois
+limited liability company ("we"), and covers Bus Stop 1.6.0 and later,
+including its command-line tool and widgets (the "Software"). Versions 1.5.1
+and earlier were released under the MIT License and stay under it. By
+installing or using the Software you accept this agreement; if you do not
+accept it, do not install or use the Software.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Trial. You may use the Software free of charge for 14 days to decide
+   whether to buy it. After the trial, live monitoring stops until you enter
+   a license. Demo mode keeps working.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. License. When you buy the Software you receive a license tied to your
+   email address. It lets you, one person, install and use the
+   Software on any Mac you own or control, for personal or work use. It
+   covers every later version we publish. The payment is made once; there
+   is no subscription.
+
+3. Restrictions. You may not sell, rent, lend, share or publish the Software
+   or your license; remove or bypass the trial or the license check; or
+   reverse engineer the Software except where the law allows it despite this
+   restriction.
+
+4. Payment and refunds. Purchases are processed by Stripe, which acts as the
+   merchant of record and handles taxes. If you ask within 14 days of your
+   purchase, we refund it in full, no questions asked. A license that has
+   been refunded is no longer valid.
+
+5. Privacy. The license is checked on your Mac and never sent anywhere. The
+   Software sends no telemetry. It goes online only for the update check you
+   turn on and the integrations you add.
+
+6. Third-party software. The Software includes work by others under the
+   licenses in THIRD_PARTY_NOTICES.md, which govern those parts.
+
+7. No warranty. The Software is provided "as is", without warranty of any
+   kind, express or implied, including the warranties of merchantability,
+   fitness for a particular purpose and non-infringement, to the extent the
+   law allows.
+
+8. Limitation of liability. To the extent the law allows, we are not liable
+   for any indirect, incidental, special or consequential damages, or for
+   any loss of data or profit, arising from the Software. Our total
+   liability is limited to the amount you paid for the license.
+
+9. Termination. This agreement ends if you break it. You must then stop
+   using the Software and delete it.
+
+10. Governing law. The laws of the State of Illinois govern this agreement.
+    Any dispute about it is heard in the state courts of Kane County,
+    Illinois, or the federal courts of the Northern District of Illinois.
+
+11. Your rights. Nothing in this agreement limits rights you have as a
+    consumer under the laws of the country where you live.
+
+Contact: support@obscurustech.com

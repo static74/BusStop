@@ -6,7 +6,7 @@
 
 <p align="center"><strong>A live map of the ports on your Mac.</strong></p>
 
-Bus Stop is a free, open-source menu bar app for macOS. It shows the physical ports on your Mac, what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and Thunderbolt chains appear as trees, every device is labelled with the port it hangs off, and plain-English diagnostics tell you when a drive is stuck at USB 2 speed or a cable is holding a link back. Everything stays on your Mac: no telemetry, no accounts, and no network connections apart from an update check that you choose to turn on, and the webhooks or MQTT brokers you add yourself.
+Bus Stop is a menu bar app for macOS, sold once for $9.99 (plus local tax) with a 14-day free trial. It shows the physical ports on your Mac, what is plugged into each one, how fast each link runs and how much power flows through it. Hubs, docks and Thunderbolt chains appear as trees, every device is labelled with the port it hangs off, and plain-English diagnostics tell you when a drive is stuck at USB 2 speed or a cable is holding a link back. Everything stays on your Mac: no telemetry, no accounts, and no network connections apart from an update check that you choose to turn on, and the webhooks or MQTT brokers you add yourself.
 
 <p align="center"><img src="docs/images/map-data.png" alt="The Bus Stop map window, showing the Mac, its ports and the devices behind them as a graph with each link coloured by speed"></p>
 
@@ -230,6 +230,6 @@ Full licence texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), whic
 
 ## Licence
 
-Bus Stop is released under the [MIT License](LICENSE).
+Bus Stop is licensed under its [end user license agreement](LICENSE). Buy it once at [buy.stripe.com](https://buy.stripe.com/bJe9AUg8w5CoeCkah15gc00) and every later version is included; Stripe handles the payment and taxes. The license is checked on your Mac and never sent anywhere. Versions 1.5.1 and earlier were released under the MIT License.
 
 Apple, Mac, macOS, MagSafe and Xcode are trademarks of Apple Inc. Thunderbolt is a trademark of Intel Corporation. USB-C and USB4 are trademarks of the USB Implementers Forum. HDMI is a trademark of HDMI Licensing Administrator, Inc. Bus Stop is not affiliated with or endorsed by any of them.

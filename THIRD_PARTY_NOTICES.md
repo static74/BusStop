@@ -1,6 +1,6 @@
 # Third-party notices
 
-Bus Stop is released under the MIT License (see [LICENSE](LICENSE)). It builds on the published work of the projects below. Their licences require the copyright notice and permission notice to be included with copies or substantial portions of their software, so each is reproduced here in full.
+Bus Stop is licensed under its end user license agreement (see [LICENSE](LICENSE)). It builds on the published work of the projects below. Their licences require the copyright notice and permission notice to be included with copies or substantial portions of their software, so each is reproduced here in full.
 
 Every build made by `scripts/build-app.sh` carries this file and Bus Stop's licence (as `LICENSE.txt`) in `Bus Stop.app/Contents/Resources`; the zip the script makes holds both again next to the app, and the release disk image carries them inside the app.
 
@@ -152,4 +152,4 @@ Bus Stop decodes Thunderbolt and USB4 link speed codes (`Current Link Speed`: 0x
 
 Apple, Mac, MacBook, macOS, MagSafe, Xcode and SF Symbols are trademarks of Apple Inc., registered in the U.S. and other countries. Thunderbolt is a trademark of Intel Corporation or its subsidiaries. USB-C, USB4 and USB Type-C are trademarks of the USB Implementers Forum. HDMI is a trademark of HDMI Licensing Administrator, Inc. ViewPorts is the name of a product of its respective developer. All other names are the property of their owners.
 
-Bus Stop is an independent open-source project. It is not affiliated with, sponsored by or endorsed by Apple Inc. or any of the companies named above. Product names are used only to describe compatibility.
+Bus Stop is an independent product. It is not affiliated with, sponsored by or endorsed by Apple Inc. or any of the companies named above. Product names are used only to describe compatibility.
